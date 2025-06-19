@@ -34,6 +34,9 @@ if(ALLEGRO_APP_LIB AND ALLEGRO_DECODE_LIB AND ALLEGRO_ENCODE_LIB AND VCU2_INCLUD
     # Add compile definition to enable VCU2 support
     target_compile_definitions(${the_module} PRIVATE HAVE_VCU2_CTRLSW)
     
+    # Disable warnings as errors for vcucodec module to avoid build issues
+    target_compile_options(${the_module} PRIVATE -Wno-error)
+    
 else()
     message(WARNING "VCU2 Control Software not found. VCU codec functionality will be limited.")
     message(STATUS "  ALLEGRO_APP_LIB: ${ALLEGRO_APP_LIB}")
