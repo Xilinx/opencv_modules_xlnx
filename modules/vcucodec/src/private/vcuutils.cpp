@@ -1,7 +1,12 @@
 #include "vcuutils.hpp"
+
+#ifdef HAVE_VCU2_CTRLSW
+extern "C" {
 #include "config.h"
 #include "lib_decode/lib_decode.h"
 #include "lib_common_dec/DecoderArch.h"
+}
+#endif
 
 namespace cv {
 namespace vcucodec {

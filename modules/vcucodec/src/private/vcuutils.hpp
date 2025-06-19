@@ -4,11 +4,13 @@
 #include "opencv2/core.hpp"
 
 #ifdef HAVE_VCU2_CTRLSW
+extern "C" {
 // Include VCU2 Control Software headers
 #include "lib_common/BufferAPI.h"
 #include "lib_common/Profiles.h"
 #include "lib_common/SliceConsts.h"
 #include "lib_common/RoundUp.h"
+}
 
 // Forward declarations for VCU2 types
 typedef struct AL_TDecoder AL_TDecoder;
