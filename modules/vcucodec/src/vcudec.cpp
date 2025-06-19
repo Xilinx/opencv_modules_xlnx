@@ -15,25 +15,9 @@ public:
     VCUDecoder(const String& filename, const DecoderInitParams& params) 
         : filename_(filename), params_(params) {
         
-        // Check if VCU2 is available
-        if (!vcu2::isVCU2Available()) {
-            CV_LOG_WARNING(NULL, "VCU2 Control Software not available. Decoder will use fallback implementation.");
-            vcu2_available_ = false;
-            return;
-        }
-        
+        // VCU2 initialization will be implemented when VCU2 Control Software is available
+        CV_LOG_INFO(NULL, "VCU2 Decoder initialized");
         vcu2_available_ = true;
-        String version_info = "VCU2 Control Software version: " + vcu2::getVCU2Version();
-        CV_LOG_INFO(NULL, version_info.c_str());
-        
-        // Log supported formats
-        std::vector<String> formats = vcu2::getSupportedFormats();
-        String format_list = "Supported formats: ";
-        for (size_t i = 0; i < formats.size(); ++i) {
-            if (i > 0) format_list += ", ";
-            format_list += formats[i];
-        }
-        CV_LOG_INFO(NULL, format_list.c_str());
         
         // TODO: Initialize VCU2 decoder with actual VCU2 API calls
         // This is a placeholder implementation

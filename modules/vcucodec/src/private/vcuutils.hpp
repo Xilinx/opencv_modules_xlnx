@@ -19,6 +19,14 @@ namespace cv {
 namespace vcucodec {
 namespace vcu2 {
 
+// VCU2 utility functions
+void testAllegroDecoderInitRiscV();
+
+// Buffer management functions (placeholders for future implementation)
+// AL_TBuffer* createVCU2Buffer(int width, int height, int format);
+// void releaseVCU2Buffer(AL_TBuffer* buffer);
+// bool copyMatToVCU2Buffer(const Mat& src, AL_TBuffer* dst);
+// bool copyVCU2BufferToMat(AL_TBuffer* src, Mat& dst);
 
 } // namespace vcu2
 } // namespace vcucodec
@@ -30,8 +38,7 @@ namespace cv {
 namespace vcucodec {
 namespace vcu2 {
 
-inline bool isVCU2Available() { return false; }
-
+inline void testAllegroDecoderInitRiscV() { /* no-op */ }
 
 } // namespace vcu2
 } // namespace vcucodec

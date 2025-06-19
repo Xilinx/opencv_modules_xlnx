@@ -15,10 +15,6 @@ namespace vcu2 {
 
 #ifdef HAVE_VCU2_CTRLSW
 
-bool isVCU2Available() {
-    return true;
-}
-
 void testAllegroDecoderInitRiscV() {
     AL_ERR err = AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
     // Optionally handle the error, e.g.:
