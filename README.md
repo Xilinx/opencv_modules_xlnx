@@ -1,10 +1,10 @@
-# OpenCV Modules for Xilinx Video Codec Units
+# OpenCV Modules for Video Codec Units
 
-This repository contains OpenCV modules that provide hardware-accelerated video codec support for Xilinx VCU (Video Codec Unit) and VDU (Video Decode Unit) platforms.
+This repository contains OpenCV modules that provide hardware-accelerated video codec support for  VCU (Video Codec Unit) and VDU (Video Decode Unit) platforms.
 
 ## Overview
 
-The modules in this repository extend OpenCV with native support for Xilinx video acceleration hardware, enabling high-performance video encoding and decoding in OpenCV applications.
+The modules in this repository extend OpenCV with native support for video acceleration hardware, enabling high-performance video encoding and decoding in OpenCV applications.
 
 ## Supported Platforms
 
@@ -33,14 +33,6 @@ modules/
 
 The `vcucodec` module provides hardware-accelerated video encoding and decoding through the OpenCV APIs.
 
-### Features
-
-- **Hardware-accelerated H.264/H.265 encoding and decoding**
-- **Multi-platform support** - Conditional compilation for VCU, VCU2, and VDU
-- **OpenCV integration** - Standard VideoDecode/VideoEncode interface
-- **High performance** - Direct hardware acceleration without software fallback
-- **Memory efficient** - Optimized buffer management for hardware pipelines
-
 ### Platform-Specific Support
 
 The module uses conditional compilation to support different Xilinx video platforms:
@@ -68,7 +60,7 @@ This module is designed to be built as part of OpenCV using the Yocto build syst
 
 1. **OpenCV contrib checkout**: The Yocto recipe first checks out the standard opencv_contrib repository
 2. **Module merge**: The BitBake script then fetches this repository and merges the `modules/` directory into the `opencv_contrib/modules/` folder
-3. **Unified build**: OpenCV builds with both standard contrib modules and the Xilinx VCU modules together
+3. **Unified build**: OpenCV builds with both standard contrib modules and the VCU modules together
 4. **Platform-specific compilation**: Only the appropriate VCU variant is compiled based on the defines set in the Yocto recipe
 
 ### Build Requirements
@@ -78,10 +70,9 @@ The module is automatically included when:
 - The appropriate platform-specific defines are set (`HAVE_VCU2_CTRLSW`, `HAVE_VCU_CTRLSW`, or `HAVE_VDU_CTRLSW`)
 - The required control software libraries are available (`vcu2-ctrlsw`, `vcu-ctrlsw`, or `vdu-ctrlsw`)
 
-
 ### Code Organization
 
 - **Public API**: `include/opencv2/vcucodec.hpp` - Main module interface
 - **Implementation**: `src/*.cpp` - Core encoding/decoding logic
-- **Platform abstraction**: `src/private/vcuutils.*` - Hardware-specific utilities
+- **Platform abstraction**: `src/private/vcuutils.*` - VCU-specific utilities
 - **Build configuration**: `CMakeLists.txt` - Module build settings
