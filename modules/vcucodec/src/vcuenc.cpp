@@ -1,27 +1,36 @@
-#include "opencv2/vcucodec.hpp"
+#include "vcuenc.hpp"
+
 #include "private/vcuutils.hpp"
 
 namespace cv {
 namespace vcucodec {
 
-class VCUEncoder : public Encoder
+VCUEncoder::~VCUEncoder()
 {
-public:
-    virtual ~VCUEncoder() = default;
-    VCUEncoder(const String& filename, const EncoderInitParams& params) : filename_(filename), params_(params) {}
 
-    virtual void write(InputArray frame) {}
-
-private:
-    String filename_;
-    EncoderInitParams params_;
-};
-
-Ptr<Encoder> createEncoder(const String& filename, const EncoderInitParams& params)
-{
-    Ptr<VCUEncoder> encoder = makePtr<VCUEncoder>(filename, params);
-    return encoder;
 }
 
+VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params) : filename_(filename), params_(params)
+{
+
+}
+
+void VCUEncoder::write(InputArray frame)
+{
+
+}
+
+bool VCUEncoder::set(int propId, double value)
+{
+
+}
+
+double VCUEncoder::get(int propId) const
+{
+    double result = 0.0;
+    return result; // Placeholder implementation
+}
+
+
 }  // namespace vcucodec
-}  // namespace cv 
+}  // namespace cv
