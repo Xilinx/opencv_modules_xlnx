@@ -13,6 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
+#include "ctrlsw_dec.hpp"
 #include "opencv2/vcucodec.hpp"
 
 namespace cv {
@@ -37,6 +39,8 @@ private:
     DecoderInitParams params_;
     bool vcu2_available_ = false;
     bool initialized_ = false;
+    WorkerConfig wCfg = {nullptr, nullptr};
+    std::shared_ptr<DecoderContext> pDecodeCtx = nullptr;
 };
 
 
