@@ -138,7 +138,7 @@ void VCUDecoder::cleanup() {
     if (vcu2_available_ && initialized_) {
         // TODO: Cleanup VCU2 resources
         CV_LOG_DEBUG(NULL, "VCU2 decoder cleanup");
-        //std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
         AL_Lib_Decoder_DeInit();
     }
     initialized_ = false;
