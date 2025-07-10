@@ -33,6 +33,7 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params) 
 {
     SetDefaults(cfg);
     cfg.BitstreamFileName = filename;
+    cfg.eSrcFormat = AL_SRC_FORMAT_RASTER;
     cfg.MainInput.YUVFileName = "../video/Crowd_Run_1280_720_Y800.yuv";
     cfg.MainInput.FileInfo.FourCC = FOURCC(NV12);
     if(cfg.MainInput.FileInfo.FourCC == FOURCC(NV12))
