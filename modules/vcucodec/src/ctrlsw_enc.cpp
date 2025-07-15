@@ -1,3 +1,5 @@
+// Modifications Copyright(C) [2025] Advanced Micro Devices, Inc. All rights reserved)
+
 // SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
@@ -743,7 +745,7 @@ void LayerResources::ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder
   }
 }
 
-unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerResources>>& pLayerResources, 
+unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerResources>>& pLayerResources,
                 CIpDevice* pIpDevice, CIpDeviceParam& param, int32_t chanId)
 {
   (void)param;
@@ -902,7 +904,7 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
 
     AL_Settings_SetDefaultParam(&Settings);
     SetMoreDefaults(cfg);
-    
+
     if(!RecFileName.empty() || !RunInfo.sRecMd5Path.empty())
     {
       Settings.tChParam[0].eEncOptions = (AL_EChEncOption)(Settings.tChParam[0].eEncOptions | AL_OPT_FORCE_REC);

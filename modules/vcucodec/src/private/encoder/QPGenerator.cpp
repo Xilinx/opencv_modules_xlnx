@@ -1,3 +1,5 @@
+// Modifications Copyright(C) [2025] Advanced Micro Devices, Inc. All rights reserved)
+
 // SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
@@ -21,7 +23,7 @@ extern "C"
 
 #include "QPGenerator.h"
 #include "ROIMngr.h"
-#include "config.h" //CJQ 
+#include "config.h" //CJQ
 
 #include "lib_app/FileUtils.h"
 
