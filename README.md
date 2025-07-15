@@ -1,10 +1,28 @@
+
+Copyright © 2025  Advanced Micro Devices, Inc. (AMD)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+
 # OpenCV Modules for Video Codec Units
 
-This repository contains OpenCV modules that provide hardware-accelerated video codec support for  VCU (Video Codec Unit) and VDU (Video Decode Unit) platforms.
+This repository contains OpenCV modules that provide hardware-accelerated video codec support for
+VCU (Video Codec Unit) and VDU (Video Decode Unit) platforms.
 
 ## Overview
 
-The modules in this repository extend OpenCV with native support for video acceleration hardware, enabling high-performance video encoding and decoding in OpenCV applications.
+The modules in this repository extend OpenCV with native support for video acceleration hardware,
+enabling high-performance video encoding and decoding in OpenCV applications.
 
 ## Supported Platforms
 
@@ -31,7 +49,8 @@ modules/
 
 ## Module: vcucodec
 
-The `vcucodec` module provides hardware-accelerated video encoding and decoding through the OpenCV APIs.
+The `vcucodec` module provides hardware-accelerated video encoding and decoding through the OpenCV
+APIs.
 
 ### Platform-Specific Support
 
@@ -56,12 +75,16 @@ The module uses conditional compilation to support different Xilinx video platfo
 
 ## Building
 
-This module is designed to be built as part of OpenCV using the Yocto build system. The build process works as follows:
+This module is designed to be built as part of OpenCV using the Yocto build system. The build
+process works as follows:
 
-1. **OpenCV contrib checkout**: The Yocto recipe first checks out the standard opencv_contrib repository
-2. **Module merge**: The BitBake script then fetches this repository and merges the `modules/` directory into the `opencv_contrib/modules/` folder
+1. **OpenCV contrib checkout**: The Yocto recipe first checks out the standard opencv_contrib
+                                repository
+2. **Module merge**: The BitBake script then fetches this repository and merges the `modules/`
+                     directory into the `opencv_contrib/modules/` folder
 3. **Unified build**: OpenCV builds with both standard contrib modules and the VCU modules together
-4. **Platform-specific compilation**: Only the appropriate VCU variant is compiled based on the defines set in the Yocto recipe
+4. **Platform-specific compilation**: Only the appropriate VCU variant is compiled based on the
+                                      defines set in the Yocto recipe
 
 ### Build Requirements
 

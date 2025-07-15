@@ -24,9 +24,14 @@
 #include <stdexcept>
 
 /**
-  @addtogroup vcu
+  @addtogroup versal_zynq
   @{
     @defgroup vcucodec VCU Encoding/Decoding
+    @brief VCU codec module for encoding and decoding video streams on AMD/Xilinx Versal and
+           Zynq UltraScale+ MPSoC platforms
+
+    This module provides support for encoding and decoding video streams using the VCU
+    (Video Codec Unit)
   @}
 **/
 
