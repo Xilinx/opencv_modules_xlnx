@@ -17,11 +17,28 @@
 ocv_define_module(vcucodec opencv_core opencv_videoio WRAP python)
 
 # Find and configure VCU/VDU/VCU2 Control Software libraries
-find_library(ALLEGRO_APP_LIB allegro_app)
-find_library(ALLEGRO_DECODE_LIB allegro_decode)
+set(VCU_LIBS_FOUND TRUE)
+if (HAVE_VCU_CTRLSW OR HAVE_VCU2_CTRLSW OR HAVE_VDU_CTRLSW)
+    find_library(ALLEGRO_DECODE_LIB allegro_decode)
+    if(NOT ALLEGRO_DECODE_LIB)
+        set(VCU_LIBS_FOUND FALSE)
+    endif()
+else()
+    set(VCU_LIBS_FOUND FALSE)
+endif()
 
 if (HAVE_VCU_CTRLSW OR HAVE_VCU2_CTRLSW)
     find_library(ALLEGRO_ENCODE_LIB allegro_encode)
+    if(NOT ALLEGRO_ENCODE_LIB)
+        set(VCU_LIBS_FOUND FALSE)
+    endif()
+endif()
+
+if (HAVE_VCU2_CTRLSW)
+    find_library(ALLEGRO_APP_LIB allegro_app)
+    if(NOT ALLEGRO_APP_LIB)
+        set(VCU_LIBS_FOUND FALSE)
+    endif()
 endif()
 
 # Find VCU/VDU/VCU2 include directory
@@ -33,19 +50,7 @@ find_path(VCU_INCLUDE_DIR
     DOC "VCU/VDU/VCU2 Control Software include directory"
 )
 
-# Check if decode/encode libs were found
-set(VCU_LIBS_FOUND FALSE)
-if(ALLEGRO_DECODE_LIB)
-    if(HAVE_VCU_CTRLSW OR HAVE_VCU2_CTRLSW)
-        if(ALLEGRO_ENCODE_LIB)
-            set(VCU_LIBS_FOUND TRUE)
-        endif()
-    else()
-        set(VCU_LIBS_FOUND TRUE)
-    endif()
-endif()
-
-if(ALLEGRO_APP_LIB AND VCU_INCLUDE_DIR AND VCU_LIBS_FOUND)
+if(VCU_INCLUDE_DIR AND VCU_LIBS_FOUND)
     message(STATUS "Control Software found:")
     message(STATUS "  ALLEGRO_APP_LIB: ${ALLEGRO_APP_LIB}")
     message(STATUS "  ALLEGRO_DECODE_LIB: ${ALLEGRO_DECODE_LIB}")
