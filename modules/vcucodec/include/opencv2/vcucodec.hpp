@@ -41,13 +41,13 @@ namespace vcucodec {
 //! @addtogroup vcucodec
 //! @{
 
-static int VCU_FOURCC_AUTO = 0; ///< Auto-detect format
-
+/// Auto-detect format, used where fourcc is required but unknown, or automatically determined
+static int VCU_FOURCC_AUTO = 0;
 
 // Minimal definitions for testing
 enum CodecType
 {
-    VCU_AVC = 0,     ///< AVC/H.264 codec
+    VCU_AVC  = 0,    ///< AVC/H.264 codec
     VCU_HEVC = 1,    ///< HEVC/H.265 codec
     VCU_JPEG = 2,    ///< JPEG only (VCU2 and decode only)
 };
@@ -55,54 +55,88 @@ enum CodecType
 
 /// Minimal struct for testing
 struct CV_EXPORTS_W_SIMPLE RawInfo {
-    CV_PROP_RW int width;
-    CV_PROP_RW int height;
+    CV_PROP_RW bool eos;      ///< End of stream flag, other information is valid only if false
+    CV_PROP_RW int  fourcc;   ///< Output format as FourCC code
+    CV_PROP_RW int  bitDepth; ///< Bit depth of the output data, 8, 10, or 12 bits per channel
+    CV_PROP_RW int  stride;   ///< Stride of the output frame in bytes
+    CV_PROP_RW int  width;    ///< Width of the raw frame
+    CV_PROP_RW int  height;   ///< Height of the raw frame
 };
 
 /// Struct DecoderInitParams contains initialization parameters for the decoder.
 struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 {
-    CV_PROP_RW CodecType codecType;  ///< codec type (AVC, HEVC, JPEG)
-    CV_PROP_RW int fourcc;           ///< format of the raw data as FourCC code, default is VCU_FOURCC_AUTO
+    CV_PROP_RW CodecType codecType;  ///< Codec type (VCU_AVC, VCU_HEVC, VCU_JPEG)
+    CV_PROP_RW int fourcc;           ///< Format of the output raw data as FourCC code,
+                                     ///< Default is VCU_FOURCC_AUTO (determined automatically)
+    CV_PROP_RW int maxFrames;        ///< Maximum number of frames to decode, 0 for unlimited
 
-    DecoderInitParams() : codecType(VCU_HEVC), fourcc(VCU_FOURCC_AUTO) {}
+    DecoderInitParams() : codecType(VCU_HEVC), fourcc(VCU_FOURCC_AUTO), maxFrames(0) {}
 };
 
-/// Minimal decoder class
+/// Decoder interface for decoding video streams
+/// This interface provides methods to decode video frames from a stream.
 class CV_EXPORTS_W Decoder
 {
 public:
+    /// Virtual destructor for the Decoder interface.
     virtual ~Decoder() {}
-    CV_WRAP virtual bool nextFrame(OutputArray frame, RawInfo& frame_info) = 0;
-    CV_WRAP virtual bool set(int propId, double value) = 0;
-    CV_WRAP virtual double get(int propId) const = 0;
+
+    /// Decode the next frame from the stream.
+    /// @return true if a frame was successfully decoded, false if no frames are available (yet)
+    //          or if an error occurred.
+    CV_WRAP virtual bool nextFrame(
+        CV_OUT OutputArray frame,  ///< Output array to store the decoded frame
+        CV_OUT RawInfo& frame_info ///< Output parameter with information about the decoded frame
+    ) = 0;
+
+    /// Set a property for the decoder.
+    /// @return true if the property was set successfully, false otherwise
+    CV_WRAP virtual bool set(
+        int propId,  ///< Property identifier
+        double value ///< Value to set for the property
+    ) = 0;
+
+    /// Get the value of a property.
+    CV_WRAP virtual double get(
+        int propId ///< Property identifier
+    ) const = 0;
 };
 
 /// Struct EncoderParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
-    CV_PROP_RW CodecType codecType;        ///< codec type (AVC, HEVC, JPEG)
-    CV_PROP_RW int fourcc;                 ///< format of the raw data as FourCC code
-    CV_PROP_RW int bitrate;                ///< target bitrate in kbits per second
-    CV_PROP_RW int frameRate;              ///< frame rate
-    CV_PROP_RW int gopLength;              ///< GOP (Group of Pictures) length
+    CV_PROP_RW CodecType codecType; ///< Codec type (VCU_AVC, VCU_HEVC, VCU_JPEG)
+    CV_PROP_RW int fourcc;          ///< Format of the raw data as FourCC code
+    CV_PROP_RW int bitrate;         ///< Target bitrate in kbits per second
+    CV_PROP_RW int frameRate;       ///< Frame rate
+    CV_PROP_RW int gopLength;       ///< GOP (Group of Pictures) length
 
+    /// Constructor to initialize encoder parameters with default values.
     EncoderInitParams() : codecType(VCU_HEVC), fourcc(VideoWriter::fourcc('N', 'V', '1', '2')),
                          bitrate(4000), frameRate(30), gopLength(60) {}
 };
 
-/// Minimal encoder class
+/// Encoder interface for encoding video frames to a stream.
+/// This interface provides methods to encode video frames and manage encoding parameters.
 class CV_EXPORTS_W Encoder
 {
 public:
+    /// Virtual destructor for the Encoder interface.
     virtual ~Encoder() {}
     CV_WRAP virtual void write(InputArray frame) = 0;
     CV_WRAP virtual bool set(int propId, double value) = 0;
     CV_WRAP virtual double get(int propId) const = 0;
 };
 
-// Simple factory functions
-CV_EXPORTS_W Ptr<Decoder> createDecoder(const String& filename, const DecoderInitParams& params = DecoderInitParams());
-CV_EXPORTS_W Ptr<Encoder> createEncoder(const String& filename, const EncoderInitParams& params = EncoderInitParams());
+/// Factory function to create a decoder or encoder instance.
+CV_EXPORTS_W Ptr<Decoder> createDecoder(
+    const String& filename,                               ///< Onput video file name or stream URL
+    const DecoderInitParams& params = DecoderInitParams() ///< Decoder initialization parameters
+);
+CV_EXPORTS_W Ptr<Encoder> createEncoder(
+    const String& filename,                               ///< Output video file name or stream URL
+    const EncoderInitParams& params = EncoderInitParams() ///< Encoder initialization parameters
+);
 
 //! @}
 }  // namespace vcucodec

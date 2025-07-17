@@ -18,6 +18,8 @@
 #include "vcudec.hpp"
 #include "vcuenc.hpp"
 
+#include "opencv2/core/utils/logger.hpp"
+
 #include <map>
 
 
@@ -27,13 +29,24 @@ namespace vcucodec {
 
 Ptr<Decoder> createDecoder(const String& filename, const DecoderInitParams& params)
 {
-    return makePtr<VCUDecoder>(filename, params);
+    try {
+        Ptr<Decoder> decoder = makePtr<VCUDecoder>(filename, params);
+        return decoder;
+    } catch (const std::exception& e) {
+        CV_LOG_ERROR(NULL, "Error creating VCUDecoder: ");
+        return {};
+    }
 }
 
 Ptr<Encoder> createEncoder(const String& filename, const EncoderInitParams& params)
 {
-    Ptr<VCUEncoder> encoder = makePtr<VCUEncoder>(filename, params);
-    return encoder;
+    try {
+        Ptr<Encoder> encoder = makePtr<VCUEncoder>(filename, params);
+        return encoder;
+    } catch (const std::exception& e) {
+        CV_LOG_ERROR(NULL, "Error creating VCUEncoder: ");
+        return {};
+    }
 }
 
 }  // namespace vcucodec

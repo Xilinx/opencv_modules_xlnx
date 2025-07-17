@@ -24,23 +24,23 @@ class VCUDecoder : public Decoder
 {
 public:
     virtual ~VCUDecoder();
-
     VCUDecoder(const String& filename, const DecoderInitParams& params);
 
-    // Implement the pure virtual function from base class
-    virtual bool nextFrame(OutputArray frame, RawInfo& frame_info) override;
-    virtual bool set(int propId, double value) override;
+    // Implementation of the pure virtual functions from base class
+    virtual bool   nextFrame(OutputArray frame, RawInfo& frame_info) override;
+    virtual bool   set(int propId, double value) override;
     virtual double get(int propId) const override;
 
 private:
     void cleanup();
+    void retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info);
 
     String filename_;
     DecoderInitParams params_;
     bool vcu2_available_ = false;
     bool initialized_ = false;
     WorkerConfig wCfg = {nullptr, nullptr};
-    std::shared_ptr<DecoderContext> pDecodeCtx = nullptr;
+    std::shared_ptr<DecoderContext> decodeCtx_ = nullptr;
 };
 
 

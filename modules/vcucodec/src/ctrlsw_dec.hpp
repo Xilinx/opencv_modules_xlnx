@@ -14,7 +14,8 @@
    limitations under the License.
 */
 
-#pragma once
+#ifndef OPENCV_CTRLSW_DEC_HPP
+#define OPENCV_CTRLSW_DEC_HPP
 
 #include <iostream>
 #include <string.h>
@@ -62,7 +63,7 @@ extern "C" {
 #include "lib_app/SinkFilter.h"
 #include "lib_app/SinkCrop.h"
 #include "lib_app/SinkCrcDump.h"
-#include "lib_app/SinkFrame.h"
+ #include "lib_app/SinkFrame.h"
 #include "lib_app/UnCompFrameReader.h"
 #include "lib_app/YuvIO.h"
 #include "lib_app/console.h"
@@ -72,6 +73,9 @@ extern "C" {
 #include "lib_app/utils.h"
 #include "lib_app/BufPool.h"
 #include <cassert>
+
+namespace cv {
+namespace vcucodec {
 
 using namespace std;
 
@@ -109,7 +113,8 @@ typedef struct AL_IDecScheduler AL_IDecScheduler;
 class DecCIpDevice : public I_IpDevice
 {
 public:
-  DecCIpDevice(DecCIpDeviceParam const& param, AL_EDeviceType eDeviceType, std::set<std::string> tDevices);
+  DecCIpDevice(DecCIpDeviceParam const& param, AL_EDeviceType eDeviceType,
+               std::set<std::string> tDevices);
   ~DecCIpDevice();
 
   AL_EDeviceType GetDeviceType();
@@ -176,7 +181,7 @@ struct Config
   Config();
 
   bool help = false;
-  
+
   std::string sIn;
   std::string sMainOut = "/run/default.yuv"; // Output rec file
   std::string sCrc;
@@ -224,7 +229,8 @@ public:
   void Configure(Config const& config);
   void ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDecOutputSettings);
 
-  bool Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t iBitDepthAlloc, bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists);
+  bool Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t iBitDepthAlloc,
+               bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists);
   void Enqueue(AL_TBuffer* pFrame);
   AL_TBuffer* Dequeue(std::chrono::milliseconds timeout);
 
@@ -270,7 +276,8 @@ public:
   ~DecoderContext();
   void CreateBaseDecoder(shared_ptr<I_IpDevice> device);
   AL_HDecoder GetBaseDecoderHandle() const { return hBaseDec; }
-  AL_ERR SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo);
+  AL_ERR SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings,
+                              AL_TCropInfo const* pCropInfo);
 
   bool WaitExit(uint32_t uTimeout);
   void ReceiveFrameToDisplayFrom(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo);
@@ -305,8 +312,10 @@ private:
   AL_HANDLE GetDecoderHandle() const;
   AL_ERR TreatError(AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo);
   AL_TDimension ComputeBaseDecoderFinalResolution(AL_TStreamSettings const* pStreamSettings);
-  int32_t ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* pStreamSettings, AL_TDecOutputSettings const* pUserOutputSettings);
-  void AttachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const* pStreamSettings, AL_TBuffer* pDecPict);
+  int32_t ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* pStreamSettings,
+                                            AL_TDecOutputSettings const* pUserOutputSettings);
+  void AttachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const* pStreamSettings,
+                                            AL_TBuffer* pDecPict);
   void CtrlswDecRun(WorkerConfig wCfg);
 
   std::map<AL_TBuffer*, std::vector<AL_TSeiMetaData*>> displaySeis;
@@ -321,7 +330,8 @@ private:
 struct InputLoader
 {
   virtual ~InputLoader() {}
-  virtual uint32_t ReadStream(std::istream& ifFileStream, AL_TBuffer* pBufStream, uint8_t& uBufFlags) = 0;
+  virtual uint32_t ReadStream(std::istream& ifFileStream, AL_TBuffer* pBufStream,
+                              uint8_t& uBufFlags) = 0;
 };
 
 struct BasicLoader : public InputLoader
@@ -345,7 +355,8 @@ struct AsyncFileInput
 {
   AsyncFileInput();
   ~AsyncFileInput();
-  void Init(AL_HDecoder hDec_, BufPool& bufPool_, EndOfInputCallBack endOfInputCB_, PushBufferCallBack pushBufferCB_);
+  void Init(AL_HDecoder hDec_, BufPool& bufPool_, EndOfInputCallBack endOfInputCB_,
+            PushBufferCallBack pushBufferCB_);
   void ConfigureStreamInput(string const& sPath, AL_ECodec eCodec);
   void Start();
 
@@ -365,4 +376,9 @@ private:
 
 };
 
-void CtrlswDecOpen(const std::string& filename, std::shared_ptr<DecoderContext>& pDecodeCtx, WorkerConfig& wCfg);
+void CtrlswDecOpen(const std::string& filename, std::shared_ptr<DecoderContext>& pDecodeCtx,
+                   WorkerConfig& wCfg);
+
+} } // namespace cv::vcucodec
+
+#endif // OPENCV_CTRLSW_DEC_HPP

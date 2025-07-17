@@ -2,6 +2,7 @@
 
 // SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
+#ifdef HAVE_VCU2_CTRLSW
 
 #include "ctrlsw_enc.hpp"
 
@@ -952,3 +953,4 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
   return enc;
 }
 
+#endif // HAVE_VCU2_CTRLSW

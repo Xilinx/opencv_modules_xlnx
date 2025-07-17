@@ -47,16 +47,14 @@ find_path(VCU_INCLUDE_DIR
     PATHS $ENV{SYSROOT}/usr/include/vcu-ctrl-sw/include
           $ENV{SYSROOT}/usr/include/vdu-ctrl-sw/include
           $ENV{SYSROOT}/usr/include/vcu2-ctrl-sw/include
-    DOC "VCU/VDU/VCU2 Control Software include directory"
+    DOC "VCU/VDU/VCU2 Control Software include directory is: "
 )
 
 if(VCU_INCLUDE_DIR AND VCU_LIBS_FOUND)
     message(STATUS "Control Software found:")
     message(STATUS "  ALLEGRO_APP_LIB: ${ALLEGRO_APP_LIB}")
     message(STATUS "  ALLEGRO_DECODE_LIB: ${ALLEGRO_DECODE_LIB}")
-    if(HAVE_VCU_CTRLSW OR HAVE_VCU2_CTRLSW)
-        message(STATUS "  ALLEGRO_ENCODE_LIB: ${ALLEGRO_ENCODE_LIB}")
-    endif()
+    message(STATUS "  ALLEGRO_ENCODE_LIB: ${ALLEGRO_ENCODE_LIB}")
     message(STATUS "  INCLUDE_DIR: ${VCU_INCLUDE_DIR}")
 
     # Add VCU/VDU/VCU2 include directory to the module

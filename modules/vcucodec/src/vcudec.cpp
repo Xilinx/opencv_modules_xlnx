@@ -13,13 +13,12 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+#include "vcudec.hpp"
 
 extern "C" {
 #include "config.h"
 #include "lib_decode/lib_decode.h"
 }
-
-#include "vcudec.hpp"
 
 #include "opencv2/core/utils/logger.hpp"
 #include "private/vcuutils.hpp"
@@ -28,15 +27,19 @@ namespace cv {
 namespace vcucodec {
 
 VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
-    : filename_(filename), params_(params) {
+    : filename_(filename), params_(params)
+{
     // VCU2 initialization will be implemented when VCU2 Control Software is available
     CV_LOG_INFO(NULL, "VCU2 Decoder initialized");
     vcu2_available_ = true;
     // TODO: Initialize VCU2 decoder with actual VCU2 API calls
     // This is a placeholder implementation
-    CtrlswDecOpen((std::string)filename, pDecodeCtx, wCfg);
-    if(pDecodeCtx != nullptr)
-        initialized_ = true;
+    CtrlswDecOpen((std::string)filename, decodeCtx_, wCfg);
+    initialized_ = decodeCtx_ != nullptr;
+    if (!initialized_) {
+        CV_LOG_ERROR(NULL, "Failed to initialize VCU2 decoder");
+        throw std::runtime_error("VCU2 decoder initialization failed");
+    }
 }
 
 VCUDecoder::~VCUDecoder() {
@@ -44,7 +47,66 @@ VCUDecoder::~VCUDecoder() {
     cleanup();
 }
 
-void retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info)
+// Implement the pure virtual function from base class
+bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override */
+{
+    AL_TBuffer* pFrame = nullptr;
+
+    if (!vcu2_available_ || !initialized_) {
+        CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
+        return false;
+    }
+
+    if(!decodeCtx_)
+        return false;
+
+    if(!decodeCtx_->running) {
+        decodeCtx_->StartRunning(wCfg);
+    }
+
+    if(decodeCtx_->eos ) {
+        std::cout << "eos before GetFrameFromQ" << std::endl;
+        return false;
+    }
+
+    CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
+    pFrame = decodeCtx_->GetFrameFromQ();
+    if(pFrame == nullptr ) {
+        std::cout << "GetFrameFromQ is nullptr" << std::endl;
+        return false;
+    }
+
+    if(decodeCtx_->eos ) {
+        std::cout << "eos after GetFrameFromQ" << std::endl;
+        return false;
+    }
+
+    retrieveVideoFrame(frame, pFrame, frame_info);
+    return true;
+}
+
+bool VCUDecoder::set(int propId, double value)
+{
+    return false;
+}
+
+double VCUDecoder::get(int propId) const {
+    double result = 0.0;
+    return result; // Placeholder implementation
+}
+
+
+void VCUDecoder::cleanup() {
+    if (vcu2_available_ && initialized_) {
+        // TODO: Cleanup VCU2 resources
+        CV_LOG_DEBUG(NULL, "VCU2 decoder cleanup");
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        AL_Lib_Decoder_DeInit();
+    }
+    initialized_ = false;
+}
+
+void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info)
 {
     if (AL_PixMapBuffer_GetFourCC(pFrame) == FOURCC(Y800))
     {
@@ -75,74 +137,17 @@ void retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info
         dst.create(Size(frame_width, frame_height * 3 / 2), CV_8UC1);
         Mat dst_ = dst.getMat();
         Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
-        Mat srcUV(Size(frame_width, frame_height / 2), CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
+        Mat srcUV(Size(frame_width, frame_height / 2), CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
         srcY.copyTo(dst_(Rect(0, 0, frame_width, frame_height)));
         srcUV.copyTo(dst_(Rect(0, frame_height, frame_width, frame_height / 2)));
         frame_info.width = frame_width;
         frame_info.height = frame_height;
     }
-    
+
     AL_Buffer_Destroy(pFrame);
 }
 
-// Implement the pure virtual function from base class
-bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override */
-{
-    AL_TBuffer* pFrame = nullptr;
-
-    if (!vcu2_available_ || !initialized_) {
-        CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
-        return false;
-    }
-    
-    if(!pDecodeCtx)
-        return false;
-
-    if(!pDecodeCtx->running) {
-        pDecodeCtx->StartRunning(wCfg);
-    }
-
-    if(pDecodeCtx->eos ) {
-        std::cout << "eos before GetFrameFromQ" << std::endl;
-        return false;
-    }
-
-    CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
-    pFrame = pDecodeCtx->GetFrameFromQ();
-    if(pFrame == nullptr ) {
-        std::cout << "GetFrameFromQ is nullptr" << std::endl;
-        return false;
-    }
-
-    if(pDecodeCtx->eos ) {
-        std::cout << "eos after GetFrameFromQ" << std::endl;
-        return false;
-    }
-
-    retrieveVideoFrame(frame, pFrame, frame_info);
-    return true;
-}
-
-bool VCUDecoder::set(int propId, double value)
-{
-    return false;
-}
-
-double VCUDecoder::get(int propId) const {
-    double result = 0.0;
-    return result; // Placeholder implementation
-}
-
-
-void VCUDecoder::cleanup() {
-    if (vcu2_available_ && initialized_) {
-        // TODO: Cleanup VCU2 resources
-        CV_LOG_DEBUG(NULL, "VCU2 decoder cleanup");
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        AL_Lib_Decoder_DeInit();
-    }
-    initialized_ = false;
-}
 
 } // namespace vcucodec
 } // namespace cv

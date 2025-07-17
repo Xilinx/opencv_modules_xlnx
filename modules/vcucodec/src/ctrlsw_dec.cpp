@@ -15,13 +15,16 @@
 */
 
 #include "ctrlsw_dec.hpp"
+namespace cv {
+namespace vcucodec {
 
 /*****************************************************************************/
 /*******class DecCIpDevice ***************************************************/
 /*****************************************************************************/
 void DecCIpDevice::ConfigureRiscv(void)
 {
-  uint32_t const sw_version = (uint32_t)((AL_VERSION_MAJOR << 20) + (AL_VERSION_MINOR << 12) + (AL_VERSION_PATCH));
+  uint32_t const sw_version =
+      (uint32_t)((AL_VERSION_MAJOR << 20) + (AL_VERSION_MINOR << 12) + (AL_VERSION_PATCH));
   uint32_t fw_version;
 
   m_pScheduler = nullptr;
@@ -33,7 +36,8 @@ void DecCIpDevice::ConfigureRiscv(void)
   fw_version = AL_Riscv_Decode_Get_FwVersion(m_ctx);
 
   if(!fw_version || (fw_version != sw_version))
-    throw std::runtime_error("FW Version " + VersionToStr(fw_version) + ", it should be " + VersionToStr(sw_version));
+    throw std::runtime_error("FW Version " + VersionToStr(fw_version) + ", it should be "
+                             + VersionToStr(sw_version));
 
   AL_TAllocator* pRiscvAllocator = AL_Riscv_Decode_DmaAlloc_Create(m_ctx);
   m_pTimer = nullptr;
@@ -57,8 +61,8 @@ DecCIpDevice::~DecCIpDevice(void)
 
 }
 
-DecCIpDevice::DecCIpDevice(DecCIpDeviceParam const& param, AL_EDeviceType eDeviceType, std::set<std::string> tDevices) :
-  m_tDevices(tDevices)
+DecCIpDevice::DecCIpDevice(DecCIpDeviceParam const& param, AL_EDeviceType eDeviceType,
+    std::set<std::string> tDevices) : m_tDevices(tDevices)
 {
   (void)param;
   this->m_eDeviceType = eDeviceType;
@@ -99,7 +103,8 @@ Config::Config(void)
 /******************************************************************************/
 /*******class DisplayManager **************************************************/
 /******************************************************************************/
-AL_EFbStorageMode GetMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings, AL_EFbStorageMode eOutstorageMode)
+AL_EFbStorageMode GetMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings,
+    AL_EFbStorageMode eOutstorageMode)
 {
   (void)tUserOutputSettings;
   AL_EFbStorageMode eOutputStorageMode = eOutstorageMode;
@@ -124,7 +129,8 @@ void DisplayManager::Configure(Config const& config)
     eMainOutputStorageMode = config.tDecSettings.eFBStorageMode;
 
     if(config.tUserOutputSettings.tPicFormat.eStorageMode != AL_FB_MAX_ENUM)
-      eMainOutputStorageMode = GetMainOutputStorageMode(config.tUserOutputSettings, config.tDecSettings.eFBStorageMode);
+      eMainOutputStorageMode = GetMainOutputStorageMode(config.tUserOutputSettings,
+                                                        config.tDecSettings.eFBStorageMode);
 
      eMainOutputStorageMode = AL_FB_RASTER;
   }
@@ -206,7 +212,8 @@ void DisplayManager::CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, 
     throw runtime_error("Cloned pMetaD did not get added!\n");
 }
 
-bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t iBitDepthAlloc, bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists)
+bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t iBitDepthAlloc,
+                             bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists)
 {
   bNumFrameReached = false;
   bIsMainDisplay = (pInfo->eOutputID == AL_OUTPUT_MAIN || pInfo->eOutputID == AL_OUTPUT_POSTPROC);
@@ -263,7 +270,8 @@ int32_t convertBitDepthToEven(int32_t iBd)
   return ((iBd % 2) != 0) ? iBd + 1 : iBd;
 }
 
-static void ConvertFrameBuffer(AL_TBuffer* pInput, AL_TBuffer*& pOutput, int32_t iBdOut, AL_TPosition const& tPos, TFourCC tOutFourCC)
+static void ConvertFrameBuffer(AL_TBuffer* pInput, AL_TBuffer*& pOutput, int32_t iBdOut,
+                               AL_TPosition const& tPos, TFourCC tOutFourCC)
 {
   (void)tPos;
   TFourCC tRecFourCC = AL_PixMapBuffer_GetFourCC(pInput);
@@ -324,7 +332,8 @@ AL_TBuffer* DisplayManager::Dequeue(std::chrono::milliseconds timeout)
   return pFrame;
 }
 
-void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int32_t iBdOut, TFourCC tOutFourCC)
+void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int32_t iBdOut,
+                                  TFourCC tOutFourCC)
 {
   AL_PixMapBuffer_SetDimension(&tRecBuf, info.tDim);
 
@@ -350,7 +359,8 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int3
   {
     AL_EPlaneMode ePlaneMode = AL_PLANE_MODE_PLANAR;
 
-    if(tRecPicFormat.bMSB && (tRecPicFormat.eChromaMode == AL_CHROMA_4_2_0 || tRecPicFormat.eChromaMode == AL_CHROMA_4_2_2))
+    if(tRecPicFormat.bMSB && (tRecPicFormat.eChromaMode == AL_CHROMA_4_2_0
+                              || tRecPicFormat.eChromaMode == AL_CHROMA_4_2_2))
       ePlaneMode = AL_PLANE_MODE_SEMIPLANAR;
 
     AL_TPicFormat tConvPicFormat = AL_TPicFormat {
@@ -375,7 +385,8 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int3
   bool bCompress = AL_IsCompressed(tRecBufFourCC);
   bool bConvert = !bCompress && tOutFourCC != tRecBufFourCC;
 
-  AL_TDisplayInfoMetaData* pMeta = reinterpret_cast<AL_TDisplayInfoMetaData*>(AL_Buffer_GetMetaData(&tRecBuf, AL_META_TYPE_DISPLAY_INFO));
+  AL_TDisplayInfoMetaData* pMeta = reinterpret_cast<AL_TDisplayInfoMetaData*>(
+      AL_Buffer_GetMetaData(&tRecBuf, AL_META_TYPE_DISPLAY_INFO));
 
   if(pMeta)
     pMeta->tCrop = tCrop;
@@ -385,7 +396,8 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int3
     if(tInputFourCC != tOutFourCC && bNewInputFourCCFound)
     {
       stringstream ss;
-      ss << "Software conversion done from " << AL_FourCCToString(tRecBufFourCC).cFourcc << " to " << AL_FourCCToString(tOutFourCC).cFourcc << endl;
+      ss << "Software conversion done from " << AL_FourCCToString(tRecBufFourCC).cFourcc
+         << " to " << AL_FourCCToString(tOutFourCC).cFourcc << endl;
       LogInfo(CC_DARK_BLUE, "%s\n", ss.str().c_str());
       //FFLUSH(stdout);
     }
@@ -464,7 +476,8 @@ AL_TDimension DecoderContext::ComputeBaseDecoderFinalResolution(AL_TStreamSettin
   return tOutputDim;
 }
 
-static int32_t sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat const& tPicFormat, AL_TDimension const& tDim, int32_t iPitchY, bool bConfigurePlanarAndSemiplanar)
+static int32_t sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat const& tPicFormat,
+    AL_TDimension const& tDim, int32_t iPitchY, bool bConfigurePlanarAndSemiplanar)
 {
   auto const tFourCC = AL_GetFourCC(tPicFormat);
   SrcBufPool.SetFormat(tDim, tFourCC);
@@ -479,7 +492,8 @@ static int32_t sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat con
   // -----------------
   for(int32_t iPlane = 0; iPlane < iNbPlanes; iPlane++)
   {
-    int32_t iPitch = (usedPlanes[iPlane] == AL_PLANE_Y || usedPlanes[iPlane] == AL_PLANE_YUV) ? iPitchY : AL_GetChromaPitch(tFourCC, iPitchY);
+    int32_t iPitch = (usedPlanes[iPlane] == AL_PLANE_Y || usedPlanes[iPlane] == AL_PLANE_YUV)
+                   ? iPitchY : AL_GetChromaPitch(tFourCC, iPitchY);
     vPlaneDesc.push_back(AL_TPlaneDescription { usedPlanes[iPlane], iOffset, iPitch });
 
     /* We ensure compatibility with 420/422. Only required when we use prealloc configured for
@@ -497,9 +511,11 @@ static int32_t sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat con
   return iOffset;
 }
 
-int32_t DecoderContext::ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* pStreamSettings, AL_TDecOutputSettings const* pUserOutputSettings)
+int32_t DecoderContext::ComputeBaseDecoderRecBufferSizing(
+    AL_TStreamSettings const* pStreamSettings, AL_TDecOutputSettings const* pUserOutputSettings)
 {
-  // Up to this point pUserOutputSettings is already updated in the resolution found callback (SetupBaseDecoderPool)
+  // Up to this point pUserOutputSettings is already updated in the resolution found callback
+  // (SetupBaseDecoderPool)
   int32_t iBufferSize = 0;
 
   // Compute output resolution
@@ -509,12 +525,14 @@ int32_t DecoderContext::ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings con
   auto minPitch = AL_Decoder_GetMinPitch(tOutputDim.iWidth, &pUserOutputSettings->tPicFormat);
 
   bool bConfigurePlanarAndSemiplanar = bUsePreAlloc;
-  iBufferSize = sConfigureDecBufPool(tBaseBufPool, pUserOutputSettings->tPicFormat, tOutputDim, minPitch, bConfigurePlanarAndSemiplanar);
+  iBufferSize = sConfigureDecBufPool(tBaseBufPool, pUserOutputSettings->tPicFormat, tOutputDim,
+                                     minPitch, bConfigurePlanarAndSemiplanar);
 
   return iBufferSize;
 }
 
-void DecoderContext::AttachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const* pStreamSettings, AL_TBuffer* pDecPict)
+void DecoderContext::AttachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const* pStreamSettings,
+                                                          AL_TBuffer* pDecPict)
 {
   (void)pStreamSettings;
 
@@ -527,7 +545,8 @@ void DecoderContext::AttachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings con
 }
 
 /* Update picture format using stream settings and decoder's settings*/
-static void SetDecOutputSettings(AL_TDecOutputSettings& tUserOutputSettings, AL_TStreamSettings const& tStreamSettings, AL_TDecSettings const& tDecSettings)
+static void SetDecOutputSettings(AL_TDecOutputSettings& tUserOutputSettings,
+    AL_TStreamSettings const& tStreamSettings, AL_TDecSettings const& tDecSettings)
 {
   AL_TPicFormat& tPicFormat = tUserOutputSettings.tPicFormat;
 
@@ -552,12 +571,14 @@ static void SetDecOutputSettings(AL_TDecOutputSettings& tUserOutputSettings, AL_
   if(AL_COMPONENT_ORDER_MAX_ENUM == tPicFormat.eComponentOrder)
     tPicFormat.eComponentOrder = AL_COMPONENT_ORDER_YUV;
 
-  tUserOutputSettings.tPicFormat.eStorageMode = GetMainOutputStorageMode(tUserOutputSettings, tDecSettings.eFBStorageMode);
+  tUserOutputSettings.tPicFormat.eStorageMode =
+      GetMainOutputStorageMode(tUserOutputSettings, tDecSettings.eFBStorageMode);
 
   if(IsTile(tUserOutputSettings.tPicFormat.eStorageMode))
     tUserOutputSettings.tPicFormat.eSamplePackMode = AL_SAMPLE_PACK_MODE_PACKED;
 
-  if(tUserOutputSettings.tPicFormat.ePlaneMode == AL_PLANE_MODE_INTERLEAVED && tUserOutputSettings.tPicFormat.eChromaMode == AL_CHROMA_4_4_4)
+  if(tUserOutputSettings.tPicFormat.ePlaneMode == AL_PLANE_MODE_INTERLEAVED
+        && tUserOutputSettings.tPicFormat.eChromaMode == AL_CHROMA_4_4_4)
     tUserOutputSettings.tPicFormat.eAlphaMode = AL_ALPHA_MODE_AFTER;
 }
 
@@ -575,7 +596,9 @@ static string SequencePictureToString(AL_ESequenceMode sequencePicture)
   return "max enum";
 }
 
-static void ShowStreamInfo(int32_t BufferNumber, int32_t BufferSize, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo, TFourCC tFourCC, AL_TDimension outputDim)
+static void ShowStreamInfo(int32_t BufferNumber, int32_t BufferSize,
+    AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo, TFourCC tFourCC,
+    AL_TDimension outputDim)
 {
   int32_t iWidth = outputDim.iWidth;
   int32_t iHeight = outputDim.iHeight;
@@ -606,7 +629,8 @@ static void ShowStreamInfo(int32_t BufferNumber, int32_t BufferSize, AL_TStreamS
   LogInfo(CC_DARK_BLUE, "%s\n", ss.str().c_str());
 }
 
-AL_ERR DecoderContext::SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo)
+AL_ERR DecoderContext::SetupBaseDecoderPool(int32_t iBufferNumber,
+    AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo)
 {
   auto lockDisplay = LockDisplay();
 
@@ -623,7 +647,8 @@ AL_ERR DecoderContext::SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSet
   AL_TCropInfo pUserCropInfo = *pCropInfo;
 
   AL_TDimension outputDim = pStreamSettings->tDim;
-  ShowStreamInfo(iBufferNumber, iBufferSize, pStreamSettings, &pUserCropInfo, AL_GetFourCC(pUserOutputSettings->tPicFormat), outputDim);
+  ShowStreamInfo(iBufferNumber, iBufferSize, pStreamSettings, &pUserCropInfo,
+      AL_GetFourCC(pUserOutputSettings->tPicFormat), outputDim);
 
   if(tBaseBufPool.IsInit())
     return AL_SUCCESS;
@@ -675,7 +700,8 @@ static void sFrameDecoded(AL_TBuffer* pFrame, void* pUserParam)
   pCtx->ReceiveBaseDecoderDecodedFrame(pFrame);
 }
 
-static void sParsedSei(bool bIsPrefix, int32_t iPayloadType, uint8_t* pPayload, int32_t iPayloadSize, void* pUserParam)
+static void sParsedSei(bool bIsPrefix, int32_t iPayloadType, uint8_t* pPayload,
+                       int32_t iPayloadSize, void* pUserParam)
 {
   (void)bIsPrefix;
   (void)iPayloadType;
@@ -697,7 +723,8 @@ static void sBaseDecoderFrameDisplay(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, 
   pCtx->ReceiveFrameToDisplayFrom(pFrame, pInfo);
 }
 
-static AL_ERR sBaseResolutionFound(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo, void* pUserParam)
+static AL_ERR sBaseResolutionFound(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings,
+                                   AL_TCropInfo const* pCropInfo, void* pUserParam)
 {
   (void)iBufferNumber;
   auto pCtx = (DecoderContext*)pUserParam;
@@ -759,7 +786,7 @@ AL_TBuffer* DecoderContext::GetFrameFromQ()
 {
   AL_TBuffer* pFrame;
   pFrame = tDisplayManager.Dequeue(std::chrono::milliseconds(100));
-  return pFrame; 
+  return pFrame;
 }
 
 
@@ -793,11 +820,13 @@ void DecoderContext::ReceiveFrameToDisplayFrom(AL_TBuffer* pFrame, AL_TInfoDecod
 
         iBitDepthAlloc = AL_Decoder_GetMaxBD(hDec);
         bool bDecoderExists = GetBaseDecoderHandle() != NULL;
-        tDisplayManager.Process(pFrame, pInfo, iBitDepthAlloc, bIsFrameMainDisplay, bLastFrame, bDecoderExists);
+        tDisplayManager.Process(pFrame, pInfo, iBitDepthAlloc, bIsFrameMainDisplay, bLastFrame,
+                                bDecoderExists);
 
         if(bIsFrameMainDisplay && CanSendBackBufferToDecoder() && !bLastFrame)
         {
-          if(err == AL_WARN_CONCEAL_DETECT || err == AL_WARN_HW_CONCEAL_DETECT || err == AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE)
+          if(err == AL_WARN_CONCEAL_DETECT || err == AL_WARN_HW_CONCEAL_DETECT
+               || err == AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE)
             iNumFrameConceal++;
 
           if(!AL_Decoder_PutDisplayPicture(GetDecoderHandle(), pFrame))
@@ -855,7 +884,8 @@ AsyncFileInput::~AsyncFileInput(void)
     m_thread.join();
 }
 
-void AsyncFileInput::Init(AL_HDecoder hDec, BufPool& bufPool, EndOfInputCallBack endOfInputCB, PushBufferCallBack pushBufferCB)
+void AsyncFileInput::Init(AL_HDecoder hDec, BufPool& bufPool, EndOfInputCallBack endOfInputCB,
+                          PushBufferCallBack pushBufferCB)
 {
   m_hDec = hDec;
   m_pBufPool = &bufPool;
@@ -916,7 +946,8 @@ void AsyncFileInput::Run(void)
   }
 }
 
-void ShowStatistics(double durationInSeconds, int32_t iNumFrameConceal, int32_t decodedFrameNumber, bool timeoutOccurred)
+void ShowStatistics(double durationInSeconds, int32_t iNumFrameConceal, int32_t decodedFrameNumber,
+                    bool timeoutOccurred)
 {
   string guard = "Decoded time = ";
 
@@ -945,7 +976,8 @@ void CheckAndAdjustChannelConfiguration(Config& config)
   // ---------------------------
   {
     int32_t err = AL_DecSettings_CheckValidity(&config.tDecSettings, out);
-    err += AL_DecOutputSettings_CheckValidity(&config.tUserOutputSettings, config.tDecSettings.eCodec, out);
+    err += AL_DecOutputSettings_CheckValidity(&config.tUserOutputSettings,
+                                              config.tDecSettings.eCodec, out);
 
     if(err)
     {
@@ -1074,7 +1106,8 @@ static std::shared_ptr<DecCIpDevice> CreateAndConfigureBaseDecoderIpDevice(Confi
   static std::set<std::string> decDevicePath = pConfig->sDecDevicePath;
   param.iDecMaxAxiBurstSize = pConfig->iDecMaxAxiBurstSize;
 
-  std::shared_ptr<DecCIpDevice> pIpDevice = std::shared_ptr<DecCIpDevice>(new DecCIpDevice(param, pConfig->eDeviceType, { decDevicePath }));
+  std::shared_ptr<DecCIpDevice> pIpDevice = std::shared_ptr<DecCIpDevice>(
+      new DecCIpDevice(param, pConfig->eDeviceType, { decDevicePath }));
 
   if(!pIpDevice)
     throw std::runtime_error("Can't create BaseDecoderIpDevice");
@@ -1082,22 +1115,23 @@ static std::shared_ptr<DecCIpDevice> CreateAndConfigureBaseDecoderIpDevice(Confi
   return pIpDevice;
 }
 
-void CtrlswDecOpen(const std::string& filename, std::shared_ptr<DecoderContext>& pDecodeCtx, WorkerConfig& wCfg)
+void CtrlswDecOpen(const std::string& filename, std::shared_ptr<DecoderContext>& pDecodeCtx,
+                   WorkerConfig& wCfg)
 {
   std::shared_ptr<Config> pDecConfig = std::shared_ptr<Config>(new Config());
   pDecConfig->sIn = filename;
   std::set<std::string> const sDecDefaultDevicePath(DECODER_DEVICES);
   SetDefaultDecOutputSettings(&pDecConfig->tUserOutputSettings);
   pDecConfig->sDecDevicePath = sDecDefaultDevicePath;
-  
+
   //set it as peoperty later
   pDecConfig->tOutputFourCC = FOURCC(NV12);
   //set it as peoperty later
   pDecConfig->tDecSettings.eCodec = AL_CODEC_AVC;
-  
+
   // Setup of the decoder(s) architecture
   AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
-  
+
   // Create the device
   std::shared_ptr<I_IpDevice> device = CreateAndConfigureBaseDecoderIpDevice(pDecConfig.get());
 
@@ -1124,8 +1158,11 @@ void CtrlswDecOpen(const std::string& filename, std::shared_ptr<DecoderContext>&
   // Parametrization of the base decoder for traces
   // ----------------------------------------------
   auto hDec = pDecodeCtx->GetBaseDecoderHandle();
-  AL_Decoder_SetParam(hDec, "Fpga", config.iTraceIdx, config.iTraceNumber, config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE);
+  AL_Decoder_SetParam(hDec, "Fpga", config.iTraceIdx, config.iTraceNumber,
+      config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE);
 
   // Parametrization of the lcevc decoder for traces
   // -----------------------------------------------
 }
+
+} } // namespace cv::vcucodec
