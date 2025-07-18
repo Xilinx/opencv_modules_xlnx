@@ -15,6 +15,9 @@
 */
 
 #include "ctrlsw_dec.hpp"
+
+#include <opencv2/core.hpp>
+
 namespace cv {
 namespace vcucodec {
 
@@ -324,11 +327,13 @@ void DisplayManager::Enqueue(AL_TBuffer* pFrame)
 
 AL_TBuffer* DisplayManager::Dequeue(std::chrono::milliseconds timeout)
 {
-  AL_TBuffer* pFrame;
+  AL_TBuffer* pFrame = nullptr;
   std::unique_lock<std::mutex> lock(frame_mtx);
   frame_cv.wait_for(lock, timeout, [this]{ return !frame_queue.empty();});
-  pFrame = frame_queue.front();
-  frame_queue.pop();
+  if (!frame_queue.empty()) {
+      pFrame = frame_queue.front();
+      frame_queue.pop();
+  }
   return pFrame;
 }
 
@@ -782,10 +787,10 @@ static bool IsEndOfStream(AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo)
   return !pFrame && !pInfo;
 }
 
-AL_TBuffer* DecoderContext::GetFrameFromQ()
+AL_TBuffer* DecoderContext::GetFrameFromQ(bool wait /*=true*/)
 {
-  AL_TBuffer* pFrame;
-  pFrame = tDisplayManager.Dequeue(std::chrono::milliseconds(100));
+  auto timeout = (wait ? std::chrono::milliseconds(100):std::chrono::milliseconds::zero());
+  AL_TBuffer* pFrame = tDisplayManager.Dequeue(timeout);
   return pFrame;
 }
 
@@ -897,9 +902,14 @@ void AsyncFileInput::Init(AL_HDecoder hDec, BufPool& bufPool, EndOfInputCallBack
 void AsyncFileInput::ConfigureStreamInput(string const& sPath, AL_ECodec eCodec)
 {
   (void)eCodec;
-  OpenInput(m_ifFileStream, sPath);
-  m_bStreamInputSet = true;
-  m_StreamLoader.reset(new BasicLoader());
+  try {
+    OpenInput(m_ifFileStream, sPath);
+    m_bStreamInputSet = true;
+    m_StreamLoader.reset(new BasicLoader());
+  }
+  catch (const std::exception& e) {
+    CV_Error(cv::Error::StsBadArg, "Failed to open input stream:");
+  }
 }
 
 void AsyncFileInput::Start(void)
@@ -1115,19 +1125,12 @@ static std::shared_ptr<DecCIpDevice> CreateAndConfigureBaseDecoderIpDevice(Confi
   return pIpDevice;
 }
 
-void CtrlswDecOpen(const std::string& filename, std::shared_ptr<DecoderContext>& pDecodeCtx,
-                   WorkerConfig& wCfg)
+void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
+                   std::shared_ptr<DecoderContext>& pDecodeCtx, WorkerConfig& wCfg)
 {
-  std::shared_ptr<Config> pDecConfig = std::shared_ptr<Config>(new Config());
-  pDecConfig->sIn = filename;
   std::set<std::string> const sDecDefaultDevicePath(DECODER_DEVICES);
   SetDefaultDecOutputSettings(&pDecConfig->tUserOutputSettings);
   pDecConfig->sDecDevicePath = sDecDefaultDevicePath;
-
-  //set it as peoperty later
-  pDecConfig->tOutputFourCC = FOURCC(NV12);
-  //set it as peoperty later
-  pDecConfig->tDecSettings.eCodec = AL_CODEC_AVC;
 
   // Setup of the decoder(s) architecture
   AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);

@@ -32,9 +32,22 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     // VCU2 initialization will be implemented when VCU2 Control Software is available
     CV_LOG_INFO(NULL, "VCU2 Decoder initialized");
     vcu2_available_ = true;
-    // TODO: Initialize VCU2 decoder with actual VCU2 API calls
-    // This is a placeholder implementation
-    CtrlswDecOpen((std::string)filename, decodeCtx_, wCfg);
+
+    std::shared_ptr<Config> pDecConfig = std::shared_ptr<Config>(new Config());
+    pDecConfig->sIn = (std::string)filename;
+
+    switch(params_.codecType) {
+    case VCU_AVC:  pDecConfig->tDecSettings.eCodec = AL_CODEC_AVC;  break;
+    case VCU_HEVC: pDecConfig->tDecSettings.eCodec = AL_CODEC_HEVC; break;
+    case VCU_JPEG: pDecConfig->tDecSettings.eCodec = AL_CODEC_JPEG; break;
+    default: CV_Error(cv::Error::StsBadArg, "Unsupported codec type");
+    }
+
+    pDecConfig->tOutputFourCC = FOURCC(NV12);
+    std::cout << "VCU2 Decoder: Using FourCC " << pDecConfig->tOutputFourCC << std::endl;
+    std::cout << "VCU2 Decoder: Using fourcc " << params.fourcc << std::endl;
+
+    CtrlswDecOpen(pDecConfig, decodeCtx_, wCfg);
     initialized_ = decodeCtx_ != nullptr;
     if (!initialized_) {
         CV_LOG_ERROR(NULL, "Failed to initialize VCU2 decoder");
@@ -64,24 +77,27 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
         decodeCtx_->StartRunning(wCfg);
     }
 
+    CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
     if(decodeCtx_->eos ) {
         std::cout << "eos before GetFrameFromQ" << std::endl;
-        return false;
+        constexpr bool no_wait = false;
+        pFrame = decodeCtx_->GetFrameFromQ(no_wait);
+    } else {
+        pFrame = decodeCtx_->GetFrameFromQ();
     }
 
-    CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
-    pFrame = decodeCtx_->GetFrameFromQ();
-    if(pFrame == nullptr ) {
+    if(pFrame) {
+        retrieveVideoFrame(frame, pFrame, frame_info);
+        frame_info.eos = false;
+    } else  {
         std::cout << "GetFrameFromQ is nullptr" << std::endl;
-        return false;
+        if(decodeCtx_->eos ) {
+            std::cout << "eos after GetFrameFromQ" << std::endl;
+            frame_info.eos = true;
+            return false;
+        }
     }
 
-    if(decodeCtx_->eos ) {
-        std::cout << "eos after GetFrameFromQ" << std::endl;
-        return false;
-    }
-
-    retrieveVideoFrame(frame, pFrame, frame_info);
     return true;
 }
 
@@ -108,43 +124,49 @@ void VCUDecoder::cleanup() {
 
 void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info)
 {
-    if (AL_PixMapBuffer_GetFourCC(pFrame) == FOURCC(Y800))
-    {
-        AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
-        int frame_width = tYuvDim.iWidth;
-        int frame_height = tYuvDim.iHeight;
-        Size sz = Size(frame_width, frame_height);
+    TFourCC fourcc = AL_PixMapBuffer_GetFourCC(pFrame);
+    AL_StringFourCC fourcc_str = AL_FourCCToString(fourcc);
+    AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
+    int32_t bitdepth = AL_GetBitDepth(fourcc);
+    int32_t stride = AL_PixMapBuffer_GetPlanePitch(pFrame, AL_PLANE_Y);
+    frame_info.width = tYuvDim.iWidth;
+    frame_info.height = tYuvDim.iHeight;
+    frame_info.fourcc = fourcc;
+    frame_info.bitDepth = bitdepth;
+    frame_info.stride = stride;
 
-        size_t step = frame_width;
-        CV_CheckGE(step, (size_t)frame_width, "");
+    switch(fourcc)
+    {
+    case FOURCC(Y800):
+    {
+        Size sz = Size(frame_info.width, frame_info.height);
+        size_t step = frame_info.width;
+        CV_CheckGE(step, (size_t)frame_info.width, "");
         Mat src(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step);
         src.copyTo(dst);
-        frame_info.width = frame_width;
-        frame_info.height = frame_height;
+        break;
     }
-    else if (AL_PixMapBuffer_GetFourCC(pFrame) == FOURCC(NV12))
+
+    case (FOURCC(NV12)):
     {
-        AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
-        int frame_width = tYuvDim.iWidth;
-        int frame_height = tYuvDim.iHeight;
-        Size sz = Size(frame_width, frame_height);
+        Size sz = Size(frame_info.width, frame_info.height);
 
-        size_t stepY = frame_width;
-        CV_CheckGE(stepY, (size_t)frame_width, "");
-        size_t stepUV = frame_width;
-        CV_CheckGE(stepUV, (size_t)frame_width, "");
+        size_t stepY = frame_info.width;
+        CV_CheckGE(stepY, (size_t)frame_info.width, "");
+        size_t stepUV = frame_info.width;
+        CV_CheckGE(stepUV, (size_t)frame_info.width, "");
 
-        dst.create(Size(frame_width, frame_height * 3 / 2), CV_8UC1);
+        dst.create(Size(frame_info.width, frame_info.height * 3 / 2), CV_8UC1);
         Mat dst_ = dst.getMat();
         Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
-        Mat srcUV(Size(frame_width, frame_height / 2), CV_8UC1,
+        Mat srcUV(Size(frame_info.width, frame_info.height / 2), CV_8UC1,
             AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
-        srcY.copyTo(dst_(Rect(0, 0, frame_width, frame_height)));
-        srcUV.copyTo(dst_(Rect(0, frame_height, frame_width, frame_height / 2)));
-        frame_info.width = frame_width;
-        frame_info.height = frame_height;
+        srcY.copyTo(dst_(Rect(0, 0, frame_info.width, frame_info.height)));
+        srcUV.copyTo(dst_(Rect(0, frame_info.height, frame_info.width,
+                               frame_info.height / 2)));
+        break;
     }
-
+    } // end switch
     AL_Buffer_Destroy(pFrame);
 }
 

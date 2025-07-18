@@ -288,7 +288,7 @@ public:
   bool CanSendBackBufferToDecoder() { return bPushBackToDecoder; };
   void ReceiveBaseDecoderDecodedFrame(AL_TBuffer* pFrame);
   void ManageError(AL_ERR eError);
-  AL_TBuffer* GetFrameFromQ();
+  AL_TBuffer* GetFrameFromQ(bool wait = true);
   void StartRunning(WorkerConfig wCfg);
   bool running;
   bool eos;
@@ -376,7 +376,7 @@ private:
 
 };
 
-void CtrlswDecOpen(const std::string& filename, std::shared_ptr<DecoderContext>& pDecodeCtx,
+void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig, std::shared_ptr<DecoderContext>& pDecodeCtx,
                    WorkerConfig& wCfg);
 
 } } // namespace cv::vcucodec
