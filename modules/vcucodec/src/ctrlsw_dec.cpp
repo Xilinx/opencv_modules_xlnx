@@ -148,7 +148,7 @@ void DisplayManager::Configure(Config const& config)
       hFileOut.reset(new ofstream(config.sMainOut, ios::binary));
 
       if(!hFileOut->is_open())
-        throw runtime_error("Invalid output file");
+        CV_Error(cv::Error::StsBadArg, "Invalid output file");
     }
   }
 
@@ -731,7 +731,6 @@ static void sBaseDecoderFrameDisplay(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, 
 static AL_ERR sBaseResolutionFound(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings,
                                    AL_TCropInfo const* pCropInfo, void* pUserParam)
 {
-  (void)iBufferNumber;
   auto pCtx = (DecoderContext*)pUserParam;
   return pCtx->SetupBaseDecoderPool(iBufferNumber, pStreamSettings, pCropInfo);
 }
@@ -992,14 +991,15 @@ void CheckAndAdjustChannelConfiguration(Config& config)
     if(err)
     {
       stringstream ss;
-      ss << err << " errors(s). " << "Invalid settings, please check your command line.";
-      throw runtime_error(ss.str());
+      ss << err << " errors(s). " << "Invalid settings, please check the parameters.";
+      CV_Error(cv::Error::StsBadArg, ss.str());
     }
 
     auto const incoherencies = AL_DecSettings_CheckCoherency(&config.tDecSettings, out);
 
     if(incoherencies < 0)
-      throw runtime_error("Fatal coherency error in settings, please check your command line.");
+        CV_Error(cv::Error::StsBadArg,
+            "Fatal coherency error in settings, please check the parameters.");
   }
 
   // Adjust settings
@@ -1136,7 +1136,13 @@ void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
   AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
 
   // Create the device
-  std::shared_ptr<I_IpDevice> device = CreateAndConfigureBaseDecoderIpDevice(pDecConfig.get());
+  std::shared_ptr<I_IpDevice> device;
+  try
+  {
+      device = CreateAndConfigureBaseDecoderIpDevice(pDecConfig.get());
+  } catch (const std::exception& e) {
+      CV_Error(cv::Error::StsError, e.what());
+  }
 
   auto& config = *pDecConfig;
   AL_TAllocator* pAllocator = nullptr;

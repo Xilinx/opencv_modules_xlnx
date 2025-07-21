@@ -43,15 +43,17 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     default: CV_Error(cv::Error::StsBadArg, "Unsupported codec type");
     }
 
-    pDecConfig->tOutputFourCC = FOURCC(NV12);
+    pDecConfig->tOutputFourCC = params.fourcc;
+
+    if (params_.maxFrames > 0)
+        pDecConfig->iMaxFrames = params_.maxFrames;
+
     std::cout << "VCU2 Decoder: Using FourCC " << pDecConfig->tOutputFourCC << std::endl;
-    std::cout << "VCU2 Decoder: Using fourcc " << params.fourcc << std::endl;
 
     CtrlswDecOpen(pDecConfig, decodeCtx_, wCfg);
     initialized_ = decodeCtx_ != nullptr;
     if (!initialized_) {
-        CV_LOG_ERROR(NULL, "Failed to initialize VCU2 decoder");
-        throw std::runtime_error("VCU2 decoder initialization failed");
+        CV_Error(cv::Error::StsError, "VCU2 decoder initialization failed");
     }
 }
 
@@ -103,11 +105,18 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
 
 bool VCUDecoder::set(int propId, double value)
 {
+    bool result = false;
+    if (propId < CV__CAP_PROP_LATEST) {
+        result = setCaptureProperty(propId, value);
+    }
     return false;
 }
 
 double VCUDecoder::get(int propId) const {
     double result = 0.0;
+    if (propId < CV__CAP_PROP_LATEST) {
+        result = getCaptureProperty(propId);
+    }
     return result; // Placeholder implementation
 }
 
@@ -144,30 +153,130 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo
         CV_CheckGE(step, (size_t)frame_info.width, "");
         Mat src(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step);
         src.copyTo(dst);
+        AL_Buffer_Destroy(pFrame);
         break;
     }
-
     case (FOURCC(NV12)):
     {
         Size sz = Size(frame_info.width, frame_info.height);
 
-        size_t stepY = frame_info.width;
-        CV_CheckGE(stepY, (size_t)frame_info.width, "");
-        size_t stepUV = frame_info.width;
-        CV_CheckGE(stepUV, (size_t)frame_info.width, "");
+        size_t stepY = frame_info.stride;
+        CV_CheckGE(stepY, (size_t)sz.width, "stride must be bigger than or equal to width");
+        size_t stepUV = frame_info.stride;
+        CV_CheckGE(stepUV, (size_t)sz.width, "stride must be bigger than or equal to width");
 
-        dst.create(Size(frame_info.width, frame_info.height * 3 / 2), CV_8UC1);
+        dst.create(Size(sz.width, sz.height * 3 / 2), CV_8UC1);
         Mat dst_ = dst.getMat();
         Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
-        Mat srcUV(Size(frame_info.width, frame_info.height / 2), CV_8UC1,
+        Mat srcUV(Size(sz.width, sz.height / 2), CV_8UC1,
             AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
-        srcY.copyTo(dst_(Rect(0, 0, frame_info.width, frame_info.height)));
-        srcUV.copyTo(dst_(Rect(0, frame_info.height, frame_info.width,
-                               frame_info.height / 2)));
+        srcY.copyTo(dst_(Rect(0, 0, sz.width, sz.height)));
+        srcUV.copyTo(dst_(Rect(0, sz.height, sz.width, sz.height / 2)));
+        AL_Buffer_Destroy(pFrame);
         break;
     }
     } // end switch
-    AL_Buffer_Destroy(pFrame);
+}
+
+bool VCUDecoder::setCaptureProperty(int propId, double value)
+{
+    bool result;
+    switch (propId)
+    {
+    // unsupported properties:
+    case CAP_PROP_POS_MSEC:
+    case CAP_PROP_POS_FRAMES:
+    case CAP_PROP_POS_AVI_RATIO:
+    case CAP_PROP_FRAME_WIDTH:
+    case CAP_PROP_FRAME_HEIGHT:
+    case CAP_PROP_FOURCC:
+    case CAP_PROP_FRAME_COUNT:
+    case CAP_PROP_FPS:
+    case CAP_PROP_FORMAT:
+    case CAP_PROP_MODE:
+    case CAP_PROP_BRIGHTNESS:
+    case CAP_PROP_CONTRAST:
+    case CAP_PROP_SATURATION:
+    case CAP_PROP_HUE:
+    case CAP_PROP_GAIN:
+    case CAP_PROP_EXPOSURE:
+    case CAP_PROP_CONVERT_RGB:
+    case CAP_PROP_WHITE_BALANCE_BLUE_U:
+    case CAP_PROP_RECTIFICATION:
+    case CAP_PROP_MONOCHROME:
+    case CAP_PROP_SHARPNESS:
+    case CAP_PROP_AUTO_EXPOSURE:
+    case CAP_PROP_GAMMA:
+    case CAP_PROP_TEMPERATURE:
+    case CAP_PROP_TRIGGER:
+    case CAP_PROP_TRIGGER_DELAY:
+    case CAP_PROP_WHITE_BALANCE_RED_V:
+    case CAP_PROP_ZOOM:
+    case CAP_PROP_FOCUS:
+    case CAP_PROP_GUID:
+    case CAP_PROP_ISO_SPEED:
+    case CAP_PROP_BACKLIGHT:
+    case CAP_PROP_PAN:
+    case CAP_PROP_TILT:
+    case CAP_PROP_ROLL:
+    case CAP_PROP_IRIS:
+    case CAP_PROP_SETTINGS:
+    case CAP_PROP_BUFFERSIZE:
+    case CAP_PROP_AUTOFOCUS:
+        result = false;
+        break;
+    }
+    return result; // Placeholder implementation
+}
+double VCUDecoder::getCaptureProperty(int propId) const
+{
+    double result;
+    switch (propId)
+    {
+    // unsupported properties:
+    case CAP_PROP_POS_MSEC:
+    case CAP_PROP_POS_FRAMES:
+    case CAP_PROP_POS_AVI_RATIO:
+    case CAP_PROP_FRAME_WIDTH:
+    case CAP_PROP_FRAME_HEIGHT:
+    case CAP_PROP_FOURCC:
+    case CAP_PROP_FRAME_COUNT:
+    case CAP_PROP_FPS:
+    case CAP_PROP_FORMAT:
+    case CAP_PROP_MODE:
+    case CAP_PROP_BRIGHTNESS:
+    case CAP_PROP_CONTRAST:
+    case CAP_PROP_SATURATION:
+    case CAP_PROP_HUE:
+    case CAP_PROP_GAIN:
+    case CAP_PROP_EXPOSURE:
+    case CAP_PROP_CONVERT_RGB:
+    case CAP_PROP_WHITE_BALANCE_BLUE_U:
+    case CAP_PROP_RECTIFICATION:
+    case CAP_PROP_MONOCHROME:
+    case CAP_PROP_SHARPNESS:
+    case CAP_PROP_AUTO_EXPOSURE:
+    case CAP_PROP_GAMMA:
+    case CAP_PROP_TEMPERATURE:
+    case CAP_PROP_TRIGGER:
+    case CAP_PROP_TRIGGER_DELAY:
+    case CAP_PROP_WHITE_BALANCE_RED_V:
+    case CAP_PROP_ZOOM:
+    case CAP_PROP_FOCUS:
+    case CAP_PROP_GUID:
+    case CAP_PROP_ISO_SPEED:
+    case CAP_PROP_BACKLIGHT:
+    case CAP_PROP_PAN:
+    case CAP_PROP_TILT:
+    case CAP_PROP_ROLL:
+    case CAP_PROP_IRIS:
+    case CAP_PROP_SETTINGS:
+    case CAP_PROP_BUFFERSIZE:
+    case CAP_PROP_AUTOFOCUS:
+       result = 0.0; // Placeholder for properties that are not implemented
+       break;
+    }
+    return result;
 }
 
 

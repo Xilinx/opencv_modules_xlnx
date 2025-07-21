@@ -32,8 +32,10 @@ public:
     virtual double get(int propId) const override;
 
 private:
-    void cleanup();
-    void retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info);
+    void   cleanup();
+    void   retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info);
+    bool   setCaptureProperty(int propId, double value);
+    double getCaptureProperty(int propId) const;
 
     String filename_;
     DecoderInitParams params_;
