@@ -17,6 +17,8 @@
 #ifndef OPENCV_CTRLSW_DEC_HPP
 #define OPENCV_CTRLSW_DEC_HPP
 
+#include <opencv2/core.hpp>
+
 #include <iostream>
 #include <string.h>
 #include <functional>
@@ -183,7 +185,7 @@ struct Config
   bool help = false;
 
   std::string sIn;
-  std::string sMainOut = "/run/default.yuv"; // Output rec file
+  std::string sMainOut = "default.yuv"; // Output rec file
   std::string sCrc;
 
   AL_TDecSettings tDecSettings {};
@@ -219,6 +221,82 @@ struct Config
   EDecErrorLevel eExitCondition = DEC_ERROR;
 };
 
+
+class Frame
+{
+  Frame(AL_TBuffer* pFrame, AL_TInfoDecode const* pInfo)
+    : pFrame_(pFrame), info_(*pInfo) {
+      AL_Buffer_Ref(pFrame_);
+      AL_Buffer_InvalidateMemory(pFrame_);
+  }
+
+  Frame(Frame const& frame) // shallow copy constructor
+  {
+    pFrame_ = AL_Buffer_ShallowCopy(frame.pFrame_, &sFreeWithoutDestroyingMemory);
+    AL_Buffer_Ref(pFrame_);
+    AL_TMetaData* pMetaD;
+    AL_TPixMapMetaData* pPixMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(
+        frame.pFrame_, AL_META_TYPE_PIXMAP);
+    AL_TDisplayInfoMetaData* pDispMeta = (AL_TDisplayInfoMetaData*)AL_Buffer_GetMetaData(
+        frame.pFrame_, AL_META_TYPE_DISPLAY_INFO);
+    pMetaD = (AL_TMetaData*)AL_PixMapMetaData_Clone(pPixMeta);
+    AL_Buffer_AddMetaData(pFrame_, pMetaD);
+    pMetaD = (AL_TMetaData*)AL_DisplayInfoMetaData_Clone(pDispMeta);
+    AL_Buffer_AddMetaData(pFrame_, pMetaD);
+  }
+
+public:
+
+  ~Frame() {
+    if (pFrame_) {
+      AL_Buffer_Unref(pFrame_);
+      pFrame_ = nullptr;
+    }
+  }
+
+  AL_TBuffer* getBuffer() const { return pFrame_; }
+  AL_TInfoDecode const & getInfo() const { return info_; }
+  bool isMainOutput() const {
+    return (info_.eOutputID == AL_OUTPUT_MAIN || info_.eOutputID == AL_OUTPUT_POSTPROC);
+  }
+  unsigned int bitDepthY() const {
+    return info_.uBitDepthY;
+  }
+  unsigned int bitDepthUV() const {
+    return info_.uBitDepthC;
+  }
+
+  AL_TCropInfo const& getCropInfo() const {
+    return info_.tCrop;
+  }
+
+  AL_TDimension const& getDimension() const {
+    return info_.tDim;
+  }
+
+  static Ptr<Frame> create(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo)
+  {
+    return Ptr<Frame>(new Frame(pFrame, pInfo));
+  }
+
+  static Ptr<Frame> createShallowCopy(Ptr<Frame> const& frame)
+  {
+    if (!frame || !frame->getBuffer()) {
+      return Ptr<Frame>();
+    }
+    return Ptr<Frame>(new Frame(*frame));
+  }
+
+private:
+  static void sFreeWithoutDestroyingMemory(AL_TBuffer* buffer)
+  {
+    buffer->iChunkCnt = 0;
+    AL_Buffer_Destroy(buffer);
+  }
+  AL_TBuffer* pFrame_ = nullptr;
+  AL_TInfoDecode info_;
+};
+
 /******************************************************************************/
 /*******class DisplayManager **************************************************/
 /******************************************************************************/
@@ -229,13 +307,13 @@ public:
   void Configure(Config const& config);
   void ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDecOutputSettings);
 
-  bool Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t iBitDepthAlloc,
+  bool Process(Ptr<Frame> frame, int32_t iBitDepthAlloc,
                bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists);
   void Enqueue(AL_TBuffer* pFrame);
   AL_TBuffer* Dequeue(std::chrono::milliseconds timeout);
 
 private:
-  void ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int32_t iBdOut, TFourCC tOutFourCC);
+  void ProcessFrame(Ptr<Frame>, int32_t iBdOut, TFourCC tOutFourCC);
 
   void CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, AL_EMetaType eMetaType);
 
@@ -280,7 +358,7 @@ public:
                               AL_TCropInfo const* pCropInfo);
 
   bool WaitExit(uint32_t uTimeout);
-  void ReceiveFrameToDisplayFrom(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo);
+  void ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame);
   int32_t GetNumConcealedFrame() const { return iNumFrameConceal; };
   int32_t GetNumDecodedFrames() const { return iNumDecodedFrames; };
   std::unique_lock<mutex> LockDisplay() { return std::unique_lock<mutex>(hDisplayMutex); };
@@ -310,7 +388,7 @@ private:
   std::thread ctrlswThread;
 
   AL_HANDLE GetDecoderHandle() const;
-  AL_ERR TreatError(AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo);
+  AL_ERR TreatError(Ptr<Frame> pFrame);
   AL_TDimension ComputeBaseDecoderFinalResolution(AL_TStreamSettings const* pStreamSettings);
   int32_t ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* pStreamSettings,
                                             AL_TDecOutputSettings const* pUserOutputSettings);

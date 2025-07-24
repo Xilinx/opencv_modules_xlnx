@@ -215,11 +215,12 @@ void DisplayManager::CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, 
     throw runtime_error("Cloned pMetaD did not get added!\n");
 }
 
-bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t iBitDepthAlloc,
-                             bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists)
+bool DisplayManager::Process(Ptr<Frame> frame, int32_t iBitDepthAlloc, bool& bIsMainDisplay,
+                             bool& bNumFrameReached, bool bDecoderExists)
 {
+  AL_TBuffer* pFrame = frame->getBuffer();
   bNumFrameReached = false;
-  bIsMainDisplay = (pInfo->eOutputID == AL_OUTPUT_MAIN || pInfo->eOutputID == AL_OUTPUT_POSTPROC);
+  bIsMainDisplay = frame->isMainOutput();
 
   if(bDecoderExists)
   {
@@ -238,7 +239,7 @@ bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t 
       CopyMetaData(pDisplayFrame, pFrame, AL_META_TYPE_PIXMAP);
       CopyMetaData(pDisplayFrame, pFrame, AL_META_TYPE_DISPLAY_INFO);
 
-      int32_t iCurrentBitDepth = max(pInfo->uBitDepthY, pInfo->uBitDepthC);
+      int32_t iCurrentBitDepth = max(frame->bitDepthY(), frame->bitDepthUV());
 
       if(iBitDepth == OUTPUT_BD_FIRST)
         iBitDepth = iCurrentBitDepth;
@@ -248,7 +249,7 @@ bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t 
       int32_t iEffectiveBitDepth = iBitDepth == OUTPUT_BD_STREAM ? iCurrentBitDepth : iBitDepth;
 
       if(bHasOutput)
-        ProcessFrame(*pDisplayFrame, *pInfo, iEffectiveBitDepth, tOutputFourCC);
+        ProcessFrame(frame, iEffectiveBitDepth, tOutputFourCC);
 
       if(bIsMainDisplay)
       {
@@ -337,15 +338,16 @@ AL_TBuffer* DisplayManager::Dequeue(std::chrono::milliseconds timeout)
   return pFrame;
 }
 
-void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int32_t iBdOut,
-                                  TFourCC tOutFourCC)
+void DisplayManager::ProcessFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOutFourCC)
 {
-  AL_PixMapBuffer_SetDimension(&tRecBuf, info.tDim);
+  AL_TBuffer& tRecBuf = *frame->getBuffer();
+  AL_TInfoDecode const& info = frame->getInfo();
+  AL_PixMapBuffer_SetDimension(&tRecBuf, frame->getDimension());
 
   iBdOut = convertBitDepthToEven(iBdOut);
 
   AL_TCropInfo tCrop {};
-  tCrop = info.tCrop;
+  tCrop = frame->getCropInfo();
   AL_TPosition tPos = { 0, 0 };
 
   TFourCC tRecBufFourCC = AL_PixMapBuffer_GetFourCC(&tRecBuf);
@@ -724,8 +726,18 @@ static void sDecoderError(AL_ERR eError, void* pUserParam)
 
 static void sBaseDecoderFrameDisplay(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, void* pUserParam)
 {
-  auto pCtx = reinterpret_cast<DecoderContext*>(pUserParam);
-  pCtx->ReceiveFrameToDisplayFrom(pFrame, pInfo);
+  bool eos = !pFrame && !pInfo;
+  bool release_only = pFrame && !pInfo;
+  if(!release_only)
+  {
+    Ptr<Frame> frame;
+    if(!eos)
+    {
+      frame = Frame::create(pFrame, pInfo);
+    }
+    auto pCtx = reinterpret_cast<DecoderContext*>(pUserParam);
+    pCtx->ReceiveFrameToDisplayFrom(frame);
+  }
 }
 
 static AL_ERR sBaseResolutionFound(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings,
@@ -794,24 +806,15 @@ AL_TBuffer* DecoderContext::GetFrameFromQ(bool wait /*=true*/)
 }
 
 
-void DecoderContext::ReceiveFrameToDisplayFrom(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo)
+void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
 {
   unique_lock<mutex> lock(hDisplayMutex);
 
-  bool bLastFrame = false;
+  bool bLastFrame = pFrame == nullptr;
 
-  if(IsEndOfStream(pFrame, pInfo))
+  if(!bLastFrame)
   {
-    LogVerbose(CC_GREY, "Complete\n\n");
-    bLastFrame = true;
-
-  }
-  else if(!IsReleaseFrame(pFrame, pInfo))
-  {
-    AL_Buffer_Ref(pFrame);
-    AL_Buffer_InvalidateMemory(pFrame);
-
-    auto err = TreatError(pFrame, pInfo);
+    auto err = TreatError(pFrame);
 
     if(AL_IS_ERROR_CODE(err))
       bLastFrame = true;
@@ -824,7 +827,7 @@ void DecoderContext::ReceiveFrameToDisplayFrom(AL_TBuffer* pFrame, AL_TInfoDecod
 
         iBitDepthAlloc = AL_Decoder_GetMaxBD(hDec);
         bool bDecoderExists = GetBaseDecoderHandle() != NULL;
-        tDisplayManager.Process(pFrame, pInfo, iBitDepthAlloc, bIsFrameMainDisplay, bLastFrame,
+        tDisplayManager.Process(pFrame, iBitDepthAlloc, bIsFrameMainDisplay, bLastFrame,
                                 bDecoderExists);
 
         if(bIsFrameMainDisplay && CanSendBackBufferToDecoder() && !bLastFrame)
@@ -833,13 +836,11 @@ void DecoderContext::ReceiveFrameToDisplayFrom(AL_TBuffer* pFrame, AL_TInfoDecod
                || err == AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE)
             iNumFrameConceal++;
 
-          if(!AL_Decoder_PutDisplayPicture(GetDecoderHandle(), pFrame))
+          if(!AL_Decoder_PutDisplayPicture(GetDecoderHandle(), pFrame->getBuffer()))
             throw runtime_error("bAdded must be true");
         }
       }
     }
-
-    AL_Buffer_Unref(pFrame);
   }
 
   bool bJobDone = bLastFrame;
@@ -848,11 +849,11 @@ void DecoderContext::ReceiveFrameToDisplayFrom(AL_TBuffer* pFrame, AL_TInfoDecod
     Rtos_SetEvent(hExitMain);
 }
 
-AL_ERR DecoderContext::TreatError(AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo)
+AL_ERR DecoderContext::TreatError(Ptr<Frame> frame)
 {
+  AL_TBuffer* pFrame = frame->getBuffer();
   bool bExitError = false;
   AL_ERR err = AL_SUCCESS;
-  (void)pInfo;
 
   auto hDec = GetDecoderHandle();
 
