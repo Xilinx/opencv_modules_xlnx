@@ -229,15 +229,7 @@ bool DisplayManager::Process(Ptr<Frame> frame, int32_t iBitDepthAlloc, bool& bIs
       if(!AL_Buffer_GetData(pFrame))
         throw runtime_error("Data buffer is null");
 
-      AL_TBuffer* pDisplayFrame = AL_Buffer_ShallowCopy(pFrame, &sFreeWithoutDestroyingMemory);
-
-      auto scopepDisplayFrame = scopeExit([&]() {
-        AL_Buffer_Unref(pDisplayFrame);
-      });
-
-      AL_Buffer_Ref(pDisplayFrame);
-      CopyMetaData(pDisplayFrame, pFrame, AL_META_TYPE_PIXMAP);
-      CopyMetaData(pDisplayFrame, pFrame, AL_META_TYPE_DISPLAY_INFO);
+      Ptr<Frame> pDFrame = Frame::createShallowCopy(frame);
 
       int32_t iCurrentBitDepth = max(frame->bitDepthY(), frame->bitDepthUV());
 
@@ -249,7 +241,7 @@ bool DisplayManager::Process(Ptr<Frame> frame, int32_t iBitDepthAlloc, bool& bIs
       int32_t iEffectiveBitDepth = iBitDepth == OUTPUT_BD_STREAM ? iCurrentBitDepth : iBitDepth;
 
       if(bHasOutput)
-        ProcessFrame(frame, iEffectiveBitDepth, tOutputFourCC);
+        ProcessFrame(pDFrame, iEffectiveBitDepth, tOutputFourCC);
 
       if(bIsMainDisplay)
       {

@@ -225,7 +225,8 @@ struct Config
 class Frame
 {
   Frame(AL_TBuffer* pFrame, AL_TInfoDecode const* pInfo)
-    : pFrame_(pFrame), info_(*pInfo) {
+    : pFrame_(pFrame), info_(*pInfo)
+  {
       AL_Buffer_Ref(pFrame_);
       AL_Buffer_InvalidateMemory(pFrame_);
   }
@@ -237,18 +238,29 @@ class Frame
     AL_TMetaData* pMetaD;
     AL_TPixMapMetaData* pPixMeta = (AL_TPixMapMetaData*)AL_Buffer_GetMetaData(
         frame.pFrame_, AL_META_TYPE_PIXMAP);
+    if (!pPixMeta)
+      throw runtime_error("PixMapMetaData is NULL");
     AL_TDisplayInfoMetaData* pDispMeta = (AL_TDisplayInfoMetaData*)AL_Buffer_GetMetaData(
         frame.pFrame_, AL_META_TYPE_DISPLAY_INFO);
+    if (!pDispMeta)
+      throw runtime_error("PixMapMetaData is NULL");
     pMetaD = (AL_TMetaData*)AL_PixMapMetaData_Clone(pPixMeta);
+    if (!pMetaD)
+      throw runtime_error("Clone of PixMapMetaData was not created!");
     AL_Buffer_AddMetaData(pFrame_, pMetaD);
     pMetaD = (AL_TMetaData*)AL_DisplayInfoMetaData_Clone(pDispMeta);
-    AL_Buffer_AddMetaData(pFrame_, pMetaD);
+    if (!pMetaD)
+      throw runtime_error("Clone of PixMapMetaData was not created!");
+    if (!AL_Buffer_AddMetaData(pFrame_, pMetaD))
+      throw runtime_error("Cloned pMetaD did not get added!\n");
+
+    info_ = frame.info_;
   }
 
 public:
 
   ~Frame() {
-    if (pFrame_) {
+   if (pFrame_) {
       AL_Buffer_Unref(pFrame_);
       pFrame_ = nullptr;
     }
@@ -274,7 +286,7 @@ public:
     return info_.tDim;
   }
 
-  static Ptr<Frame> create(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo)
+  static Ptr<Frame> create(AL_TBuffer* pFrame, AL_TInfoDecode const* pInfo)
   {
     return Ptr<Frame>(new Frame(pFrame, pInfo));
   }
