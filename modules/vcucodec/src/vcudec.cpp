@@ -65,7 +65,7 @@ VCUDecoder::~VCUDecoder() {
 // Implement the pure virtual function from base class
 bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override */
 {
-    AL_TBuffer* pFrame = nullptr;
+    Ptr<Frame> pFrame = nullptr;
 
     if (!vcu2_available_ || !initialized_) {
         CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
@@ -89,7 +89,7 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     }
 
     if(pFrame) {
-        retrieveVideoFrame(frame, pFrame, frame_info);
+        retrieveVideoFrame(frame, pFrame->getBuffer(), frame_info);
         frame_info.eos = false;
     } else  {
         std::cout << "GetFrameFromQ is nullptr" << std::endl;
@@ -153,7 +153,6 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo
         CV_CheckGE(step, (size_t)frame_info.width, "");
         Mat src(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step);
         src.copyTo(dst);
-        AL_Buffer_Destroy(pFrame);
         break;
     }
     case (FOURCC(NV12)):
@@ -172,7 +171,6 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo
             AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
         srcY.copyTo(dst_(Rect(0, 0, sz.width, sz.height)));
         srcUV.copyTo(dst_(Rect(0, sz.height, sz.width, sz.height / 2)));
-        AL_Buffer_Destroy(pFrame);
         break;
     }
     } // end switch

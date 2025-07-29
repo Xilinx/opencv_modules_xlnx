@@ -266,10 +266,10 @@ int32_t convertBitDepthToEven(int32_t iBd)
   return ((iBd % 2) != 0) ? iBd + 1 : iBd;
 }
 
-static void ConvertFrameBuffer(AL_TBuffer* pInput, AL_TBuffer*& pOutput, int32_t iBdOut,
-                               AL_TPosition const& tPos, TFourCC tOutFourCC)
+Ptr<Frame> DisplayManager::ConvertFrameBuffer(Ptr<Frame> frame, int32_t iBdOut,
+    AL_TPosition const& tPos, TFourCC tOutFourCC)
 {
-  (void)tPos;
+  AL_TBuffer* pInput = frame->getBuffer();
   TFourCC tRecFourCC = AL_PixMapBuffer_GetFourCC(pInput);
   AL_TDimension tRecDim = AL_PixMapBuffer_GetDimension(pInput);
   AL_EChromaMode eRecChromaMode = AL_GetChromaMode(tRecFourCC);
@@ -278,56 +278,23 @@ static void ConvertFrameBuffer(AL_TBuffer* pInput, AL_TBuffer*& pOutput, int32_t
   AL_TPicFormat tConvPicFormat;
   assert(tConvFourCC);
 
-  if(pOutput != nullptr)
-  {
-    AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pOutput);
-
-    AL_GetPicFormat(tConvFourCC, &tConvPicFormat);
-
-    if(tRecDim.iWidth != tYuvDim.iWidth || tRecDim.iHeight != tYuvDim.iHeight ||
-       eRecChromaMode != tConvPicFormat.eChromaMode || iBdOut != tConvPicFormat.uBitDepth)
-    {
-      AL_Buffer_Destroy(pOutput);
-      pOutput = nullptr;
-    }
-  }
-
   AL_PixMapBuffer_SetDimension(pInput, { tPos.iX + tRecDim.iWidth, tPos.iY + tRecDim.iHeight });
 
-  if(pOutput == nullptr)
-  {
-    AL_TDimension tDim = AL_PixMapBuffer_GetDimension(pInput);
-
-    pOutput = AllocateDefaultYuvIOBuffer(tDim, tConvFourCC);
-
-    if(pOutput == nullptr)
-      throw runtime_error("Couldn't allocate YuvBuffer");
-  }
+  AL_TDimension tDim = AL_PixMapBuffer_GetDimension(pInput);
+  Ptr<Frame> pFrame = Frame::createYuvIO({tDim.iWidth, tDim.iHeight}, tConvFourCC);
+  AL_TBuffer* pOutput = pFrame->getBuffer();
 
   if(ConvertPixMapBuffer(pInput, pOutput))
     throw runtime_error("Couldn't convert buffer");
 
   AL_PixMapBuffer_SetDimension(pInput, tRecDim);
-  AL_PixMapBuffer_SetDimension(pOutput, tRecDim);
-}
-
-void DisplayManager::Enqueue(AL_TBuffer* pFrame)
-{
-  std::lock_guard<std::mutex> lock(frame_mtx);
-  frame_queue.push(pFrame);
-  frame_cv.notify_one();
-}
-
-AL_TBuffer* DisplayManager::Dequeue(std::chrono::milliseconds timeout)
-{
-  AL_TBuffer* pFrame = nullptr;
-  std::unique_lock<std::mutex> lock(frame_mtx);
-  frame_cv.wait_for(lock, timeout, [this]{ return !frame_queue.empty();});
-  if (!frame_queue.empty()) {
-      pFrame = frame_queue.front();
-      frame_queue.pop();
-  }
+  CopyMetaData(pOutput, pInput, AL_META_TYPE_DISPLAY_INFO);
   return pFrame;
+}
+
+Ptr<Frame> DisplayManager::Dequeue(std::chrono::milliseconds timeout)
+{
+  return frame_queue_.dequeue(timeout);
 }
 
 void DisplayManager::ProcessFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOutFourCC)
@@ -342,7 +309,7 @@ void DisplayManager::ProcessFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOut
   tCrop = frame->getCropInfo();
   AL_TPosition tPos = { 0, 0 };
 
-  TFourCC tRecBufFourCC = AL_PixMapBuffer_GetFourCC(&tRecBuf);
+  TFourCC tRecBufFourCC = frame->getFourCC();
   AL_TPicFormat tRecPicFormat;
   AL_GetPicFormat(tRecBufFourCC, &tRecPicFormat);
 
@@ -400,18 +367,9 @@ void DisplayManager::ProcessFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOut
       LogInfo(CC_DARK_BLUE, "%s\n", ss.str().c_str());
       //FFLUSH(stdout);
     }
+    Ptr<Frame> pYuvFrame = ConvertFrameBuffer(frame, iBdOut, tPos, tOutFourCC);
 
-    AL_TBuffer* YuvBuffer = NULL;
-    ConvertFrameBuffer(&tRecBuf, YuvBuffer, iBdOut, tPos, tOutFourCC);
-
-    CopyMetaData(YuvBuffer, &tRecBuf, AL_META_TYPE_DISPLAY_INFO);
-#if 0
-    multisinkOut->ProcessFrame(YuvBuffer);
-
-    AL_Buffer_Destroy(YuvBuffer);
-#else
-    Enqueue(YuvBuffer);
-#endif
+    frame_queue_.enqueue(pYuvFrame);
   }
   else
   {
@@ -726,6 +684,7 @@ static void sBaseDecoderFrameDisplay(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, 
     if(!eos)
     {
       frame = Frame::create(pFrame, pInfo);
+      frame->invalidate();
     }
     auto pCtx = reinterpret_cast<DecoderContext*>(pUserParam);
     pCtx->ReceiveFrameToDisplayFrom(frame);
@@ -790,10 +749,10 @@ static bool IsEndOfStream(AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo)
   return !pFrame && !pInfo;
 }
 
-AL_TBuffer* DecoderContext::GetFrameFromQ(bool wait /*=true*/)
+Ptr<Frame> DecoderContext::GetFrameFromQ(bool wait /*=true*/)
 {
   auto timeout = (wait ? std::chrono::milliseconds(100):std::chrono::milliseconds::zero());
-  AL_TBuffer* pFrame = tDisplayManager.Dequeue(timeout);
+  Ptr<Frame> pFrame = tDisplayManager.Dequeue(timeout);
   return pFrame;
 }
 

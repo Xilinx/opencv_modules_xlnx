@@ -228,7 +228,6 @@ class Frame
     : pFrame_(pFrame), info_(*pInfo)
   {
       AL_Buffer_Ref(pFrame_);
-      AL_Buffer_InvalidateMemory(pFrame_);
   }
 
   Frame(Frame const& frame) // shallow copy constructor
@@ -257,6 +256,33 @@ class Frame
     info_ = frame.info_;
   }
 
+  Frame(Size const& size, int fourcc)
+  {
+    AL_TPicFormat tPicFormat;
+    AL_GetPicFormat(fourcc, &tPicFormat);
+    AL_TDimension tDim = { size.width, size.height };
+    AL_TDimension tRoundedDim = {(size.width + 7) & ~7, (size.height + 7) & ~7};
+    pFrame_ = AL_PixMapBuffer_Create_And_AddPlanes(AL_GetDefaultAllocator(),
+        sDestroyFrame, tDim, tRoundedDim, tPicFormat, 1, "IO frame buffer");
+    if (!pFrame_) {
+      throw std::runtime_error("Failed to create buffer");
+    }
+    AL_Buffer_Ref(pFrame_);
+    AL_PixMapBuffer_SetDimension(pFrame_, tDim);
+
+    info_.tDim = tDim;
+    info_.tCrop = { 0, 0, tDim.iWidth, tDim.iHeight };
+    info_.eChromaMode = tPicFormat.eChromaMode;
+    info_.uBitDepthY = tPicFormat.uBitDepth;
+    info_.uBitDepthC = tPicFormat.uBitDepth;
+    info_.tCrop = { 0, 0, tDim.iWidth, tDim.iHeight };
+    info_.eFbStorageMode = tPicFormat.eStorageMode;
+    info_.ePicStruct = AL_PS_FRM;
+    info_.uCRC = 0;
+    info_.eOutputID = AL_OUTPUT_MAIN;
+    info_.tPos = { 0, 0 };
+  }
+
 public:
 
   ~Frame() {
@@ -265,7 +291,11 @@ public:
       pFrame_ = nullptr;
     }
   }
-
+  void invalidate() {
+    if (pFrame_) {
+      AL_Buffer_InvalidateMemory(pFrame_);
+    }
+  }
   AL_TBuffer* getBuffer() const { return pFrame_; }
   AL_TInfoDecode const & getInfo() const { return info_; }
   bool isMainOutput() const {
@@ -286,9 +316,18 @@ public:
     return info_.tDim;
   }
 
+  int_fast64_t getFourCC() const {
+    return AL_PixMapBuffer_GetFourCC(pFrame_);
+  }
+
   static Ptr<Frame> create(AL_TBuffer* pFrame, AL_TInfoDecode const* pInfo)
   {
     return Ptr<Frame>(new Frame(pFrame, pInfo));
+  }
+
+  static Ptr<Frame> createYuvIO(Size const& size, int fourcc)
+  {
+      return Ptr<Frame>(new Frame(size, fourcc));
   }
 
   static Ptr<Frame> createShallowCopy(Ptr<Frame> const& frame)
@@ -305,8 +344,41 @@ private:
     buffer->iChunkCnt = 0;
     AL_Buffer_Destroy(buffer);
   }
+  static void sDestroyFrame(AL_TBuffer* buffer)
+  {
+     AL_Buffer_Destroy(buffer);
+  }
+
   AL_TBuffer* pFrame_ = nullptr;
   AL_TInfoDecode info_;
+};
+
+class FrameQueue
+{
+public:
+  void enqueue(Ptr<Frame> frame)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    queue_.push(frame);
+    cv_.notify_one();
+  }
+
+  Ptr<Frame> dequeue(std::chrono::milliseconds timeout)
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (cv_.wait_for(lock, timeout, [this] { return !queue_.empty(); }))
+    {
+      Ptr<Frame> frame = queue_.front();
+      queue_.pop();
+      return frame;
+    }
+    return nullptr;
+  }
+
+private:
+  std::queue<Ptr<Frame>> queue_;
+  std::mutex mutex_;
+  std::condition_variable cv_;
 };
 
 /******************************************************************************/
@@ -321,14 +393,14 @@ public:
 
   bool Process(Ptr<Frame> frame, int32_t iBitDepthAlloc,
                bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists);
-  void Enqueue(AL_TBuffer* pFrame);
-  AL_TBuffer* Dequeue(std::chrono::milliseconds timeout);
-
+  Ptr<Frame> Dequeue(std::chrono::milliseconds timeout = std::chrono::milliseconds(100));
 private:
   void ProcessFrame(Ptr<Frame>, int32_t iBdOut, TFourCC tOutFourCC);
 
   void CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, AL_EMetaType eMetaType);
 
+  Ptr<Frame> ConvertFrameBuffer(Ptr<Frame> frame, int32_t iBdOut, AL_TPosition const& tPos,
+                                     TFourCC tOutFourCC);
   //unique_ptr<MultiSink> multisinkRaw = unique_ptr<MultiSink>(new MultiSink);
   unique_ptr<MultiSink> multisinkOut = unique_ptr<MultiSink>(new MultiSink);
 
@@ -344,9 +416,7 @@ private:
   bool bEnableYuvOutput = false;
   std::shared_ptr<ofstream> hFileOut;
   std::shared_ptr<ofstream> hMapOut;
-  std::queue<AL_TBuffer*> frame_queue;
-  std::mutex frame_mtx;
-  std::condition_variable frame_cv;
+  FrameQueue frame_queue_;
 };
 
 /******************************************************************************/
@@ -378,7 +448,7 @@ public:
   bool CanSendBackBufferToDecoder() { return bPushBackToDecoder; };
   void ReceiveBaseDecoderDecodedFrame(AL_TBuffer* pFrame);
   void ManageError(AL_ERR eError);
-  AL_TBuffer* GetFrameFromQ(bool wait = true);
+  Ptr<Frame> GetFrameFromQ(bool wait = true);
   void StartRunning(WorkerConfig wCfg);
   bool running;
   bool eos;
