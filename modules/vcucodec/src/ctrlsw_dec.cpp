@@ -382,8 +382,7 @@ void DisplayManager::ProcessFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOut
   }
   else
   {
-    //change to Enqueue later
-    multisinkOut->ProcessFrame(&tRecBuf);
+    frame_queue_.enqueue(frame);
   }
 
 }
@@ -807,9 +806,6 @@ void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
           if(err == AL_WARN_CONCEAL_DETECT || err == AL_WARN_HW_CONCEAL_DETECT
                || err == AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE)
             iNumFrameConceal++;
-
-          if(!AL_Decoder_PutDisplayPicture(GetDecoderHandle(), pFrame->getBuffer()))
-            throw runtime_error("bAdded must be true");
         }
       }
     }
@@ -822,9 +818,15 @@ void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
   }
 }
 
-void DecoderContext::FrameDone(Frame const& f)
+void DecoderContext::FrameDone(Frame const& frame)
 {
-  (void)f;
+  if (frame.isMainOutput() && CanSendBackBufferToDecoder() && !await_eos)
+  {
+    if (!AL_Decoder_PutDisplayPicture(GetDecoderHandle(), frame.getBuffer())) {
+      throw runtime_error("Failed to put display picture back to decoder");
+    }
+  }
+
   if (!eos && await_eos && tDisplayManager.Idle()) {
     eos = true;
     Rtos_SetEvent(hExitMain);
@@ -1114,6 +1116,9 @@ void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
   std::set<std::string> const sDecDefaultDevicePath(DECODER_DEVICES);
   SetDefaultDecOutputSettings(&pDecConfig->tUserOutputSettings);
   pDecConfig->sDecDevicePath = sDecDefaultDevicePath;
+
+  pDecConfig->tUserOutputSettings.tPicFormat.eStorageMode = AL_FB_RASTER;
+  pDecConfig->tUserOutputSettings.bCustomFormat = true;
 
   // Setup of the decoder(s) architecture
   AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
