@@ -230,6 +230,7 @@ bool DisplayManager::Process(Ptr<Frame> frame, int32_t iBitDepthAlloc, bool& bIs
         throw runtime_error("Data buffer is null");
 
       Ptr<Frame> pDFrame = Frame::createShallowCopy(frame);
+      pDFrame->link(frame); // Link the life cycle of the original frame to the shallow copy
 
       int32_t iCurrentBitDepth = max(frame->bitDepthY(), frame->bitDepthUV());
 
@@ -295,6 +296,14 @@ Ptr<Frame> DisplayManager::ConvertFrameBuffer(Ptr<Frame> frame, int32_t iBdOut,
 Ptr<Frame> DisplayManager::Dequeue(std::chrono::milliseconds timeout)
 {
   return frame_queue_.dequeue(timeout);
+}
+
+bool DisplayManager::Idle() {
+  return frame_queue_.empty();
+}
+
+void DisplayManager::Flush() {
+  frame_queue_.clear();
 }
 
 void DisplayManager::ProcessFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOutFourCC)
@@ -390,13 +399,15 @@ DecoderContext::DecoderContext(Config& config, AL_TAllocator* pAlloc)
   tDisplayManager.Configure(config);
   running = false;
   eos = false;
-
+  await_eos = false;
   eExitCondition = config.eExitCondition;
   hExitMain = Rtos_CreateEvent(false);
 }
 
 DecoderContext::~DecoderContext(void)
 {
+  await_eos = true;
+  eos = true;
   if(ctrlswThread.joinable())
     ctrlswThread.join();
   Rtos_DeleteEvent(hExitMain);
@@ -681,12 +692,15 @@ static void sBaseDecoderFrameDisplay(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, 
   if(!release_only)
   {
     Ptr<Frame> frame;
+    auto pCtx = reinterpret_cast<DecoderContext*>(pUserParam);
     if(!eos)
     {
-      frame = Frame::create(pFrame, pInfo);
+      frame = Frame::create(pFrame, pInfo,
+        [pCtx](Frame const& f) { // Custom callback logic for when the frame is processed
+            pCtx->FrameDone(f);
+        });
       frame->invalidate();
     }
-    auto pCtx = reinterpret_cast<DecoderContext*>(pUserParam);
     pCtx->ReceiveFrameToDisplayFrom(frame);
   }
 }
@@ -739,6 +753,13 @@ void DecoderContext::StartRunning(WorkerConfig wCfg)
   running = true;
 }
 
+void DecoderContext::Finish()
+{
+  await_eos = true;
+  tDisplayManager.Flush();
+  Rtos_SetEvent(hExitMain);
+}
+
 static bool IsReleaseFrame(AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo)
 {
   return pFrame && !pInfo;
@@ -761,7 +782,7 @@ void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
 {
   unique_lock<mutex> lock(hDisplayMutex);
 
-  bool bLastFrame = pFrame == nullptr;
+  bool bLastFrame = pFrame == nullptr || await_eos;
 
   if(!bLastFrame)
   {
@@ -793,11 +814,21 @@ void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
       }
     }
   }
+  if (bLastFrame) {
+    await_eos = true;
+    if(tDisplayManager.Idle()) {
+      eos = true;
+    }
+  }
+}
 
-  bool bJobDone = bLastFrame;
-
-  if(bJobDone)
+void DecoderContext::FrameDone(Frame const& f)
+{
+  (void)f;
+  if (!eos && await_eos && tDisplayManager.Idle()) {
+    eos = true;
     Rtos_SetEvent(hExitMain);
+  }
 }
 
 AL_ERR DecoderContext::TreatError(Ptr<Frame> frame)

@@ -224,8 +224,10 @@ struct Config
 
 class Frame
 {
-  Frame(AL_TBuffer* pFrame, AL_TInfoDecode const* pInfo)
-    : pFrame_(pFrame), info_(*pInfo)
+  using FrameCB = std::function<void(Frame const&)>;
+
+  Frame(AL_TBuffer* pFrame, AL_TInfoDecode const* pInfo, FrameCB cb = FrameCB())
+    : pFrame_(pFrame), info_(*pInfo), callback_(cb)
   {
       AL_Buffer_Ref(pFrame_);
   }
@@ -287,6 +289,9 @@ public:
 
   ~Frame() {
    if (pFrame_) {
+      if (callback_) {
+        callback_(*this);
+      }
       AL_Buffer_Unref(pFrame_);
       pFrame_ = nullptr;
     }
@@ -320,9 +325,9 @@ public:
     return AL_PixMapBuffer_GetFourCC(pFrame_);
   }
 
-  static Ptr<Frame> create(AL_TBuffer* pFrame, AL_TInfoDecode const* pInfo)
+  static Ptr<Frame> create(AL_TBuffer* pFrame, AL_TInfoDecode const* pInfo, FrameCB cb = FrameCB())
   {
-    return Ptr<Frame>(new Frame(pFrame, pInfo));
+    return Ptr<Frame>(new Frame(pFrame, pInfo, cb));
   }
 
   static Ptr<Frame> createYuvIO(Size const& size, int fourcc)
@@ -338,6 +343,12 @@ public:
     return Ptr<Frame>(new Frame(*frame));
   }
 
+  /// Link the life cycle of this frame to another frame.
+  void link(Ptr<Frame> frame)
+  {
+    linkedFrame_ = frame;
+  }
+
 private:
   static void sFreeWithoutDestroyingMemory(AL_TBuffer* buffer)
   {
@@ -351,11 +362,19 @@ private:
 
   AL_TBuffer* pFrame_ = nullptr;
   AL_TInfoDecode info_;
+  Ptr<Frame> linkedFrame_;
+  FrameCB callback_;
 };
 
 class FrameQueue
 {
 public:
+  void eos() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    eos_ = true;
+    cv_.notify_one();
+  }
+
   void enqueue(Ptr<Frame> frame)
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -375,10 +394,26 @@ public:
     return nullptr;
   }
 
+  bool empty()
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.empty();
+  }
+
+  void clear()
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    while (!queue_.empty())
+    {
+      queue_.pop();
+    }
+  }
+
 private:
   std::queue<Ptr<Frame>> queue_;
   std::mutex mutex_;
   std::condition_variable cv_;
+  bool eos_ = false;
 };
 
 /******************************************************************************/
@@ -394,6 +429,9 @@ public:
   bool Process(Ptr<Frame> frame, int32_t iBitDepthAlloc,
                bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists);
   Ptr<Frame> Dequeue(std::chrono::milliseconds timeout = std::chrono::milliseconds(100));
+  bool Idle();
+  void Flush();
+
 private:
   void ProcessFrame(Ptr<Frame>, int32_t iBdOut, TFourCC tOutFourCC);
 
@@ -447,11 +485,15 @@ public:
   void StopSendingBuffer() { LockDisplay(); bPushBackToDecoder = false; };
   bool CanSendBackBufferToDecoder() { return bPushBackToDecoder; };
   void ReceiveBaseDecoderDecodedFrame(AL_TBuffer* pFrame);
+  void FrameDone(Frame const& f);
   void ManageError(AL_ERR eError);
   Ptr<Frame> GetFrameFromQ(bool wait = true);
   void StartRunning(WorkerConfig wCfg);
+  void Finish();
+
   bool running;
   bool eos;
+  bool await_eos;
 
 private:
   AL_TAllocator* pAllocator;

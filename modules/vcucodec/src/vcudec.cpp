@@ -48,8 +48,6 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     if (params_.maxFrames > 0)
         pDecConfig->iMaxFrames = params_.maxFrames;
 
-    std::cout << "VCU2 Decoder: Using FourCC " << pDecConfig->tOutputFourCC << std::endl;
-
     CtrlswDecOpen(pDecConfig, decodeCtx_, wCfg);
     initialized_ = decodeCtx_ != nullptr;
     if (!initialized_) {
@@ -81,23 +79,21 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
 
     CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
     if(decodeCtx_->eos ) {
-        std::cout << "eos before GetFrameFromQ" << std::endl;
         constexpr bool no_wait = false;
         pFrame = decodeCtx_->GetFrameFromQ(no_wait);
     } else {
         pFrame = decodeCtx_->GetFrameFromQ();
     }
 
+    frame_info.eos = false;
     if(pFrame) {
         retrieveVideoFrame(frame, pFrame->getBuffer(), frame_info);
-        frame_info.eos = false;
     } else  {
-        std::cout << "GetFrameFromQ is nullptr" << std::endl;
         if(decodeCtx_->eos ) {
-            std::cout << "eos after GetFrameFromQ" << std::endl;
             frame_info.eos = true;
-            return false;
+            decodeCtx_->Finish();
         }
+        return false;
     }
 
     return true;
@@ -123,8 +119,7 @@ double VCUDecoder::get(int propId) const {
 
 void VCUDecoder::cleanup() {
     if (vcu2_available_ && initialized_) {
-        // TODO: Cleanup VCU2 resources
-        CV_LOG_DEBUG(NULL, "VCU2 decoder cleanup");
+        decodeCtx_->Finish();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         AL_Lib_Decoder_DeInit();
     }
