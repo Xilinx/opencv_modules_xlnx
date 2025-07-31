@@ -334,58 +334,6 @@ private:
   mutex hDisplayMutex;
 };
 
-/****************************************************************************/
-/*******Class AsyncFileInput*************************************************/
-/****************************************************************************/
-struct InputLoader
-{
-  virtual ~InputLoader() {}
-  virtual uint32_t ReadStream(std::istream& ifFileStream, AL_TBuffer* pBufStream,
-                              uint8_t& uBufFlags) = 0;
-};
-
-struct BasicLoader : public InputLoader
-{
-  uint32_t ReadStream(std::istream& ifFileStream, AL_TBuffer* pBufStream, uint8_t& uBufFlags) override
-  {
-    uint8_t* pBuf = AL_Buffer_GetData(pBufStream);
-
-    ifFileStream.read((char*)pBuf, AL_Buffer_GetSize(pBufStream));
-
-    uBufFlags = AL_STREAM_BUF_FLAG_UNKNOWN;
-
-    return (uint32_t)ifFileStream.gcount();
-  }
-};
-
-typedef void (* EndOfInputCallBack)(AL_HANDLE hDec);
-typedef bool (* PushBufferCallBack)(AL_HANDLE hDec, AL_TBuffer* pBuf, size_t uSize, uint8_t uFlags);
-
-struct AsyncFileInput
-{
-  AsyncFileInput();
-  ~AsyncFileInput();
-  void Init(AL_HDecoder hDec_, BufPool& bufPool_, EndOfInputCallBack endOfInputCB_,
-            PushBufferCallBack pushBufferCB_);
-  void ConfigureStreamInput(string const& sPath, AL_ECodec eCodec);
-  void Start();
-
-private:
-  void Run();
-
-  AL_HDecoder m_hDec;
-  ifstream m_ifFileStream;
-  ifstream ifFileSizes;
-  BufPool* m_pBufPool;
-  bool m_bStreamInputSet = false;
-  std::unique_ptr<InputLoader> m_StreamLoader;
-  thread m_thread;
-  PushBufferCallBack m_pushBufferCB;
-  EndOfInputCallBack m_endOfInputCB;
-  atomic<bool> m_bExit;
-
-};
-
 void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig, std::shared_ptr<DecoderContext>& pDecodeCtx,
                    WorkerConfig& wCfg);
 

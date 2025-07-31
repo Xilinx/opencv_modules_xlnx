@@ -18,6 +18,7 @@
 
 #include <opencv2/core.hpp>
 
+#include "private/vcureader.hpp"
 namespace cv {
 namespace vcucodec {
 
@@ -175,12 +176,6 @@ void DisplayManager::ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDe
   multisinkOut->addSink(uncompressedSink);
 
   bOutputWritersCreated = true;
-}
-
-static void sFreeWithoutDestroyingMemory(AL_TBuffer* buffer)
-{
-  buffer->iChunkCnt = 0;
-  AL_Buffer_Destroy(buffer);
 }
 
 void DisplayManager::CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, AL_EMetaType eMetaType)
@@ -759,16 +754,6 @@ void DecoderContext::Finish()
   Rtos_SetEvent(hExitMain);
 }
 
-static bool IsReleaseFrame(AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo)
-{
-  return pFrame && !pInfo;
-}
-
-static bool IsEndOfStream(AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo)
-{
-  return !pFrame && !pInfo;
-}
-
 Ptr<Frame> DecoderContext::GetFrameFromQ(bool wait /*=true*/)
 {
   auto timeout = (wait ? std::chrono::milliseconds(100):std::chrono::milliseconds::zero());
@@ -858,86 +843,6 @@ AL_ERR DecoderContext::TreatError(Ptr<Frame> frame)
   }
 
   return err;
-}
-
-/****************************************************************************/
-/*******Class AsyncFileInput*************************************************/
-/****************************************************************************/
-AsyncFileInput::AsyncFileInput() {}
-
-AsyncFileInput::~AsyncFileInput(void)
-{
-  m_bExit = true;
-
-  if(m_thread.joinable())
-    m_thread.join();
-}
-
-void AsyncFileInput::Init(AL_HDecoder hDec, BufPool& bufPool, EndOfInputCallBack endOfInputCB,
-                          PushBufferCallBack pushBufferCB)
-{
-  m_hDec = hDec;
-  m_pBufPool = &bufPool;
-  m_pushBufferCB = pushBufferCB;
-  m_endOfInputCB = endOfInputCB;
-  m_bExit = false;
-}
-
-void AsyncFileInput::ConfigureStreamInput(string const& sPath, AL_ECodec eCodec)
-{
-  (void)eCodec;
-  try {
-    OpenInput(m_ifFileStream, sPath);
-    m_bStreamInputSet = true;
-    m_StreamLoader.reset(new BasicLoader());
-  }
-  catch (const std::exception& e) {
-    CV_Error(cv::Error::StsBadArg, "Failed to open input stream:");
-  }
-}
-
-void AsyncFileInput::Start(void)
-{
-  if(!m_bStreamInputSet)
-    throw runtime_error("Stream input must be set (call AsyncFileInput::ConfigureStreamInput)");
-
-  m_thread = thread(&AsyncFileInput::Run, this);
-}
-
-void AsyncFileInput::Run(void)
-{
-  Rtos_SetCurrentThreadName("FileInput");
-
-  while(!m_bExit)
-  {
-    shared_ptr<AL_TBuffer> pInputBuf;
-    try
-    {
-      pInputBuf = m_pBufPool->GetSharedBuffer();
-    }
-    catch(bufpool_decommited_error &)
-    {
-      continue;
-    }
-
-    uint8_t uBufFlags;
-    bool bInputFinished = false;
-    uint32_t uAvailSize = 0;
-
-    uAvailSize = m_StreamLoader->ReadStream(m_ifFileStream, pInputBuf.get(), uBufFlags);
-    bInputFinished = !uAvailSize;
-
-    if(bInputFinished)
-    {
-      m_endOfInputCB(m_hDec);
-      break;
-    }
-
-    auto bRet = m_pushBufferCB(m_hDec, pInputBuf.get(), uAvailSize, uBufFlags);
-
-    if(!bRet)
-      throw runtime_error("Failed to push buffer");
-  }
 }
 
 void ShowStatistics(double durationInSeconds, int32_t iNumFrameConceal, int32_t decodedFrameNumber,
@@ -1043,12 +948,12 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
 
     // Setup the reader of bitstream in the file.
     // It will send bitstream chunk to the decoder
-    AsyncFileInput producer;
-    AL_ECodec eCodec = config.tDecSettings.eCodec;
 
-    producer.Init(GetBaseDecoderHandle(), tInputPool, AL_Decoder_Flush, AL_Decoder_PushStreamBuffer);
-    producer.ConfigureStreamInput(config.sIn, eCodec);
-    producer.Start();
+    auto reader = Reader::createReader(GetBaseDecoderHandle(), tInputPool);
+    if (!reader->setPath(config.sIn)) {
+        CV_Error(cv::Error::StsBadArg, "Failed to set input file path");
+    }
+    reader->start();
 
     auto const maxWait = config.iTimeoutInSeconds * 1000;
     auto const timeout = maxWait >= 0 ? maxWait : AL_WAIT_FOREVER;
