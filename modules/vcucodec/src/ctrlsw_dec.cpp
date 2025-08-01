@@ -26,72 +26,6 @@ namespace cv {
 namespace vcucodec {
 
 /*****************************************************************************/
-/*******class DecCIpDevice ***************************************************/
-/*****************************************************************************/
-void DecCIpDevice::ConfigureRiscv(void)
-{
-  uint32_t const sw_version =
-      (uint32_t)((AL_VERSION_MAJOR << 20) + (AL_VERSION_MINOR << 12) + (AL_VERSION_PATCH));
-  uint32_t fw_version;
-
-  m_pScheduler = nullptr;
-  m_ctx = AL_Riscv_Decode_CreateCtx(this->m_tSelectedDevice.c_str());
-
-  if(!m_ctx)
-    throw std::runtime_error("Failed to create context (trying to use " + this->m_tSelectedDevice + ")");
-
-  fw_version = AL_Riscv_Decode_Get_FwVersion(m_ctx);
-
-  if(!fw_version || (fw_version != sw_version))
-    throw std::runtime_error("FW Version " + VersionToStr(fw_version) + ", it should be "
-                             + VersionToStr(sw_version));
-
-  AL_TAllocator* pRiscvAllocator = AL_Riscv_Decode_DmaAlloc_Create(m_ctx);
-  m_pTimer = nullptr;
-
-  if(!pRiscvAllocator)
-    throw std::runtime_error("Can't find dma allocator");
-
-  m_pAllocator.reset(pRiscvAllocator, &AL_Allocator_Destroy);
-}
-
-DecCIpDevice::~DecCIpDevice(void)
-{
-  if(m_pScheduler)
-    AL_IDecScheduler_Destroy(m_pScheduler);
-
-  if(m_pTimer)
-    AL_ITimer_Deinit(m_pTimer);
-
-  if(m_ctx)
-    AL_Riscv_Decode_DestroyCtx(m_ctx);
-
-}
-
-DecCIpDevice::DecCIpDevice(DecCIpDeviceParam const& param, AL_EDeviceType eDeviceType,
-    std::set<std::string> tDevices) : m_tDevices(tDevices)
-{
-  (void)param;
-  this->m_eDeviceType = eDeviceType;
-
-  if(m_eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED)
-  {
-    if(this->m_tDevices.size() != 1)
-      throw std::runtime_error("Embedded device doesn't support multi devices");
-    this->m_tSelectedDevice = *m_tDevices.begin();
-    ConfigureRiscv();
-    return;
-  }
-
-  throw std::runtime_error("No support for this scheduling type");
-}
-
-AL_EDeviceType DecCIpDevice::GetDeviceType(void)
-{
-  return this->m_eDeviceType;
-}
-
-/*****************************************************************************/
 /*******class Config *********************************************************/
 /*****************************************************************************/
 static AL_TDecSettings GetDefaultDecSettings(void)
@@ -458,11 +392,7 @@ struct codec_error : public runtime_error
   const AL_ERR Code;
 };
 
-#ifdef NEWDEVICE
 void DecoderContext::CreateBaseDecoder(Ptr<Device> device)
-#else
-void DecoderContext::CreateBaseDecoder(shared_ptr<I_IpDevice> device)
-#endif
 {
   CB.endParsingCB = { &sInputParsed, this };
   CB.endDecodingCB = { &sFrameDecoded, this };
@@ -471,11 +401,7 @@ void DecoderContext::CreateBaseDecoder(shared_ptr<I_IpDevice> device)
   CB.parsedSeiCB = { &sParsedSei, this };
   CB.errorCB = { &sDecoderError, this };
 
-#ifndef NEWDEVICE
-  auto ctx = device->GetCtx();
-#else
   auto ctx = device->getCtx();
-#endif
   AL_ERR error = AL_Decoder_CreateWithCtx(&hBaseDec, ctx, pAllocator, pDecSettings, &CB);
 
   if(AL_IS_ERROR_CODE(error))
@@ -673,11 +599,7 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
   auto& config = *wCfg.pConfig;
   AL_TAllocator* pAllocator = nullptr;
 
-  #ifndef NEWDEVICE
-  pAllocator = wCfg.device->GetAllocator();
-  #else
   pAllocator = wCfg.device->getAllocator();
-  #endif
 
   // Configure the stream buffer pool
   // --------------------------------
@@ -747,29 +669,6 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
   eos = true;
 }
 
-static std::shared_ptr<DecCIpDevice> CreateAndConfigureBaseDecoderIpDevice(Config const* pConfig)
-{
-  DecCIpDeviceParam param;
-
-  param.eSchedulerType = pConfig->eSchedulerType;
-  param.eDeviceType = pConfig->eDeviceType;
-  param.bTrackDma = pConfig->trackDma;
-  param.uNumCore = pConfig->tDecSettings.uNumCore;
-  param.iHangers = pConfig->hangers;
-  param.ipCtrlMode = pConfig->ipCtrlMode;
-  param.apbFile = pConfig->apbFile;
-  static std::set<std::string> decDevicePath = pConfig->sDecDevicePath;
-  param.iDecMaxAxiBurstSize = pConfig->iDecMaxAxiBurstSize;
-
-  std::shared_ptr<DecCIpDevice> pIpDevice = std::shared_ptr<DecCIpDevice>(
-      new DecCIpDevice(param, pConfig->eDeviceType, { decDevicePath }));
-
-  if(!pIpDevice)
-    throw std::runtime_error("Can't create BaseDecoderIpDevice");
-
-  return pIpDevice;
-}
-
 void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
                    std::shared_ptr<DecoderContext>& pDecodeCtx, WorkerConfig& wCfg)
 {
@@ -784,19 +683,11 @@ void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
   AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
 
   // Create the device
-  #ifndef NEWDEVICE
-  std::shared_ptr<I_IpDevice> device;
-  #else
   Ptr<Device> device;
-  #endif
 
   try
   {
-  #ifndef NEWDEVICE
-      device = CreateAndConfigureBaseDecoderIpDevice(pDecConfig.get());
-  #else
       device = Device::create();
-  #endif
   } catch (const std::exception& e) {
       CV_Error(cv::Error::StsError, e.what());
   }
@@ -804,11 +695,7 @@ void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
   auto& config = *pDecConfig;
   AL_TAllocator* pAllocator = nullptr;
 
-  #ifndef NEWDEVICE
-  pAllocator = device->GetAllocator();
-  #else
   pAllocator = device->getAllocator();
-  #endif
 
   // Settings checks
   // ------------------

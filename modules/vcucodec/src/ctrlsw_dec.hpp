@@ -17,8 +17,6 @@
 #ifndef OPENCV_CTRLSW_DEC_HPP
 #define OPENCV_CTRLSW_DEC_HPP
 
-#define NEWDEVICE
-
 #include <opencv2/core.hpp>
 
 #include <iostream>
@@ -233,11 +231,7 @@ struct Config
 struct WorkerConfig
 {
   std::shared_ptr<Config> pConfig;
-#ifdef NEWDEVICE
   Ptr<Device> device;
-#else
-  std::shared_ptr<I_IpDevice> device;
-#endif
 };
 
 class DecoderContext
@@ -245,11 +239,7 @@ class DecoderContext
 public:
   DecoderContext(Config& config, AL_TAllocator* pAllocator);
   ~DecoderContext();
-#ifdef NEWDEVICE
   void CreateBaseDecoder(Ptr<Device> device);
-#else
-  void CreateBaseDecoder(shared_ptr<I_IpDevice> device);
-#endif
   AL_HDecoder GetBaseDecoderHandle() const { return hBaseDec; }
   AL_ERR SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings,
                               AL_TCropInfo const* pCropInfo);
