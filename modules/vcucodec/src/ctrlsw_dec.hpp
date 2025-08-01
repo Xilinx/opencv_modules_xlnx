@@ -17,6 +17,8 @@
 #ifndef OPENCV_CTRLSW_DEC_HPP
 #define OPENCV_CTRLSW_DEC_HPP
 
+#define NEWDEVICE
+
 #include <opencv2/core.hpp>
 
 #include <iostream>
@@ -77,6 +79,8 @@ extern "C" {
 #include <cassert>
 
 #include "private/vcuframe.hpp"
+#include "private/vcurawout.hpp"
+#include "private/vcudevice.hpp"
 namespace cv {
 namespace vcucodec {
 
@@ -222,49 +226,6 @@ struct Config
   EDecErrorLevel eExitCondition = DEC_ERROR;
 };
 
-
-
-/******************************************************************************/
-/*******class DisplayManager **************************************************/
-/******************************************************************************/
-
-class DisplayManager
-{
-public:
-  void Configure(Config const& config);
-  void ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDecOutputSettings);
-
-  bool Process(Ptr<Frame> frame, int32_t iBitDepthAlloc,
-               bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists);
-  Ptr<Frame> Dequeue(std::chrono::milliseconds timeout = std::chrono::milliseconds(100));
-  bool Idle();
-  void Flush();
-
-private:
-  void ProcessFrame(Ptr<Frame>, int32_t iBdOut, TFourCC tOutFourCC);
-
-  void CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, AL_EMetaType eMetaType);
-
-  Ptr<Frame> ConvertFrameBuffer(Ptr<Frame> frame, int32_t iBdOut, AL_TPosition const& tPos,
-                                     TFourCC tOutFourCC);
-  //unique_ptr<MultiSink> multisinkRaw = unique_ptr<MultiSink>(new MultiSink);
-  unique_ptr<MultiSink> multisinkOut = unique_ptr<MultiSink>(new MultiSink);
-
-  AL_EFbStorageMode eMainOutputStorageMode;
-  bool bOutputWritersCreated = false;
-  int32_t iBitDepth = 8;
-  uint32_t uNumFrames = 0;
-  uint32_t uMaxFrames = UINT32_MAX;
-  TFourCC tOutputFourCC = FOURCC(NULL);
-  TFourCC tInputFourCC = FOURCC(NULL);
-
-  bool bHasOutput = false;
-  bool bEnableYuvOutput = false;
-  std::shared_ptr<ofstream> hFileOut;
-  std::shared_ptr<ofstream> hMapOut;
-  FrameQueue frame_queue_;
-};
-
 /******************************************************************************/
 /*******class DecoderContext **************************************************/
 /******************************************************************************/
@@ -272,7 +233,11 @@ private:
 struct WorkerConfig
 {
   std::shared_ptr<Config> pConfig;
+#ifdef NEWDEVICE
+  Ptr<Device> device;
+#else
   std::shared_ptr<I_IpDevice> device;
+#endif
 };
 
 class DecoderContext
@@ -280,7 +245,11 @@ class DecoderContext
 public:
   DecoderContext(Config& config, AL_TAllocator* pAllocator);
   ~DecoderContext();
+#ifdef NEWDEVICE
+  void CreateBaseDecoder(Ptr<Device> device);
+#else
   void CreateBaseDecoder(shared_ptr<I_IpDevice> device);
+#endif
   AL_HDecoder GetBaseDecoderHandle() const { return hBaseDec; }
   AL_ERR SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings,
                               AL_TCropInfo const* pCropInfo);
@@ -306,7 +275,7 @@ public:
 private:
   AL_TAllocator* pAllocator;
   AL_HDecoder hBaseDec = nullptr;
-  DisplayManager tDisplayManager {};
+  Ptr<RawOutput> tDisplayManager {};
   bool bPushBackToDecoder = true;
   int32_t iNumFrameConceal = 0;
   int32_t iNumDecodedFrames = 0;
@@ -337,6 +306,7 @@ private:
 void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig, std::shared_ptr<DecoderContext>& pDecodeCtx,
                    WorkerConfig& wCfg);
 
-} } // namespace cv::vcucodec
+} // namespace vcucodec
+} // namespace cv
 
 #endif // OPENCV_CTRLSW_DEC_HPP

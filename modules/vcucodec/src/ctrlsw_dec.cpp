@@ -19,6 +19,9 @@
 #include <opencv2/core.hpp>
 
 #include "private/vcureader.hpp"
+#include "private/vcudevice.hpp"
+
+
 namespace cv {
 namespace vcucodec {
 
@@ -104,9 +107,6 @@ Config::Config(void)
   tDecSettings = GetDefaultDecSettings();
 }
 
-/******************************************************************************/
-/*******class DisplayManager **************************************************/
-/******************************************************************************/
 AL_EFbStorageMode GetMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings,
     AL_EFbStorageMode eOutstorageMode)
 {
@@ -124,273 +124,17 @@ AL_EFbStorageMode GetMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSett
   return eOutputStorageMode;
 }
 
-void DisplayManager::Configure(Config const& config)
-{
-  if(config.tOutputFourCC != FOURCC(NULL))
-    eMainOutputStorageMode = AL_GetStorageMode(config.tOutputFourCC);
-  else
-  {
-    eMainOutputStorageMode = config.tDecSettings.eFBStorageMode;
-
-    if(config.tUserOutputSettings.tPicFormat.eStorageMode != AL_FB_MAX_ENUM)
-      eMainOutputStorageMode = GetMainOutputStorageMode(config.tUserOutputSettings,
-                                                        config.tDecSettings.eFBStorageMode);
-
-     eMainOutputStorageMode = AL_FB_RASTER;
-  }
-
-  bHasOutput = config.bEnableYUVOutput;
-  bEnableYuvOutput = config.bEnableYUVOutput;
-
-  if(bHasOutput)
-  {
-    if(config.bEnableYUVOutput)
-    {
-      hFileOut.reset(new ofstream(config.sMainOut, ios::binary));
-
-      if(!hFileOut->is_open())
-        CV_Error(cv::Error::StsBadArg, "Invalid output file");
-    }
-  }
-
-  iBitDepth = config.iOutputBitDepth;
-  tOutputFourCC = config.tOutputFourCC;
-  uMaxFrames = config.iMaxFrames;
-
-  //std::unique_ptr<IFrameSink> crcDump(createStreamCrcDump(config.sCrc));
-  //multisinkRaw->addSink(crcDump);
-}
-
-void DisplayManager::ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDecOutputSettings)
-{
-  (void)tDecOutputSettings;
-
-  if(!bHasOutput || bOutputWritersCreated || !bEnableYuvOutput)
-    return;
-
-  AL_EOutputType eOutputType = AL_OUTPUT_MAIN;
-  AL_EFbStorageMode eOutputStorageMode = eMainOutputStorageMode;
-
-  std::unique_ptr<IFrameSink> frameSink(createUnCompFrameSink(hFileOut, eOutputStorageMode));
-  std::unique_ptr<IFrameSink> uncompressedSink(new SinkFilter(eOutputType, frameSink));
-  multisinkOut->addSink(uncompressedSink);
-
-  bOutputWritersCreated = true;
-}
-
-void DisplayManager::CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, AL_EMetaType eMetaType)
-{
-  AL_TMetaData* pMetaD = nullptr;
-
-  AL_TMetaData* pOrigMeta = AL_Buffer_GetMetaData(pSrcFrame, eMetaType);
-
-  if(!pOrigMeta)
-    throw runtime_error("Metadata is NULL");
-  switch(eMetaType)
-  {
-  case AL_META_TYPE_PIXMAP:
-  {
-    pMetaD = (AL_TMetaData*)AL_PixMapMetaData_Clone((AL_TPixMapMetaData*)pOrigMeta);
-    break;
-  }
-  case AL_META_TYPE_DISPLAY_INFO:
-  {
-    pMetaD = (AL_TMetaData*)AL_DisplayInfoMetaData_Clone((AL_TDisplayInfoMetaData*)pOrigMeta);
-    break;
-  }
-  default:
-    throw std::runtime_error("Metadata type is not supported");
-    break;
-  }
-
-  if(pMetaD == NULL)
-    throw runtime_error("Clone of MetaData was not created!");
-
-  if(!AL_Buffer_AddMetaData(pDstFrame, pMetaD))
-    throw runtime_error("Cloned pMetaD did not get added!\n");
-}
-
-bool DisplayManager::Process(Ptr<Frame> frame, int32_t iBitDepthAlloc, bool& bIsMainDisplay,
-                             bool& bNumFrameReached, bool bDecoderExists)
-{
-  AL_TBuffer* pFrame = frame->getBuffer();
-  bNumFrameReached = false;
-  bIsMainDisplay = frame->isMainOutput();
-
-  if(bDecoderExists)
-  {
-    if(uNumFrames < uMaxFrames)
-    {
-      if(!AL_Buffer_GetData(pFrame))
-        throw runtime_error("Data buffer is null");
-
-      Ptr<Frame> pDFrame = Frame::createShallowCopy(frame);
-      pDFrame->link(frame); // Link the life cycle of the original frame to the shallow copy
-
-      int32_t iCurrentBitDepth = max(frame->bitDepthY(), frame->bitDepthUV());
-
-      if(iBitDepth == OUTPUT_BD_FIRST)
-        iBitDepth = iCurrentBitDepth;
-      else if(iBitDepth == OUTPUT_BD_ALLOC)
-        iBitDepth = iBitDepthAlloc;
-
-      int32_t iEffectiveBitDepth = iBitDepth == OUTPUT_BD_STREAM ? iCurrentBitDepth : iBitDepth;
-
-      if(bHasOutput)
-        ProcessFrame(pDFrame, iEffectiveBitDepth, tOutputFourCC);
-
-      if(bIsMainDisplay)
-      {
-        // TODO: increase only when last frame
-        //DisplayFrameStatus(uNumFrames);
-      }
-    }
-
-    if(bIsMainDisplay)
-      uNumFrames++;
-  }
-
-  if(uNumFrames >= uMaxFrames)
-    bNumFrameReached = true;
-
-  return bNumFrameReached;
-}
-
-
-int32_t convertBitDepthToEven(int32_t iBd)
-{
-  return ((iBd % 2) != 0) ? iBd + 1 : iBd;
-}
-
-Ptr<Frame> DisplayManager::ConvertFrameBuffer(Ptr<Frame> frame, int32_t iBdOut,
-    AL_TPosition const& tPos, TFourCC tOutFourCC)
-{
-  AL_TBuffer* pInput = frame->getBuffer();
-  TFourCC tRecFourCC = AL_PixMapBuffer_GetFourCC(pInput);
-  AL_TDimension tRecDim = AL_PixMapBuffer_GetDimension(pInput);
-  AL_EChromaMode eRecChromaMode = AL_GetChromaMode(tRecFourCC);
-
-  TFourCC tConvFourCC = tOutFourCC;
-  AL_TPicFormat tConvPicFormat;
-  assert(tConvFourCC);
-
-  AL_PixMapBuffer_SetDimension(pInput, { tPos.iX + tRecDim.iWidth, tPos.iY + tRecDim.iHeight });
-
-  AL_TDimension tDim = AL_PixMapBuffer_GetDimension(pInput);
-  Ptr<Frame> pFrame = Frame::createYuvIO({tDim.iWidth, tDim.iHeight}, tConvFourCC);
-  AL_TBuffer* pOutput = pFrame->getBuffer();
-
-  if(ConvertPixMapBuffer(pInput, pOutput))
-    throw runtime_error("Couldn't convert buffer");
-
-  AL_PixMapBuffer_SetDimension(pInput, tRecDim);
-  CopyMetaData(pOutput, pInput, AL_META_TYPE_DISPLAY_INFO);
-  return pFrame;
-}
-
-Ptr<Frame> DisplayManager::Dequeue(std::chrono::milliseconds timeout)
-{
-  return frame_queue_.dequeue(timeout);
-}
-
-bool DisplayManager::Idle() {
-  return frame_queue_.empty();
-}
-
-void DisplayManager::Flush() {
-  frame_queue_.clear();
-}
-
-void DisplayManager::ProcessFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOutFourCC)
-{
-  AL_TBuffer& tRecBuf = *frame->getBuffer();
-  AL_TInfoDecode const& info = frame->getInfo();
-  AL_PixMapBuffer_SetDimension(&tRecBuf, frame->getDimension());
-
-  iBdOut = convertBitDepthToEven(iBdOut);
-
-  AL_TCropInfo tCrop {};
-  tCrop = frame->getCropInfo();
-  AL_TPosition tPos = { 0, 0 };
-
-  TFourCC tRecBufFourCC = frame->getFourCC();
-  AL_TPicFormat tRecPicFormat;
-  AL_GetPicFormat(tRecBufFourCC, &tRecPicFormat);
-
-  bool bNewInputFourCCFound = false;
-
-  if(tInputFourCC != tRecBufFourCC)
-  {
-    bNewInputFourCCFound = true;
-    tInputFourCC = tRecBufFourCC;
-  }
-
-  if(tOutFourCC == FOURCC(NULL))
-  {
-    AL_EPlaneMode ePlaneMode = AL_PLANE_MODE_PLANAR;
-
-    if(tRecPicFormat.bMSB && (tRecPicFormat.eChromaMode == AL_CHROMA_4_2_0
-                              || tRecPicFormat.eChromaMode == AL_CHROMA_4_2_2))
-      ePlaneMode = AL_PLANE_MODE_SEMIPLANAR;
-
-    AL_TPicFormat tConvPicFormat = AL_TPicFormat {
-      tRecPicFormat.eChromaMode,
-      AL_ALPHA_MODE_DISABLED,
-      static_cast<uint8_t>(iBdOut),
-      AL_FB_RASTER,
-      ePlaneMode,
-      AL_COMPONENT_ORDER_YUV,
-      AL_SAMPLE_PACK_MODE_BYTE,
-      false,
-      tRecPicFormat.bMSB
-    };
-
-    tOutFourCC = AL_GetFourCC(tConvPicFormat);
-  }
-  else if(tOutFourCC == FOURCC(hard))
-  {
-    tOutFourCC = tRecBufFourCC;
-  }
-
-  bool bCompress = AL_IsCompressed(tRecBufFourCC);
-  bool bConvert = !bCompress && tOutFourCC != tRecBufFourCC;
-
-  AL_TDisplayInfoMetaData* pMeta = reinterpret_cast<AL_TDisplayInfoMetaData*>(
-      AL_Buffer_GetMetaData(&tRecBuf, AL_META_TYPE_DISPLAY_INFO));
-
-  if(pMeta)
-    pMeta->tCrop = tCrop;
-
-  if(bConvert)
-  {
-    if(tInputFourCC != tOutFourCC && bNewInputFourCCFound)
-    {
-      stringstream ss;
-      ss << "Software conversion done from " << AL_FourCCToString(tRecBufFourCC).cFourcc
-         << " to " << AL_FourCCToString(tOutFourCC).cFourcc << endl;
-      LogInfo(CC_DARK_BLUE, "%s\n", ss.str().c_str());
-      //FFLUSH(stdout);
-    }
-    Ptr<Frame> pYuvFrame = ConvertFrameBuffer(frame, iBdOut, tPos, tOutFourCC);
-
-    frame_queue_.enqueue(pYuvFrame);
-  }
-  else
-  {
-    frame_queue_.enqueue(frame);
-  }
-
-}
 
 /******************************************************************************/
 /*******class DecoderContext **************************************************/
 /******************************************************************************/
 DecoderContext::DecoderContext(Config& config, AL_TAllocator* pAlloc)
+: tDisplayManager(RawOutput::create())
 {
   pAllocator = pAlloc;
   pDecSettings = &config.tDecSettings;
   pUserOutputSettings = &config.tUserOutputSettings;
-  tDisplayManager.Configure(config);
+  tDisplayManager->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames);
   running = false;
   eos = false;
   await_eos = false;
@@ -598,7 +342,6 @@ AL_ERR DecoderContext::SetupBaseDecoderPool(int32_t iBufferNumber,
 
   SetDecOutputSettings(*pUserOutputSettings, *pStreamSettings, *pDecSettings);
 
-  this->tDisplayManager.ConfigureMainOutputWriters(*pUserOutputSettings);
 
   if(!AL_Decoder_ConfigureOutputSettings(GetBaseDecoderHandle(), pUserOutputSettings))
     throw runtime_error("Could not configure the output settings");
@@ -715,7 +458,11 @@ struct codec_error : public runtime_error
   const AL_ERR Code;
 };
 
+#ifdef NEWDEVICE
+void DecoderContext::CreateBaseDecoder(Ptr<Device> device)
+#else
 void DecoderContext::CreateBaseDecoder(shared_ptr<I_IpDevice> device)
+#endif
 {
   CB.endParsingCB = { &sInputParsed, this };
   CB.endDecodingCB = { &sFrameDecoded, this };
@@ -724,7 +471,11 @@ void DecoderContext::CreateBaseDecoder(shared_ptr<I_IpDevice> device)
   CB.parsedSeiCB = { &sParsedSei, this };
   CB.errorCB = { &sDecoderError, this };
 
+#ifndef NEWDEVICE
   auto ctx = device->GetCtx();
+#else
+  auto ctx = device->getCtx();
+#endif
   AL_ERR error = AL_Decoder_CreateWithCtx(&hBaseDec, ctx, pAllocator, pDecSettings, &CB);
 
   if(AL_IS_ERROR_CODE(error))
@@ -750,14 +501,14 @@ void DecoderContext::StartRunning(WorkerConfig wCfg)
 void DecoderContext::Finish()
 {
   await_eos = true;
-  tDisplayManager.Flush();
+  tDisplayManager->flush();
   Rtos_SetEvent(hExitMain);
 }
 
 Ptr<Frame> DecoderContext::GetFrameFromQ(bool wait /*=true*/)
 {
   auto timeout = (wait ? std::chrono::milliseconds(100):std::chrono::milliseconds::zero());
-  Ptr<Frame> pFrame = tDisplayManager.Dequeue(timeout);
+  Ptr<Frame> pFrame = tDisplayManager->dequeue(timeout);
   return pFrame;
 }
 
@@ -783,7 +534,7 @@ void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
 
         iBitDepthAlloc = AL_Decoder_GetMaxBD(hDec);
         bool bDecoderExists = GetBaseDecoderHandle() != NULL;
-        tDisplayManager.Process(pFrame, iBitDepthAlloc, bIsFrameMainDisplay, bLastFrame,
+        tDisplayManager->process(pFrame, iBitDepthAlloc, bIsFrameMainDisplay, bLastFrame,
                                 bDecoderExists);
 
         if(bIsFrameMainDisplay && CanSendBackBufferToDecoder() && !bLastFrame)
@@ -797,7 +548,7 @@ void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
   }
   if (bLastFrame) {
     await_eos = true;
-    if(tDisplayManager.Idle()) {
+    if(tDisplayManager->idle()) {
       eos = true;
     }
   }
@@ -812,7 +563,7 @@ void DecoderContext::FrameDone(Frame const& frame)
     }
   }
 
-  if (!eos && await_eos && tDisplayManager.Idle()) {
+  if (!eos && await_eos && tDisplayManager->idle()) {
     eos = true;
     Rtos_SetEvent(hExitMain);
   }
@@ -922,7 +673,11 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
   auto& config = *wCfg.pConfig;
   AL_TAllocator* pAllocator = nullptr;
 
+  #ifndef NEWDEVICE
   pAllocator = wCfg.device->GetAllocator();
+  #else
+  pAllocator = wCfg.device->getAllocator();
+  #endif
 
   // Configure the stream buffer pool
   // --------------------------------
@@ -1029,10 +784,19 @@ void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
   AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
 
   // Create the device
+  #ifndef NEWDEVICE
   std::shared_ptr<I_IpDevice> device;
+  #else
+  Ptr<Device> device;
+  #endif
+
   try
   {
+  #ifndef NEWDEVICE
       device = CreateAndConfigureBaseDecoderIpDevice(pDecConfig.get());
+  #else
+      device = Device::create();
+  #endif
   } catch (const std::exception& e) {
       CV_Error(cv::Error::StsError, e.what());
   }
@@ -1040,7 +804,11 @@ void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
   auto& config = *pDecConfig;
   AL_TAllocator* pAllocator = nullptr;
 
+  #ifndef NEWDEVICE
   pAllocator = device->GetAllocator();
+  #else
+  pAllocator = device->getAllocator();
+  #endif
 
   // Settings checks
   // ------------------
