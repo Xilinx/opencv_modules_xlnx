@@ -88,80 +88,7 @@ using namespace std;
 typedef struct AL_TAllocator AL_TAllocator;
 typedef struct AL_TIpCtrl AL_TIpCtrl;
 typedef struct AL_TDriver AL_TDriver;
-
-/*****************************************************************************/
-/*******class DecCIpDevice ***************************************************/
-/*****************************************************************************/
-struct DecCIpDeviceParam
-{
-  AL_EDeviceType eDeviceType;
-  AL_ESchedulerType eSchedulerType;
-  bool bTrackDma = false;
-  uint8_t uNumCore = 0;
-  int32_t iHangers = 0;
-  AL_EIpCtrlMode ipCtrlMode;
-  std::string apbFile;
-  int32_t iDecMaxAxiBurstSize = 0;
-};
-
-struct I_IpDevice
-{
-  virtual ~I_IpDevice() = default;
-  virtual void* GetScheduler() = 0;
-  virtual AL_RiscV_Ctx GetCtx() = 0;
-  virtual AL_TAllocator* GetAllocator() = 0;
-  virtual AL_ITimer* GetTimer() = 0;
-};
-
 typedef struct AL_IDecScheduler AL_IDecScheduler;
-
-class DecCIpDevice : public I_IpDevice
-{
-public:
-  DecCIpDevice(DecCIpDeviceParam const& param, AL_EDeviceType eDeviceType,
-               std::set<std::string> tDevices);
-  ~DecCIpDevice();
-
-  AL_EDeviceType GetDeviceType();
-  void* GetScheduler() override;
-  AL_RiscV_Ctx GetCtx() override;
-  AL_TAllocator* GetAllocator() override;
-  AL_ITimer* GetTimer() override;
-
-  DecCIpDevice(DecCIpDevice const &) = delete;
-  DecCIpDevice & operator = (DecCIpDevice const &) = delete;
-
-private:
-  std::set<std::string> const m_tDevices;
-  std::string m_tSelectedDevice;
-  AL_EDeviceType m_eDeviceType;
-  AL_IDecScheduler* m_pScheduler = nullptr;
-  std::shared_ptr<AL_TAllocator> m_pAllocator = nullptr;
-  AL_RiscV_Ctx m_ctx = nullptr;
-  AL_ITimer* m_pTimer = nullptr;
-
-  void ConfigureRiscv();
-};
-
-inline void* DecCIpDevice::GetScheduler(void)
-{
-  return m_pScheduler;
-}
-
-inline AL_RiscV_Ctx DecCIpDevice::GetCtx(void)
-{
-  return m_ctx;
-}
-
-inline AL_TAllocator* DecCIpDevice::GetAllocator(void)
-{
-  return m_pAllocator.get();
-}
-
-inline AL_ITimer* DecCIpDevice::GetTimer(void)
-{
-  return m_pTimer;
-}
 
 /*****************************************************************************/
 /*******class Config *********************************************************/
@@ -172,11 +99,15 @@ enum EDecErrorLevel
   DEC_ERROR,
 };
 
+enum OutputBd{
+    OUTPUT_BD_FIRST = 0,
+    OUTPUT_BD_ALLOC = -1,
+    OUTPUT_BD_STREAM = -2
+};
+
 /******************************************************************************/
 static int32_t const zDefaultInputBufferSize = 32 * 1024;
-static const int32_t OUTPUT_BD_FIRST = 0;
-static const int32_t OUTPUT_BD_ALLOC = -1;
-static const int32_t OUTPUT_BD_STREAM = -2;
+
 static const int32_t SEI_NOT_ASSOCIATED_WITH_FRAME = -1;
 static uint32_t constexpr uDefaultNumBuffersHeldByNextComponent = 1; /* We need at least 1 buffer to copy the output on a file */
 static const int32_t DEFAULT_DEC_APB_ID = 16;
@@ -233,11 +164,31 @@ struct WorkerConfig
   std::shared_ptr<Config> pConfig;
   Ptr<Device> device;
 };
+class DecContext
+{
+  public:
+    virtual ~DecContext() = default;
 
-class DecoderContext
+    /// Start the decoder context with the given worker configuration.
+    virtual void start(WorkerConfig wCfg) = 0;
+
+    /// Wait for the decoder context to finish processing.
+    virtual void finish() = 0;
+
+    /// Check if the decoder context is running.
+    virtual bool running() const = 0;
+
+    /// Check if the end of stream has been reached.
+    virtual bool eos() const = 0;
+
+    static std::shared_ptr<DecContext> create(std::shared_ptr<Config> pDecConfig,
+        Ptr<RawOutput> rawOutput, WorkerConfig& wCfg);
+};
+
+class DecoderContext : public DecContext
 {
 public:
-  DecoderContext(Config& config, AL_TAllocator* pAllocator);
+  DecoderContext(Config& config, AL_TAllocator* pAllocator, Ptr<RawOutput> rawOutput);
   ~DecoderContext();
   void CreateBaseDecoder(Ptr<Device> device);
   AL_HDecoder GetBaseDecoderHandle() const { return hBaseDec; }
@@ -255,11 +206,11 @@ public:
   void FrameDone(Frame const& f);
   void ManageError(AL_ERR eError);
   Ptr<Frame> GetFrameFromQ(bool wait = true);
-  void start(WorkerConfig wCfg);
-  void finish();
+  void start(WorkerConfig wCfg) override;
+  void finish() override;
 
-  bool running() const { return running_; }
-  bool eos() const { return eos_; }
+  bool running() const override { return running_; }
+  bool eos() const override { return eos_; }
 
   private:
   bool running_;
@@ -296,8 +247,6 @@ public:
   mutex hDisplayMutex;
 };
 
-void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig, std::shared_ptr<DecoderContext>& pDecodeCtx,
-                   WorkerConfig& wCfg);
 
 } // namespace vcucodec
 } // namespace cv

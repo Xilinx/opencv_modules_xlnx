@@ -42,7 +42,8 @@ private:
     bool vcu2_available_ = false;
     bool initialized_ = false;
     WorkerConfig wCfg = {nullptr, nullptr};
-    std::shared_ptr<DecoderContext> decodeCtx_ = nullptr;
+    Ptr<RawOutput> rawOutput_ = nullptr;
+    std::shared_ptr<DecContext> decodeCtx_ = nullptr;
 };
 
 

@@ -27,7 +27,7 @@ namespace cv {
 namespace vcucodec {
 
 VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
-    : filename_(filename), params_(params)
+    : filename_(filename), params_(params), rawOutput_(RawOutput::create())
 {
     // VCU2 initialization will be implemented when VCU2 Control Software is available
     CV_LOG_INFO(NULL, "VCU2 Decoder initialized");
@@ -48,7 +48,7 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     if (params_.maxFrames > 0)
         pDecConfig->iMaxFrames = params_.maxFrames;
 
-    CtrlswDecOpen(pDecConfig, decodeCtx_, wCfg);
+    decodeCtx_ = DecContext::create(pDecConfig, rawOutput_, wCfg);
     initialized_ = decodeCtx_ != nullptr;
     if (!initialized_) {
         CV_Error(cv::Error::StsError, "VCU2 decoder initialization failed");
@@ -79,10 +79,9 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
 
     CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
     if(decodeCtx_->eos()) {
-        constexpr bool no_wait = false;
-        pFrame = decodeCtx_->GetFrameFromQ(no_wait);
+        pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
     } else {
-        pFrame = decodeCtx_->GetFrameFromQ();
+        pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
     }
 
     frame_info.eos = false;

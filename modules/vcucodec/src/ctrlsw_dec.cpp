@@ -62,8 +62,8 @@ AL_EFbStorageMode GetMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSett
 /******************************************************************************/
 /*******class DecoderContext **************************************************/
 /******************************************************************************/
-DecoderContext::DecoderContext(Config& config, AL_TAllocator* pAlloc)
-: tDisplayManager(RawOutput::create())
+DecoderContext::DecoderContext(Config& config, AL_TAllocator* pAlloc, Ptr<RawOutput> rawOutput)
+: tDisplayManager(rawOutput)
 {
   pAllocator = pAlloc;
   pDecSettings = &config.tDecSettings;
@@ -669,9 +669,10 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
   eos_ = true;
 }
 
-void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
-                   std::shared_ptr<DecoderContext>& pDecodeCtx, WorkerConfig& wCfg)
+/*static*/ std::shared_ptr<DecContext> DecContext::create(
+    std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput, WorkerConfig& wCfg)
 {
+  std::shared_ptr<DecoderContext> pDecodeCtx;
   std::set<std::string> const sDecDefaultDevicePath(DECODER_DEVICES);
   SetDefaultDecOutputSettings(&pDecConfig->tUserOutputSettings);
   pDecConfig->sDecDevicePath = sDecDefaultDevicePath;
@@ -703,7 +704,7 @@ void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
 
   // Configure the decoders
   // ----------------------
-  pDecodeCtx = std::shared_ptr<DecoderContext>(new DecoderContext(config, pAllocator));
+  pDecodeCtx = std::shared_ptr<DecoderContext>(new DecoderContext(config, pAllocator, rawOutput));
 
   wCfg.pConfig = pDecConfig;
   wCfg.device = device;
@@ -720,6 +721,7 @@ void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,
 
   // Parametrization of the lcevc decoder for traces
   // -----------------------------------------------
+  return pDecodeCtx;
 }
 
 } } // namespace cv::vcucodec
