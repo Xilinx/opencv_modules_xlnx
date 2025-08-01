@@ -255,14 +255,17 @@ public:
   void FrameDone(Frame const& f);
   void ManageError(AL_ERR eError);
   Ptr<Frame> GetFrameFromQ(bool wait = true);
-  void StartRunning(WorkerConfig wCfg);
-  void Finish();
+  void start(WorkerConfig wCfg);
+  void finish();
 
-  bool running;
-  bool eos;
-  bool await_eos;
+  bool running() const { return running_; }
+  bool eos() const { return eos_; }
 
-private:
+  private:
+  bool running_;
+  bool eos_;
+  bool await_eos_;
+
   AL_TAllocator* pAllocator;
   AL_HDecoder hBaseDec = nullptr;
   Ptr<RawOutput> tDisplayManager {};

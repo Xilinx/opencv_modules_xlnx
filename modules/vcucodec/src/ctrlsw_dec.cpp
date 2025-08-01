@@ -69,17 +69,17 @@ DecoderContext::DecoderContext(Config& config, AL_TAllocator* pAlloc)
   pDecSettings = &config.tDecSettings;
   pUserOutputSettings = &config.tUserOutputSettings;
   tDisplayManager->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames);
-  running = false;
-  eos = false;
-  await_eos = false;
+  running_ = false;
+  eos_ = false;
+  await_eos_ = false;
   eExitCondition = config.eExitCondition;
   hExitMain = Rtos_CreateEvent(false);
 }
 
 DecoderContext::~DecoderContext(void)
 {
-  await_eos = true;
-  eos = true;
+  await_eos_ = true;
+  eos_ = true;
   if(ctrlswThread.joinable())
     ctrlswThread.join();
   Rtos_DeleteEvent(hExitMain);
@@ -358,13 +358,13 @@ static void sDecoderError(AL_ERR eError, void* pUserParam)
 
 static void sBaseDecoderFrameDisplay(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, void* pUserParam)
 {
-  bool eos = !pFrame && !pInfo;
+  bool isEos = !pFrame && !pInfo;
   bool release_only = pFrame && !pInfo;
   if(!release_only)
   {
     Ptr<Frame> frame;
     auto pCtx = reinterpret_cast<DecoderContext*>(pUserParam);
-    if(!eos)
+    if(!isEos)
     {
       frame = Frame::create(pFrame, pInfo,
         [pCtx](Frame const& f) { // Custom callback logic for when the frame is processed
@@ -417,16 +417,16 @@ void DecoderContext::ManageError(AL_ERR eError)
     Rtos_SetEvent(hExitMain);
 }
 
-void DecoderContext::StartRunning(WorkerConfig wCfg)
+void DecoderContext::start(WorkerConfig wCfg)
 {
   ctrlswThread = std::thread(&DecoderContext::CtrlswDecRun, this, wCfg);
   ctrlswThread.detach();
-  running = true;
+  running_ = true;
 }
 
-void DecoderContext::Finish()
+void DecoderContext::finish()
 {
-  await_eos = true;
+  await_eos_ = true;
   tDisplayManager->flush();
   Rtos_SetEvent(hExitMain);
 }
@@ -443,7 +443,7 @@ void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
 {
   unique_lock<mutex> lock(hDisplayMutex);
 
-  bool bLastFrame = pFrame == nullptr || await_eos;
+  bool bLastFrame = pFrame == nullptr || await_eos_;
 
   if(!bLastFrame)
   {
@@ -473,24 +473,24 @@ void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
     }
   }
   if (bLastFrame) {
-    await_eos = true;
+    await_eos_ = true;
     if(tDisplayManager->idle()) {
-      eos = true;
+      eos_ = true;
     }
   }
 }
 
 void DecoderContext::FrameDone(Frame const& frame)
 {
-  if (frame.isMainOutput() && CanSendBackBufferToDecoder() && !await_eos)
+  if (frame.isMainOutput() && CanSendBackBufferToDecoder() && !await_eos_)
   {
     if (!AL_Decoder_PutDisplayPicture(GetDecoderHandle(), frame.getBuffer())) {
       throw runtime_error("Failed to put display picture back to decoder");
     }
   }
 
-  if (!eos && await_eos && tDisplayManager->idle()) {
-    eos = true;
+  if (!eos_ && await_eos_ && tDisplayManager->idle()) {
+    eos_ = true;
     Rtos_SetEvent(hExitMain);
   }
 }
@@ -666,7 +666,7 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
 
   auto const duration = (uEnd - uBegin) / 1000.0;
   ShowStatistics(duration, GetNumConcealedFrame(), GetNumDecodedFrames(), timeoutOccurred);
-  eos = true;
+  eos_ = true;
 }
 
 void CtrlswDecOpen(std::shared_ptr<Config> pDecConfig,

@@ -73,12 +73,12 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     if(!decodeCtx_)
         return false;
 
-    if(!decodeCtx_->running) {
-        decodeCtx_->StartRunning(wCfg);
+    if(!decodeCtx_->running()) {
+        decodeCtx_->start(wCfg);
     }
 
     CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
-    if(decodeCtx_->eos ) {
+    if(decodeCtx_->eos()) {
         constexpr bool no_wait = false;
         pFrame = decodeCtx_->GetFrameFromQ(no_wait);
     } else {
@@ -89,9 +89,9 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     if(pFrame) {
         retrieveVideoFrame(frame, pFrame->getBuffer(), frame_info);
     } else  {
-        if(decodeCtx_->eos ) {
+        if(decodeCtx_->eos()) {
             frame_info.eos = true;
-            decodeCtx_->Finish();
+            decodeCtx_->finish();
         }
         return false;
     }
@@ -119,7 +119,7 @@ double VCUDecoder::get(int propId) const {
 
 void VCUDecoder::cleanup() {
     if (vcu2_available_ && initialized_) {
-        decodeCtx_->Finish();
+        decodeCtx_->finish();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         AL_Lib_Decoder_DeInit();
     }
