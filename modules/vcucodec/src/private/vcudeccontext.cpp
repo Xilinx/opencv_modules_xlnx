@@ -14,14 +14,14 @@
    limitations under the License.
 */
 
-#include "private/vcudeccontext.hpp"
+#include "vcudeccontext.hpp"
 
 #include <opencv2/core.hpp>
 
-#include "private/vcudevice.hpp"
-#include "private/vcuframe.hpp"
-#include "private/vcurawout.hpp"
-#include "private/vcureader.hpp"
+#include "vcudevice.hpp"
+#include "vcuframe.hpp"
+#include "vcurawout.hpp"
+#include "vcureader.hpp"
 
 extern "C" {
 #include "config.h"
