@@ -1,0 +1,9 @@
+AccessModifierOffset: -4
+BinPackParameters: true
+ColumnLimit:     100
+NamespaceIndentation: None
+IndentWidth:     4
+TabWidth:        4
+UseTab: Never
+SpacesBeforeTrailingComments: 1
+BreakBeforeBraces: Allman
