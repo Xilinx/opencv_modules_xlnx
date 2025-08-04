@@ -17,12 +17,17 @@
 
 extern "C" {
 #include "config.h"
+#include "lib_common/PicFormat.h"
+#include "lib_common/PixMapBuffer.h"
+
 #include "lib_decode/lib_decode.h"
 }
 
 #include "opencv2/core/utils/logger.hpp"
 #include "private/vcuutils.hpp"
 
+
+#include <thread>
 namespace cv {
 namespace vcucodec {
 

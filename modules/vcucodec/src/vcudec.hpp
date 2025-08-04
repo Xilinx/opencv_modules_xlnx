@@ -14,8 +14,8 @@
    limitations under the License.
 */
 
-#include "ctrlsw_dec.hpp"
 #include "opencv2/vcucodec.hpp"
+#include "private/vcudeccontext.hpp"
 
 namespace cv {
 namespace vcucodec {
