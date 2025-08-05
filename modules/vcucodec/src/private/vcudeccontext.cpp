@@ -101,77 +101,76 @@ class DecoderContext : public DecContext
 public:
     DecoderContext(Config &config, AL_TAllocator *pAllocator, Ptr<RawOutput> rawOutput);
     ~DecoderContext();
-    void CreateBaseDecoder(Ptr<Device> device);
-    AL_HDecoder GetBaseDecoderHandle() const { return hBaseDec; }
-    AL_ERR SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const *pStreamSettings,
-                                AL_TCropInfo const *pCropInfo);
 
-    bool WaitExit(uint32_t uTimeout);
-    void ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame);
-    int32_t GetNumConcealedFrame() const { return iNumFrameConceal; };
-    int32_t GetNumDecodedFrames() const { return iNumDecodedFrames; };
-    std::unique_lock<std::mutex> LockDisplay()
-    {
-        return std::unique_lock<std::mutex>(hDisplayMutex);
-    };
-    void StopSendingBuffer()
-    {
-        LockDisplay();
-        bPushBackToDecoder = false;
-    };
-    bool CanSendBackBufferToDecoder() { return bPushBackToDecoder; };
-    void ReceiveBaseDecoderDecodedFrame(AL_TBuffer *pFrame);
-    void FrameDone(Frame const &f);
-    void ManageError(AL_ERR eError);
-    Ptr<Frame> GetFrameFromQ(bool wait = true);
     void start(WorkerConfig wCfg) override;
     void finish() override;
 
     bool running() const override { return running_; }
     bool eos() const override { return eos_; }
 
-    private:
+    void createBaseDecoder(Ptr<Device> device);
+    AL_HDecoder getBaseDecoderHandle() const { return hBaseDec_; }
+    AL_ERR setupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const *pStreamSettings,
+                                AL_TCropInfo const *pCropInfo);
+
+    bool waitExit(uint32_t uTimeout);
+    void receiveFrameToDisplayFrom(Ptr<Frame> pFrame);
+    int32_t getNumConcealedFrame() const { return iNumFrameConceal_; };
+    int32_t getNumDecodedFrames() const { return iNumDecodedFrames_; };
+    std::unique_lock<std::mutex> lockDisplay()
+    {
+        return std::unique_lock<std::mutex>(hDisplayMutex_);
+    };
+    void stopSendingBuffer()
+    {
+        lockDisplay();
+        bPushBackToDecoder_ = false;
+    };
+    bool canSendBackBufferToDecoder() { return bPushBackToDecoder_; };
+    void receiveBaseDecoderDecodedFrame(AL_TBuffer *pFrame);
+    void frameDone(Frame const &f);
+    void manageError(AL_ERR eError);
+
+private:
+    AL_HANDLE getDecoderHandle() const;
+    AL_ERR treatError(Ptr<Frame> pFrame);
+    AL_TDimension computeBaseDecoderFinalResolution(AL_TStreamSettings const *pStreamSettings);
+    int32_t computeBaseDecoderRecBufferSizing(AL_TStreamSettings const *pStreamSettings,
+                                              AL_TDecOutputSettings const *pUserOutputSettings_);
+    void attachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const *pStreamSettings,
+                                              AL_TBuffer *pDecPict);
+    void ctrlswDecRun(WorkerConfig wCfg);
+
     bool running_;
     bool eos_;
     bool await_eos_;
 
-    AL_TAllocator *pAllocator;
-    AL_HDecoder hBaseDec = nullptr;
-    Ptr<RawOutput> tDisplayManager{};
-    bool bPushBackToDecoder = true;
-    int32_t iNumFrameConceal = 0;
-    int32_t iNumDecodedFrames = 0;
-    AL_TDecCallBacks CB{};
-    AL_TDecSettings *pDecSettings;
-    bool bUsePreAlloc = false;
-    PixMapBufPool tBaseBufPool;
-    AL_TDecOutputSettings *pUserOutputSettings;
-    std::ofstream seiOutput;
-    std::ofstream seiSyncOutput;
-    std::thread ctrlswThread;
-
-    AL_HANDLE GetDecoderHandle() const;
-    AL_ERR TreatError(Ptr<Frame> pFrame);
-    AL_TDimension ComputeBaseDecoderFinalResolution(AL_TStreamSettings const *pStreamSettings);
-    int32_t ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const *pStreamSettings,
-                                              AL_TDecOutputSettings const *pUserOutputSettings);
-    void AttachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const *pStreamSettings,
-                                              AL_TBuffer *pDecPict);
-    void CtrlswDecRun(WorkerConfig wCfg);
-
-    std::map<AL_TBuffer *, std::vector<AL_TSeiMetaData *>> displaySeis;
+    AL_TAllocator *pAllocator_;
+    AL_HDecoder hBaseDec_ = nullptr;
+    Ptr<RawOutput> rawOutput_{};
+    bool bPushBackToDecoder_ = true;
+    int32_t iNumFrameConceal_ = 0;
+    int32_t iNumDecodedFrames_ = 0;
+    AL_TDecCallBacks CB_{};
+    AL_TDecSettings *pDecSettings_;
+    bool bUsePreAlloc_ = false;
+    PixMapBufPool baseBufPool_;
+    AL_TDecOutputSettings *pUserOutputSettings_;
+    std::ofstream seiOutput_;
+    std::ofstream seiSyncOutput_;
+    std::thread ctrlswThread_;
+    std::map<AL_TBuffer *, std::vector<AL_TSeiMetaData *>> displaySeis_;
     EDecErrorLevel eExitCondition = DEC_ERROR;
-    AL_EVENT hExitMain = nullptr;
-    std::mutex hDisplayMutex;
+    AL_EVENT hExitMain_ = nullptr;
+    std::mutex hDisplayMutex_;
 };
 
-namespace
-{ // anonymous
+namespace { // anonymous
 
 /* We need at least 1 buffer to copy the output on a file */
 uint32_t constexpr uDefaultNumBuffersHeldByNextComponent = 1;
 
-AL_TDecSettings GetDefaultDecSettings(void)
+AL_TDecSettings getDefaultDecSettings(void)
 {
     AL_TDecSettings settings{};
     AL_DecSettings_SetDefaults(&settings);
@@ -179,7 +178,7 @@ AL_TDecSettings GetDefaultDecSettings(void)
     return settings;
 }
 
-AL_EFbStorageMode GetMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings,
+AL_EFbStorageMode getMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings,
                                            AL_EFbStorageMode eOutstorageMode)
 {
     (void)tUserOutputSettings;
@@ -197,10 +196,10 @@ AL_EFbStorageMode GetMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSett
 }
 
 /* duplicated from Utils.h as we can't take these from inside the libraries */
-int32_t RoundUp(int32_t iVal, int32_t iRnd) { return (iVal + iRnd - 1) / iRnd * iRnd; }
+int32_t roundUp(int32_t iVal, int32_t iRnd) { return (iVal + iRnd - 1) / iRnd * iRnd; }
 
 /* Update picture format using stream settings and decoder's settings*/
-void SetDecOutputSettings(AL_TDecOutputSettings &tUserOutputSettings,
+void setDecOutputSettings(AL_TDecOutputSettings &tUserOutputSettings,
                           AL_TStreamSettings const &tStreamSettings,
                           AL_TDecSettings const &tDecSettings)
 {
@@ -227,7 +226,7 @@ void SetDecOutputSettings(AL_TDecOutputSettings &tUserOutputSettings,
         tPicFormat.eComponentOrder = AL_COMPONENT_ORDER_YUV;
 
     tUserOutputSettings.tPicFormat.eStorageMode =
-        GetMainOutputStorageMode(tUserOutputSettings, tDecSettings.eFBStorageMode);
+        getMainOutputStorageMode(tUserOutputSettings, tDecSettings.eFBStorageMode);
 
     if (IsTile(tUserOutputSettings.tPicFormat.eStorageMode))
         tUserOutputSettings.tPicFormat.eSamplePackMode = AL_SAMPLE_PACK_MODE_PACKED;
@@ -237,7 +236,7 @@ void SetDecOutputSettings(AL_TDecOutputSettings &tUserOutputSettings,
         tUserOutputSettings.tPicFormat.eAlphaMode = AL_ALPHA_MODE_AFTER;
 }
 
-static std::string SequencePictureToString(AL_ESequenceMode sequencePicture)
+std::string sequencePictureToString(AL_ESequenceMode sequencePicture)
 {
     if (sequencePicture == AL_SM_UNKNOWN)
         return "unknown";
@@ -250,7 +249,7 @@ static std::string SequencePictureToString(AL_ESequenceMode sequencePicture)
     return "max enum";
 }
 
-static void ShowStreamInfo(int32_t BufferNumber, int32_t BufferSize,
+void showStreamInfo(int32_t BufferNumber, int32_t BufferSize,
                            AL_TStreamSettings const *pStreamSettings, AL_TCropInfo const *pCropInfo,
                            TFourCC tFourCC, AL_TDimension outputDim)
 {
@@ -278,14 +277,14 @@ static void ShowStreamInfo(int32_t BufferNumber, int32_t BufferSize,
         ss << "Display resolution: " << iWidth - uCropWidth << "x" << iHeight - uCropHeight
            << std::endl;
     }
-    ss << "Sequence picture: " << SequencePictureToString(pStreamSettings->eSequenceMode)
+    ss << "Sequence picture: " << sequencePictureToString(pStreamSettings->eSequenceMode)
        << std::endl;
     ss << "Buffers needed: " << BufferNumber << " of size " << BufferSize << std::endl;
 
     LogInfo(CC_DARK_BLUE, "%s\n", ss.str().c_str());
 }
 
-int32_t sConfigureDecBufPool(PixMapBufPool &SrcBufPool, AL_TPicFormat const &tPicFormat,
+int32_t configureDecBufPool(PixMapBufPool &SrcBufPool, AL_TPicFormat const &tPicFormat,
                              AL_TDimension const &tDim, int32_t iPitchY,
                              bool bConfigurePlanarAndSemiplanar)
 {
@@ -322,20 +321,20 @@ int32_t sConfigureDecBufPool(PixMapBufPool &SrcBufPool, AL_TPicFormat const &tPi
     return iOffset;
 }
 
-static void sInputParsed(AL_TBuffer *pParsedFrame, void *pUserParam, int32_t iParsingId)
+void inputParsed(AL_TBuffer *pParsedFrame, void *pUserParam, int32_t iParsingId)
 {
     (void)pParsedFrame;
     (void)pUserParam;
     (void)iParsingId;
 }
 
-static void sFrameDecoded(AL_TBuffer *pFrame, void *pUserParam)
+static void frameDecoded(AL_TBuffer *pFrame, void *pUserParam)
 {
     auto pCtx = static_cast<DecoderContext *>(pUserParam);
-    pCtx->ReceiveBaseDecoderDecodedFrame(pFrame);
+    pCtx->receiveBaseDecoderDecodedFrame(pFrame);
 }
 
-static void sParsedSei(bool bIsPrefix, int32_t iPayloadType, uint8_t *pPayload,
+static void parsedSei(bool bIsPrefix, int32_t iPayloadType, uint8_t *pPayload,
                        int32_t iPayloadSize, void *pUserParam)
 {
     (void)bIsPrefix;
@@ -345,14 +344,14 @@ static void sParsedSei(bool bIsPrefix, int32_t iPayloadType, uint8_t *pPayload,
     (void)pUserParam;
 }
 
-static void sDecoderError(AL_ERR eError, void *pUserParam)
+static void decoderError(AL_ERR eError, void *pUserParam)
 {
     auto pCtx = static_cast<DecoderContext *>(pUserParam);
 
-    pCtx->ManageError(eError);
+    pCtx->manageError(eError);
 }
 
-static void sBaseDecoderFrameDisplay(AL_TBuffer *pFrame, AL_TInfoDecode *pInfo, void *pUserParam)
+static void baseDecoderFrameDisplay(AL_TBuffer *pFrame, AL_TInfoDecode *pInfo, void *pUserParam)
 {
     bool isEos = !pFrame && !pInfo;
     bool release_only = pFrame && !pInfo;
@@ -365,19 +364,19 @@ static void sBaseDecoderFrameDisplay(AL_TBuffer *pFrame, AL_TInfoDecode *pInfo, 
             frame = Frame::create(
                 pFrame, pInfo,
                 [pCtx](Frame const &f) { // Custom callback logic for when the frame is processed
-                    pCtx->FrameDone(f);
+                    pCtx->frameDone(f);
                 });
             frame->invalidate();
         }
-        pCtx->ReceiveFrameToDisplayFrom(frame);
+        pCtx->receiveFrameToDisplayFrom(frame);
     }
 }
 
-static AL_ERR sBaseResolutionFound(int32_t iBufferNumber, AL_TStreamSettings const *pStreamSettings,
+static AL_ERR baseResolutionFound(int32_t iBufferNumber, AL_TStreamSettings const *pStreamSettings,
                                    AL_TCropInfo const *pCropInfo, void *pUserParam)
 {
     auto pCtx = (DecoderContext *)pUserParam;
-    return pCtx->SetupBaseDecoderPool(iBufferNumber, pStreamSettings, pCropInfo);
+    return pCtx->setupBaseDecoderPool(iBufferNumber, pStreamSettings, pCropInfo);
 }
 
 struct codec_error : public std::runtime_error
@@ -390,282 +389,7 @@ struct codec_error : public std::runtime_error
     const AL_ERR Code;
 };
 
-} // namespace
-
-Config::Config(void) { tDecSettings = GetDefaultDecSettings(); }
-
-DecoderContext::DecoderContext(Config &config, AL_TAllocator *pAlloc, Ptr<RawOutput> rawOutput)
-    : tDisplayManager(rawOutput)
-{
-    pAllocator = pAlloc;
-    pDecSettings = &config.tDecSettings;
-    pUserOutputSettings = &config.tUserOutputSettings;
-    tDisplayManager->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames);
-    running_ = false;
-    eos_ = false;
-    await_eos_ = false;
-    eExitCondition = config.eExitCondition;
-    hExitMain = Rtos_CreateEvent(false);
-}
-
-DecoderContext::~DecoderContext(void)
-{
-    await_eos_ = true;
-    eos_ = true;
-    if (ctrlswThread.joinable())
-        ctrlswThread.join();
-    Rtos_DeleteEvent(hExitMain);
-}
-
-AL_HANDLE DecoderContext::GetDecoderHandle() const
-{
-    AL_HANDLE h = hBaseDec;
-
-    return h;
-}
-
-bool DecoderContext::WaitExit(uint32_t uTimeout) { return Rtos_WaitEvent(hExitMain, uTimeout); }
-
-AL_TDimension
-DecoderContext::ComputeBaseDecoderFinalResolution(AL_TStreamSettings const *pStreamSettings)
-{
-    AL_TDimension tOutputDim = pStreamSettings->tDim;
-
-    /* For pre-allocation, we must use 8x8 (HEVC) or MB (AVC) rounded dimensions, like the SPS. */
-    /* Actually, round up to the LCU so we're able to support resolution changes with the same LCU
-     * sizes. */
-    /* And because we don't know the codec here, always use 64 as MB/LCU size. */
-    tOutputDim.iWidth = RoundUp(tOutputDim.iWidth, 64);
-    tOutputDim.iHeight = RoundUp(tOutputDim.iHeight, 64);
-
-    return tOutputDim;
-}
-
-int32_t
-DecoderContext::ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const *pStreamSettings,
-                                                  AL_TDecOutputSettings const *pUserOutputSettings)
-{
-    // Up to this point pUserOutputSettings is already updated in the resolution found callback
-    // (SetupBaseDecoderPool)
-    int32_t iBufferSize = 0;
-
-    // Compute output resolution
-    AL_TDimension tOutputDim = ComputeBaseDecoderFinalResolution(pStreamSettings);
-
-    // Buffer sizing
-    auto minPitch = AL_Decoder_GetMinPitch(tOutputDim.iWidth, &pUserOutputSettings->tPicFormat);
-
-    bool bConfigurePlanarAndSemiplanar = bUsePreAlloc;
-    iBufferSize = sConfigureDecBufPool(tBaseBufPool, pUserOutputSettings->tPicFormat, tOutputDim,
-                                       minPitch, bConfigurePlanarAndSemiplanar);
-
-    return iBufferSize;
-}
-
-void DecoderContext::AttachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const *pStreamSettings,
-                                                          AL_TBuffer *pDecPict)
-{
-    (void)pStreamSettings;
-
-    AL_TPictureDecMetaData *pPictureDecMeta = AL_PictureDecMetaData_Create();
-    AL_Buffer_AddMetaData(pDecPict, (AL_TMetaData *)pPictureDecMeta);
-
-    AL_TDisplayInfoMetaData *pDisplayInfoMeta = AL_DisplayInfoMetaData_Create();
-    AL_Buffer_AddMetaData(pDecPict, (AL_TMetaData *)pDisplayInfoMeta);
-}
-
-AL_ERR DecoderContext::SetupBaseDecoderPool(int32_t iBufferNumber,
-                                            AL_TStreamSettings const *pStreamSettings,
-                                            AL_TCropInfo const *pCropInfo)
-{
-    auto lockDisplay = LockDisplay();
-
-    SetDecOutputSettings(*pUserOutputSettings, *pStreamSettings, *pDecSettings);
-
-    if (!AL_Decoder_ConfigureOutputSettings(GetBaseDecoderHandle(), pUserOutputSettings))
-        throw std::runtime_error("Could not configure the output settings");
-
-    /* Compute buffer sizing */
-    int32_t iBufferSize = ComputeBaseDecoderRecBufferSizing(pStreamSettings, pUserOutputSettings);
-
-    AL_TCropInfo pUserCropInfo = *pCropInfo;
-
-    AL_TDimension outputDim = pStreamSettings->tDim;
-    ShowStreamInfo(iBufferNumber, iBufferSize, pStreamSettings, &pUserCropInfo,
-                   AL_GetFourCC(pUserOutputSettings->tPicFormat), outputDim);
-
-    if (tBaseBufPool.IsInit())
-        return AL_SUCCESS;
-
-    /* Create the buffers */
-    int32_t iNumBuf = iBufferNumber + uDefaultNumBuffersHeldByNextComponent;
-
-    if (!tBaseBufPool.Init(pAllocator, iNumBuf, "decoded picture buffer"))
-        return AL_ERR_NO_MEMORY;
-
-    // Attach the metas + push to decoder
-    // ----------------------------------
-    for (int32_t i = 0; i < iNumBuf; ++i)
-    {
-        auto pDecPict = tBaseBufPool.GetSharedBuffer(AL_EBufMode::AL_BUF_MODE_NONBLOCK);
-
-        if (!pDecPict)
-            throw std::runtime_error("pDecPict is null");
-
-        AL_Buffer_Cleanup(pDecPict.get());
-
-        AttachMetaDataToBaseDecoderRecBuffer(pStreamSettings, pDecPict.get());
-        bool const bAdded = AL_Decoder_PutDisplayPicture(GetBaseDecoderHandle(), pDecPict.get());
-
-        if (!bAdded)
-            throw std::runtime_error("bAdded must be true");
-    }
-
-    return AL_SUCCESS;
-}
-
-void DecoderContext::ReceiveBaseDecoderDecodedFrame(AL_TBuffer *pFrame)
-{
-    (void)pFrame;
-    if (GetBaseDecoderHandle())
-        iNumDecodedFrames++;
-}
-
-void DecoderContext::CreateBaseDecoder(Ptr<Device> device)
-{
-    CB.endParsingCB = {&sInputParsed, this};
-    CB.endDecodingCB = {&sFrameDecoded, this};
-    CB.displayCB = {&sBaseDecoderFrameDisplay, this};
-    CB.resolutionFoundCB = {&sBaseResolutionFound, this};
-    CB.parsedSeiCB = {&sParsedSei, this};
-    CB.errorCB = {&sDecoderError, this};
-
-    auto ctx = device->getCtx();
-    AL_ERR error = AL_Decoder_CreateWithCtx(&hBaseDec, ctx, pAllocator, pDecSettings, &CB);
-
-    if (AL_IS_ERROR_CODE(error))
-        throw codec_error(error);
-
-    if (!hBaseDec)
-        throw std::runtime_error("Cannot create base decoder");
-}
-
-void DecoderContext::ManageError(AL_ERR eError)
-{
-    if (AL_IS_ERROR_CODE(eError) || eExitCondition == DEC_WARNING)
-        Rtos_SetEvent(hExitMain);
-}
-
-void DecoderContext::start(WorkerConfig wCfg)
-{
-    ctrlswThread = std::thread(&DecoderContext::CtrlswDecRun, this, wCfg);
-    ctrlswThread.detach();
-    running_ = true;
-}
-
-void DecoderContext::finish()
-{
-    await_eos_ = true;
-    tDisplayManager->flush();
-    Rtos_SetEvent(hExitMain);
-}
-
-Ptr<Frame> DecoderContext::GetFrameFromQ(bool wait /*=true*/)
-{
-    auto timeout = (wait ? std::chrono::milliseconds(100) : std::chrono::milliseconds::zero());
-    Ptr<Frame> pFrame = tDisplayManager->dequeue(timeout);
-    return pFrame;
-}
-
-void DecoderContext::ReceiveFrameToDisplayFrom(Ptr<Frame> pFrame)
-{
-    std::unique_lock<std::mutex> lock(hDisplayMutex);
-
-    bool bLastFrame = pFrame == nullptr || await_eos_;
-
-    if (!bLastFrame)
-    {
-        auto err = TreatError(pFrame);
-
-        if (AL_IS_ERROR_CODE(err))
-            bLastFrame = true;
-        else
-        {
-            {
-                bool bIsFrameMainDisplay;
-                auto hDec = GetDecoderHandle();
-                int32_t iBitDepthAlloc = 8;
-
-                iBitDepthAlloc = AL_Decoder_GetMaxBD(hDec);
-                bool bDecoderExists = GetBaseDecoderHandle() != NULL;
-                tDisplayManager->process(pFrame, iBitDepthAlloc, bIsFrameMainDisplay, bLastFrame,
-                                         bDecoderExists);
-
-                if (bIsFrameMainDisplay && CanSendBackBufferToDecoder() && !bLastFrame)
-                {
-                    if (err == AL_WARN_CONCEAL_DETECT || err == AL_WARN_HW_CONCEAL_DETECT ||
-                        err == AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE)
-                        iNumFrameConceal++;
-                }
-            }
-        }
-    }
-    if (bLastFrame)
-    {
-        await_eos_ = true;
-        if (tDisplayManager->idle())
-        {
-            eos_ = true;
-        }
-    }
-}
-
-void DecoderContext::FrameDone(Frame const &frame)
-{
-    if (frame.isMainOutput() && CanSendBackBufferToDecoder() && !await_eos_)
-    {
-        if (!AL_Decoder_PutDisplayPicture(GetDecoderHandle(), frame.getBuffer()))
-        {
-            throw std::runtime_error("Failed to put display picture back to decoder");
-        }
-    }
-
-    if (!eos_ && await_eos_ && tDisplayManager->idle())
-    {
-        eos_ = true;
-        Rtos_SetEvent(hExitMain);
-    }
-}
-
-AL_ERR DecoderContext::TreatError(Ptr<Frame> frame)
-{
-    AL_TBuffer *pFrame = frame->getBuffer();
-    bool bExitError = false;
-    AL_ERR err = AL_SUCCESS;
-
-    auto hDec = GetDecoderHandle();
-
-    if (hDec)
-    {
-        err = AL_Decoder_GetFrameError(hDec, pFrame);
-        bExitError |= AL_IS_ERROR_CODE(err);
-    }
-
-    if (bExitError)
-    {
-        LogDimmedWarning("\n%s\n", AL_Codec_ErrorToString(err));
-
-        if (err == AL_WARN_SEI_OVERFLOW)
-            LogDimmedWarning(
-                "\nDecoder has discarded some SEI while the SEI metadata buffer was too small\n");
-
-        LogError("Error: %d\n", err);
-    }
-
-    return err;
-}
-
-void ShowStatistics(double durationInSeconds, int32_t iNumFrameConceal, int32_t decodedFrameNumber,
+void showStatistics(double durationInSeconds, int32_t iNumFrameConceal, int32_t decodedFrameNumber,
                     bool timeoutOccurred)
 {
     std::string guard = "Decoded time = ";
@@ -678,14 +402,14 @@ void ShowStatistics(double durationInSeconds, int32_t iNumFrameConceal, int32_t 
             iNumFrameConceal);
 }
 
-void AdjustStreamBufferSettings(Config &config)
+void adjustStreamBufferSettings(Config &config)
 {
     uint32_t uMinStreamBuf = config.tDecSettings.iStackSize;
     config.uInputBufferNum = max(uMinStreamBuf, config.uInputBufferNum);
     config.zInputBufferSize = max(size_t(1), config.zInputBufferSize);
 }
 
-void CheckAndAdjustChannelConfiguration(Config &config)
+void checkAndAdjustChannelConfiguration(Config &config)
 {
     FILE *out = g_Verbosity ? stdout : nullptr;
 
@@ -712,10 +436,10 @@ void CheckAndAdjustChannelConfiguration(Config &config)
 
     // Adjust settings
     // ---------------
-    AdjustStreamBufferSettings(config);
+    adjustStreamBufferSettings(config);
 }
 
-void ConfigureInputPool(Config const &config, AL_TAllocator *pAllocator, BufPool &tInputPool)
+void configureInputPool(Config const &config, AL_TAllocator *pAllocator, BufPool &tInputPool)
 {
     std::string sDebugName = "input_pool";
     uint32_t uNumBuf = config.uInputBufferNum;
@@ -731,7 +455,276 @@ void ConfigureInputPool(Config const &config, AL_TAllocator *pAllocator, BufPool
         throw std::runtime_error("Can't create BufPool");
 }
 
-void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
+
+} // namespace anonymous
+
+Config::Config(void) { tDecSettings = getDefaultDecSettings(); }
+
+DecoderContext::DecoderContext(Config &config, AL_TAllocator *pAlloc, Ptr<RawOutput> rawOutput)
+    : rawOutput_(rawOutput)
+{
+    pAllocator_ = pAlloc;
+    pDecSettings_ = &config.tDecSettings;
+    pUserOutputSettings_ = &config.tUserOutputSettings;
+    rawOutput_->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames);
+    running_ = false;
+    eos_ = false;
+    await_eos_ = false;
+    eExitCondition = config.eExitCondition;
+    hExitMain_ = Rtos_CreateEvent(false);
+}
+
+DecoderContext::~DecoderContext(void)
+{
+    await_eos_ = true;
+    eos_ = true;
+    if (ctrlswThread_.joinable())
+        ctrlswThread_.join();
+    Rtos_DeleteEvent(hExitMain_);
+}
+
+AL_HANDLE DecoderContext::getDecoderHandle() const
+{
+    AL_HANDLE h = hBaseDec_;
+    return h;
+}
+
+bool DecoderContext::waitExit(uint32_t uTimeout) { return Rtos_WaitEvent(hExitMain_, uTimeout); }
+
+AL_TDimension
+DecoderContext::computeBaseDecoderFinalResolution(AL_TStreamSettings const *pStreamSettings)
+{
+    AL_TDimension tOutputDim = pStreamSettings->tDim;
+
+    /* For pre-allocation, we must use 8x8 (HEVC) or MB (AVC) rounded dimensions, like the SPS. */
+    /* Actually, round up to the LCU so we're able to support resolution changes with the same LCU
+     * sizes. */
+    /* And because we don't know the codec here, always use 64 as MB/LCU size. */
+    tOutputDim.iWidth = roundUp(tOutputDim.iWidth, 64);
+    tOutputDim.iHeight = roundUp(tOutputDim.iHeight, 64);
+
+    return tOutputDim;
+}
+
+int32_t
+DecoderContext::computeBaseDecoderRecBufferSizing(AL_TStreamSettings const *pStreamSettings,
+                                                  AL_TDecOutputSettings const *pUserOutputSettings)
+{
+    // Up to this point pUserOutputSettings is already updated in the resolution found callback
+    // (setupBaseDecoderPool)
+    int32_t iBufferSize = 0;
+
+    // Compute output resolution
+    AL_TDimension tOutputDim = computeBaseDecoderFinalResolution(pStreamSettings);
+
+    // Buffer sizing
+    auto minPitch = AL_Decoder_GetMinPitch(tOutputDim.iWidth, &pUserOutputSettings->tPicFormat);
+
+    bool bConfigurePlanarAndSemiplanar = bUsePreAlloc_;
+    iBufferSize = configureDecBufPool(baseBufPool_, pUserOutputSettings->tPicFormat, tOutputDim,
+                                      minPitch, bConfigurePlanarAndSemiplanar);
+
+    return iBufferSize;
+}
+
+void DecoderContext::attachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const *pStreamSettings,
+                                                          AL_TBuffer *pDecPict)
+{
+    (void)pStreamSettings;
+
+    AL_TPictureDecMetaData *pPictureDecMeta = AL_PictureDecMetaData_Create();
+    AL_Buffer_AddMetaData(pDecPict, (AL_TMetaData *)pPictureDecMeta);
+
+    AL_TDisplayInfoMetaData *pDisplayInfoMeta = AL_DisplayInfoMetaData_Create();
+    AL_Buffer_AddMetaData(pDecPict, (AL_TMetaData *)pDisplayInfoMeta);
+}
+
+AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
+                                            AL_TStreamSettings const *pStreamSettings,
+                                            AL_TCropInfo const *pCropInfo)
+{
+    auto lock = lockDisplay();
+
+    setDecOutputSettings(*pUserOutputSettings_, *pStreamSettings, *pDecSettings_);
+
+    if (!AL_Decoder_ConfigureOutputSettings(getBaseDecoderHandle(), pUserOutputSettings_))
+        throw std::runtime_error("Could not configure the output settings");
+
+    /* Compute buffer sizing */
+    int32_t iBufferSize = computeBaseDecoderRecBufferSizing(pStreamSettings, pUserOutputSettings_);
+
+    AL_TCropInfo pUserCropInfo = *pCropInfo;
+
+    AL_TDimension outputDim = pStreamSettings->tDim;
+    showStreamInfo(iBufferNumber, iBufferSize, pStreamSettings, &pUserCropInfo,
+                   AL_GetFourCC(pUserOutputSettings_->tPicFormat), outputDim);
+
+    if (baseBufPool_.IsInit())
+        return AL_SUCCESS;
+
+    /* Create the buffers */
+    int32_t iNumBuf = iBufferNumber + uDefaultNumBuffersHeldByNextComponent;
+
+    if (!baseBufPool_.Init(pAllocator_, iNumBuf, "decoded picture buffer"))
+        return AL_ERR_NO_MEMORY;
+
+    // Attach the metas + push to decoder
+    // ----------------------------------
+    for (int32_t i = 0; i < iNumBuf; ++i)
+    {
+        auto pDecPict = baseBufPool_.GetSharedBuffer(AL_EBufMode::AL_BUF_MODE_NONBLOCK);
+
+        if (!pDecPict)
+            throw std::runtime_error("pDecPict is null");
+
+        AL_Buffer_Cleanup(pDecPict.get());
+
+        attachMetaDataToBaseDecoderRecBuffer(pStreamSettings, pDecPict.get());
+        bool const bAdded = AL_Decoder_PutDisplayPicture(getBaseDecoderHandle(), pDecPict.get());
+
+        if (!bAdded)
+            throw std::runtime_error("bAdded must be true");
+    }
+
+    return AL_SUCCESS;
+}
+
+void DecoderContext::receiveBaseDecoderDecodedFrame(AL_TBuffer *pFrame)
+{
+    (void)pFrame;
+    if (getBaseDecoderHandle())
+        iNumDecodedFrames_++;
+}
+
+void DecoderContext::createBaseDecoder(Ptr<Device> device)
+{
+    CB_.endParsingCB = {&inputParsed, this};
+    CB_.endDecodingCB = {&frameDecoded, this};
+    CB_.displayCB = {&baseDecoderFrameDisplay, this};
+    CB_.resolutionFoundCB = {&baseResolutionFound, this};
+    CB_.parsedSeiCB = {&parsedSei, this};
+    CB_.errorCB = {&decoderError, this};
+
+    auto ctx = device->getCtx();
+    AL_ERR error = AL_Decoder_CreateWithCtx(&hBaseDec_, ctx, pAllocator_, pDecSettings_, &CB_);
+
+    if (AL_IS_ERROR_CODE(error))
+        throw codec_error(error);
+
+    if (!hBaseDec_)
+        throw std::runtime_error("Cannot create base decoder");
+}
+
+void DecoderContext::manageError(AL_ERR eError)
+{
+    if (AL_IS_ERROR_CODE(eError) || eExitCondition == DEC_WARNING)
+        Rtos_SetEvent(hExitMain_);
+}
+
+void DecoderContext::start(WorkerConfig wCfg)
+{
+    ctrlswThread_ = std::thread(&DecoderContext::ctrlswDecRun, this, wCfg);
+    ctrlswThread_.detach();
+    running_ = true;
+}
+
+void DecoderContext::finish()
+{
+    await_eos_ = true;
+    rawOutput_->flush();
+    Rtos_SetEvent(hExitMain_);
+}
+
+void DecoderContext::receiveFrameToDisplayFrom(Ptr<Frame> pFrame)
+{
+    std::unique_lock<std::mutex> lock(hDisplayMutex_);
+
+    bool bLastFrame = pFrame == nullptr || await_eos_;
+
+    if (!bLastFrame)
+    {
+        auto err = treatError(pFrame);
+
+        if (AL_IS_ERROR_CODE(err))
+            bLastFrame = true;
+        else
+        {
+            {
+                bool bIsFrameMainDisplay;
+                auto hDec = getDecoderHandle();
+                int32_t iBitDepthAlloc = 8;
+
+                iBitDepthAlloc = AL_Decoder_GetMaxBD(hDec);
+                bool bDecoderExists = getBaseDecoderHandle() != NULL;
+                rawOutput_->process(pFrame, iBitDepthAlloc, bIsFrameMainDisplay, bLastFrame,
+                                         bDecoderExists);
+
+                if (bIsFrameMainDisplay && canSendBackBufferToDecoder() && !bLastFrame)
+                {
+                    if (err == AL_WARN_CONCEAL_DETECT || err == AL_WARN_HW_CONCEAL_DETECT ||
+                        err == AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE)
+                        iNumFrameConceal_++;
+                }
+            }
+        }
+    }
+    if (bLastFrame)
+    {
+        await_eos_ = true;
+        if (rawOutput_->idle())
+        {
+            eos_ = true;
+        }
+    }
+}
+
+void DecoderContext::frameDone(Frame const &frame)
+{
+    if (frame.isMainOutput() && canSendBackBufferToDecoder() && !await_eos_)
+    {
+        if (!AL_Decoder_PutDisplayPicture(getDecoderHandle(), frame.getBuffer()))
+        {
+            throw std::runtime_error("Failed to put display picture back to decoder");
+        }
+    }
+
+    if (!eos_ && await_eos_ && rawOutput_->idle())
+    {
+        eos_ = true;
+        Rtos_SetEvent(hExitMain_);
+    }
+}
+
+AL_ERR DecoderContext::treatError(Ptr<Frame> frame)
+{
+    AL_TBuffer *pFrame = frame->getBuffer();
+    bool bExitError = false;
+    AL_ERR err = AL_SUCCESS;
+
+    auto hDec = getDecoderHandle();
+
+    if (hDec)
+    {
+        err = AL_Decoder_GetFrameError(hDec, pFrame);
+        bExitError |= AL_IS_ERROR_CODE(err);
+    }
+
+    if (bExitError)
+    {
+        LogDimmedWarning("\n%s\n", AL_Codec_ErrorToString(err));
+
+        if (err == AL_WARN_SEI_OVERFLOW)
+            LogDimmedWarning(
+                "\nDecoder has discarded some SEI while the SEI metadata buffer was too small\n");
+
+        LogError("Error: %d\n", err);
+    }
+
+    return err;
+}
+
+
+void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
 {
     auto &config = *wCfg.pConfig;
     AL_TAllocator *pAllocator = nullptr;
@@ -744,15 +737,15 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
     // before the BufPool destroyer. Can it be done differently so that it is not dependant of this
     // order ?
     BufPool tInputPool;
-    ConfigureInputPool(config, pAllocator, tInputPool);
+    configureInputPool(config, pAllocator, tInputPool);
 
     // Insure destroying is done even after throwing
     // ---------------------------------------------
     auto scopeDecoder = scopeExit(
         [&]()
         {
-            StopSendingBuffer(); // Prevent to push buffer to the decoder while destroying it
-            AL_Decoder_Destroy(GetBaseDecoderHandle());
+            stopSendingBuffer(); // Prevent to push buffer to the decoder while destroying it
+            AL_Decoder_Destroy(getBaseDecoderHandle());
         });
 
     // Start feeding the decoder
@@ -766,7 +759,7 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
         // Setup the reader of bitstream in the file.
         // It will send bitstream chunk to the decoder
 
-        auto reader = Reader::createReader(GetBaseDecoderHandle(), tInputPool);
+        auto reader = Reader::createReader(getBaseDecoderHandle(), tInputPool);
         if (!reader->setPath(config.sIn))
         {
             CV_Error(cv::Error::StsBadArg, "Failed to set input file path");
@@ -776,7 +769,7 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
         auto const maxWait = config.iTimeoutInSeconds * 1000;
         auto const timeout = maxWait >= 0 ? maxWait : AL_WAIT_FOREVER;
 
-        if (!WaitExit(timeout))
+        if (!waitExit(timeout))
             timeoutOccurred = true;
 
         tInputPool.Decommit();
@@ -785,14 +778,14 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
     auto const uEnd = GetPerfTime();
 
     // Prevent the display to produce some outputs
-    auto lock = LockDisplay();
+    auto lock = lockDisplay();
 
     // Get the errors
     // --------------
     AL_ERR eErr = AL_SUCCESS;
 
-    if (GetBaseDecoderHandle())
-        eErr = AL_Decoder_GetLastError(GetBaseDecoderHandle());
+    if (getBaseDecoderHandle())
+        eErr = AL_Decoder_GetLastError(getBaseDecoderHandle());
 
     if (AL_IS_ERROR_CODE(eErr) ||
         (AL_IS_WARNING_CODE(eErr) && config.eExitCondition == DEC_WARNING))
@@ -803,11 +796,11 @@ void DecoderContext::CtrlswDecRun(WorkerConfig wCfg)
     if (AL_IS_WARNING_CODE(eErr))
         std::cerr << std::endl << "Warning: " << AL_Codec_ErrorToString(eErr) << std::endl;
 
-    if (!GetNumDecodedFrames())
+    if (!getNumDecodedFrames())
         throw std::runtime_error("No frame decoded");
 
     auto const duration = (uEnd - uBegin) / 1000.0;
-    ShowStatistics(duration, GetNumConcealedFrame(), GetNumDecodedFrames(), timeoutOccurred);
+    showStatistics(duration, getNumConcealedFrame(), getNumDecodedFrames(), timeoutOccurred);
     eos_ = true;
 }
 
@@ -844,7 +837,7 @@ DecContext::create(std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput,
 
     // Settings checks
     // ------------------
-    CheckAndAdjustChannelConfiguration(config);
+    checkAndAdjustChannelConfiguration(config);
 
     // Configure the decoders
     // ----------------------
@@ -855,11 +848,11 @@ DecContext::create(std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput,
 
     // Create the decoders
     // -------------------
-    pDecodeCtx->CreateBaseDecoder(device);
+    pDecodeCtx->createBaseDecoder(device);
 
     // Parametrization of the base decoder for traces
     // ----------------------------------------------
-    auto hDec = pDecodeCtx->GetBaseDecoderHandle();
+    auto hDec = pDecodeCtx->getBaseDecoderHandle();
     AL_Decoder_SetParam(hDec, "Fpga", config.iTraceIdx, config.iTraceNumber,
                         config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE);
 
@@ -867,4 +860,6 @@ DecContext::create(std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput,
     // -----------------------------------------------
     return pDecodeCtx;
 }
-} } // namespace cv::vcucodec
+
+} // namespace cv
+} // namespace vcucodec

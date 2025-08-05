@@ -1,7 +1,11 @@
 AccessModifierOffset: -4
 BinPackParameters: true
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterNamespace: false
 ColumnLimit:     100
 NamespaceIndentation: None
+NamespaceBraceStyle: Attach
 IndentWidth:     4
 TabWidth:        4
 UseTab: Never
