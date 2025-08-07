@@ -14,6 +14,8 @@
 #   limitations under the License.
 #
 
+ocv_cmake_hook_register_dir("${CMAKE_CURRENT_LIST_DIR}/cmake/hooks")
+
 ocv_define_module(vcucodec opencv_core opencv_videoio WRAP python)
 
 # Find and configure VCU/VDU/VCU2 Control Software libraries
