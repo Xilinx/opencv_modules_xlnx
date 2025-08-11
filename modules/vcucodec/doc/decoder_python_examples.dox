@@ -1,0 +1,139 @@
+/**
+\page dec_python_ex Decoder Python Examples
+\ingroup vcucodec
+
+This example demonstrates how to use the VCU decoder with Python to decode video streams.
+
+The following example shows how to decode a video file and save the output frames:
+
+\code{.py}
+#!/usr/bin/env python3
+import cv2
+
+def FOURCC(str_fourcc):
+    str_fourcc = str_fourcc[:4].ljust(4)  # ensure exactly 4 characters (space padded)
+    return cv2.VideoWriter_fourcc(*str_fourcc)
+
+def fourcc_to_string(fourcc):
+    """Convert FourCC integer to readable string"""
+    return "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
+
+def writeyuv(f, frame, width, height, stride):
+    """Write YUV data to a file in NV12 format."""
+    # Write Y plane
+    for y in range(height):
+        f.write(frame[y, :width].tobytes())
+    # Write UV plane
+    for y in range(height // 2):
+        f.write(frame[height + y, :width].tobytes())
+
+def writebgr(f, frame):
+    """Write BGR data to a file."""
+    for y in range(frame.shape[0]):
+        f.write(frame[y, :, :].tobytes())
+
+# Create decoder parameters
+decoderInitParams = cv2.vcucodec.DecoderInitParams(
+    codecType=cv2.vcucodec.VCU_AVC,
+    fourcc=FOURCC("NV12"),
+    fourcc_convert=0,  # No conversion, output raw NV12
+    maxFrames=0)
+
+# Create decoder instance
+dec = cv2.vcucodec.createDecoder('./meet_car_720p_nv12.avc', decoderInitParams)
+info = cv2.vcucodec.RawInfo()
+file = open('output.yuv', 'wb')
+count = 0
+
+# Decode frames
+while True:
+    ret, frame, info = dec.nextFrame()
+    if not ret:
+        print(f"got no frame: EOS: {info.eos}")
+        if info.eos:
+            break
+    else:
+        count += 1
+        print(f"{count} Width: {info.width}, Height: {info.height},"
+              f" FourCC: {fourcc_to_string(info.fourcc)},"
+              f" BitDepth: {info.bitDepth}, Stride: {info.stride}")
+
+        # Write frame data based on format
+        if decoderInitParams.fourcc_convert == 0:
+            writeyuv(file, frame, info.width, info.height, info.stride)
+        elif decoderInitParams.fourcc_convert == FOURCC("BGR"):
+            writebgr(file, frame)
+
+file.close()
+del dec
+\endcode
+
+#### Usage Notes
+
+- Set `codecType` for different codec types (VCU_AVC, VCU_HEVC)
+- Set `fourcc` to specify the desired output format (e.g., "NV12", "Y800")
+- Set `fourcc_convert` to 0 for no conversion, or use FOURCC("BGR") for BGR output
+- Frame information is provided in the `RawInfo` structure
+
+
+\code{.py}
+# Example with BGR conversion
+decoderInitParams = cv2.vcucodec.DecoderInitParams(
+    codecType=cv2.vcucodec.VCU_AVC,
+    fourcc=FOURCC("NV12"),
+    fourcc_convert=FOURCC("BGR"),  # Convert to BGR
+    maxFrames=0)
+\endcode
+
+#### Example with separate planes for Y and UV
+Instead of `nextFrame` this example uses `nextFramePlanes` to get separate planes for Y and UV.
+
+\code{.py}
+def FOURCC(str_fourcc):
+    str_fourcc = str_fourcc[:4].ljust(4)  # ensure exactly 4 characters (space padded)
+    return cv2.VideoWriter_fourcc(*str_fourcc)
+
+def fourcc_to_string(fourcc):
+    """Convert FourCC integer to readable string"""
+    return "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
+
+def writeyuv_planes(f, planeY, planeUV, width, height):
+    """Write YUV data to a file from separate Y and UV planes."""
+    # Write Y plane
+    for y in range(height):
+        f.write(planeY[y, :width].tobytes())
+    # Write UV plane
+    for y in range(planeUV.shape[0]):  # UV plane height
+        f.write(planeUV[y, :width].tobytes())
+
+decoderInitParams = cv2.vcucodec.DecoderInitParams(
+    codecType=cv2.vcucodec.VCU_AVC,
+    fourcc=FOURCC("NV12"),
+    fourcc_convert=0, # FOURCC("BGR"),
+    maxFrames=0)
+
+dec = cv2.vcucodec.createDecoder('./meet_car_720p_nv12.avc', decoderInitParams)
+info = cv2.vcucodec.RawInfo()
+once = True
+file = open('output.yuv', 'wb')
+count = 0
+while True:
+    ret, planes, info = dec.nextFramePlanes()
+    if not ret:
+        print(f"got no frame: EOS: {info.eos}")
+        if info.eos:
+            break
+    else:
+        count += 1
+        print(f"{count} Width: {info.width}, Height: {info.height},"
+              f" FourCC: {fourcc_to_string(info.fourcc)},"
+              f" BitDepth: {info.bitDepth}, Stride: {info.stride}, EOS: {info.eos}")
+        planeY = planes[0]
+        planeUV = planes[1]
+        writeyuv_planes(file, planeY, planeUV, info.width, info.height)
+
+file.close()
+del dec
+\endcode
+
+*/

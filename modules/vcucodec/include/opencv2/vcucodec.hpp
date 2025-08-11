@@ -82,6 +82,7 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 
 /// Decoder interface for decoding video streams
 /// This interface provides methods to decode video frames from a stream.
+/// See: @ref dec_python_ex
 class CV_EXPORTS_W Decoder
 {
 public:
