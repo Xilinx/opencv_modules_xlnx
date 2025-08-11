@@ -108,13 +108,19 @@ public:
     bool running() const override { return running_; }
     bool eos() const override { return eos_; }
 
+public: // used by static callback functions in this file
     void createBaseDecoder(Ptr<Device> device);
     AL_HDecoder getBaseDecoderHandle() const { return hBaseDec_; }
     AL_ERR setupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const *pStreamSettings,
                                 AL_TCropInfo const *pCropInfo);
+    void receiveBaseDecoderDecodedFrame(AL_TBuffer *pFrame);
+    void frameDone(Frame const &f);
+    void manageError(AL_ERR eError);
+    void receiveFrameToDisplayFrom(Ptr<Frame> pFrame);
+
+private:
 
     bool waitExit(uint32_t uTimeout);
-    void receiveFrameToDisplayFrom(Ptr<Frame> pFrame);
     int32_t getNumConcealedFrame() const { return iNumFrameConceal_; };
     int32_t getNumDecodedFrames() const { return iNumDecodedFrames_; };
     std::unique_lock<std::mutex> lockDisplay()
@@ -127,11 +133,7 @@ public:
         bPushBackToDecoder_ = false;
     };
     bool canSendBackBufferToDecoder() { return bPushBackToDecoder_; };
-    void receiveBaseDecoderDecodedFrame(AL_TBuffer *pFrame);
-    void frameDone(Frame const &f);
-    void manageError(AL_ERR eError);
 
-private:
     AL_HANDLE getDecoderHandle() const;
     AL_ERR treatError(Ptr<Frame> pFrame);
     AL_TDimension computeBaseDecoderFinalResolution(AL_TStreamSettings const *pStreamSettings);
@@ -181,7 +183,6 @@ AL_TDecSettings getDefaultDecSettings(void)
 AL_EFbStorageMode getMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings,
                                            AL_EFbStorageMode eOutstorageMode)
 {
-    (void)tUserOutputSettings;
     AL_EFbStorageMode eOutputStorageMode = eOutstorageMode;
 
     if (tUserOutputSettings.bCustomFormat)
@@ -250,8 +251,8 @@ std::string sequencePictureToString(AL_ESequenceMode sequencePicture)
 }
 
 void showStreamInfo(int32_t BufferNumber, int32_t BufferSize,
-                           AL_TStreamSettings const *pStreamSettings, AL_TCropInfo const *pCropInfo,
-                           TFourCC tFourCC, AL_TDimension outputDim)
+                    AL_TStreamSettings const *pStreamSettings, AL_TCropInfo const *pCropInfo,
+                    TFourCC tFourCC, AL_TDimension outputDim)
 {
     int32_t iWidth = outputDim.iWidth;
     int32_t iHeight = outputDim.iHeight;
@@ -458,7 +459,10 @@ void configureInputPool(Config const &config, AL_TAllocator *pAllocator, BufPool
 
 } // namespace anonymous
 
-Config::Config(void) { tDecSettings = getDefaultDecSettings(); }
+Config::Config()
+{
+    tDecSettings = getDefaultDecSettings();
+}
 
 DecoderContext::DecoderContext(Config &config, AL_TAllocator *pAlloc, Ptr<RawOutput> rawOutput)
     : rawOutput_(rawOutput)

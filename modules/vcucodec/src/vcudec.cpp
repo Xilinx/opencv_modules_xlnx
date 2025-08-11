@@ -49,7 +49,14 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     default: CV_Error(cv::Error::StsBadArg, "Unsupported codec type");
     }
 
-    pDecConfig->tOutputFourCC = params.fourcc;
+    if (params.fourcc == 0 || params.fourcc == FOURCC(AUTO))
+    {
+        pDecConfig->tOutputFourCC = FOURCC(NULL);
+    }
+    else
+    {
+        pDecConfig->tOutputFourCC = params.fourcc;
+    }
 
     if (params_.maxFrames > 0)
         pDecConfig->iMaxFrames = params_.maxFrames;

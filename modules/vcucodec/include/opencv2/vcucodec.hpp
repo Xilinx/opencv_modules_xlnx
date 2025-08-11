@@ -41,7 +41,8 @@ namespace vcucodec {
 //! @addtogroup vcucodec
 //! @{
 
-/// Auto-detect format, used where fourcc is required but unknown, or automatically determined
+/// Auto-detect format, used where FOURCC is required but unknown, or automatically determined
+/// (for which also 'AUTO' or 'NULL' FOURCC codes can be passed)
 static int VCU_FOURCC_AUTO = 0;
 
 /// CodecType enum defines the codec types supported by the VCU codec module.
@@ -56,7 +57,7 @@ enum CodecType
 /// Information about a raw YUV frame containing metadata such as format, dimensions, and stride.
 struct CV_EXPORTS_W_SIMPLE RawInfo {
     CV_PROP_RW bool eos;      ///< End of stream flag, other information is valid only if false
-    CV_PROP_RW int  fourcc;   ///< Output format as FourCC code
+    CV_PROP_RW int  fourcc;   ///< Output format as FOURCC code
     CV_PROP_RW int  bitDepth; ///< Bit depth of the output data, 8, 10, or 12 bits per channel
     CV_PROP_RW int  stride;   ///< Stride of the output frame in bytes
     CV_PROP_RW int  width;    ///< Width of the raw frame
@@ -67,9 +68,9 @@ struct CV_EXPORTS_W_SIMPLE RawInfo {
 struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 {
     CV_PROP_RW CodecType codecType;  ///< Codec type (VCU_AVC, VCU_HEVC, VCU_JPEG)
-    CV_PROP_RW int fourcc;           ///< Format of the output raw data as FourCC code,
+    CV_PROP_RW int fourcc;           ///< Format of the output raw data as FOURCC code,
                                      ///< Default is VCU_FOURCC_AUTO (determined automatically)
-    CV_PROP_RW int fourcc_convert;   ///< FourCC specifying to convert to BGR or BGRA, or 0 (none)
+    CV_PROP_RW int fourcc_convert;   ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none)
     CV_PROP_RW int maxFrames;        ///< Maximum number of frames to decode, 0 for unlimited
 
 
@@ -123,7 +124,7 @@ public:
 /// Struct EncoderParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW CodecType codecType; ///< Codec type (VCU_AVC, VCU_HEVC, VCU_JPEG)
-    CV_PROP_RW int fourcc;          ///< Format of the raw data as FourCC code
+    CV_PROP_RW int fourcc;          ///< Format of the raw data as FOURCC code
     CV_PROP_RW int bitrate;         ///< Target bitrate in kbits per second
     CV_PROP_RW int frameRate;       ///< Frame rate
     CV_PROP_RW int gopLength;       ///< GOP (Group of Pictures) length
