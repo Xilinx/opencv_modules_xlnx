@@ -28,12 +28,14 @@ public:
 
     // Implementation of the pure virtual functions from base class
     virtual bool   nextFrame(OutputArray frame, RawInfo& frame_info) override;
+    virtual bool   nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info) override;
     virtual bool   set(int propId, double value) override;
     virtual double get(int propId) const override;
 
 private:
     void   cleanup();
     void   retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info);
+    void   retrieveVideoPlanes(OutputArrayOfArrays dst, AL_TBuffer* pFrame, RawInfo& frame_info);
     bool   setCaptureProperty(int propId, double value);
     double getCaptureProperty(int propId) const;
 

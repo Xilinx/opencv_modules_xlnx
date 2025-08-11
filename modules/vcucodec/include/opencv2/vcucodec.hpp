@@ -69,12 +69,15 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
     CV_PROP_RW CodecType codecType;  ///< Codec type (VCU_AVC, VCU_HEVC, VCU_JPEG)
     CV_PROP_RW int fourcc;           ///< Format of the output raw data as FourCC code,
                                      ///< Default is VCU_FOURCC_AUTO (determined automatically)
+    CV_PROP_RW int fourcc_convert;   ///< FourCC specifying to convert to BGR or BGRA, or 0 (none)
     CV_PROP_RW int maxFrames;        ///< Maximum number of frames to decode, 0 for unlimited
+
 
     /// Constructor to initialize decoder parameters with default values.
     CV_WRAP DecoderInitParams(CodecType codecType = VCU_HEVC, int fourcc = VCU_FOURCC_AUTO,
-                              int maxFrames = 0)
-        : codecType(codecType), fourcc(fourcc), maxFrames(maxFrames) {}
+                              int fourcc_convert = 0, int maxFrames = 0)
+        : codecType(codecType), fourcc(fourcc), fourcc_convert(fourcc_convert), maxFrames(maxFrames)
+    {}
 };
 
 /// Decoder interface for decoding video streams
@@ -92,6 +95,16 @@ public:
         CV_OUT OutputArray frame,  ///< Output array to store the decoded frame
         CV_OUT RawInfo& frame_info ///< Output parameter with information about the decoded frame
     ) = 0;
+
+    /// Decode the next frame from the stream into separate planes; does not support conversion to
+    /// BGR or BGRA (DecoderInitParams.fourcc_convert is ignored)
+    /// @return true if a frame was successfully decoded, false if no frames are available (yet)
+    //          or if an error occurred.
+    CV_WRAP virtual bool nextFramePlanes(
+        CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame
+        CV_OUT RawInfo& frame_info ///< Output parameter with information about the decoded frame
+    ) = 0;
+
 
     /// Set a property for the decoder.
     /// @return true if the property was set successfully, false otherwise

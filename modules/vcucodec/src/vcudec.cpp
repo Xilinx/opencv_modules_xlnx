@@ -24,6 +24,7 @@ extern "C" {
 }
 
 #include "opencv2/core/utils/logger.hpp"
+#include "opencv2/imgproc.hpp"
 #include "private/vcuutils.hpp"
 
 
@@ -65,7 +66,6 @@ VCUDecoder::~VCUDecoder() {
     cleanup();
 }
 
-// Implement the pure virtual function from base class
 bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override */
 {
     Ptr<Frame> pFrame = nullptr;
@@ -101,6 +101,44 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     }
 
     return true;
+}
+
+bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info) /* override */
+{
+    Ptr<Frame> pFrame = nullptr;
+
+    if (!vcu2_available_ || !initialized_) {
+        CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
+        return false;
+    }
+
+    if(!decodeCtx_)
+        return false;
+
+    if(!decodeCtx_->running()) {
+        decodeCtx_->start(wCfg);
+    }
+
+    CV_LOG_DEBUG(NULL, "VCU2 nextFramePlanes called (placeholder implementation)");
+    if(decodeCtx_->eos()) {
+        pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
+    } else {
+        pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
+    }
+
+    frame_info.eos = false;
+    if(pFrame) {
+        retrieveVideoPlanes(planes, pFrame->getBuffer(), frame_info);
+    } else  {
+        if(decodeCtx_->eos()) {
+            frame_info.eos = true;
+            decodeCtx_->finish();
+        }
+        return false;
+    }
+
+    return true;
+
 }
 
 bool VCUDecoder::set(int propId, double value)
@@ -142,7 +180,8 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo
     frame_info.fourcc = fourcc;
     frame_info.bitDepth = bitdepth;
     frame_info.stride = stride;
-
+    const int fourcc_BGR = VideoWriter::fourcc('B', 'G', 'R', ' ');
+    const int fourcc_BGRA = VideoWriter::fourcc('B', 'G', 'R', 'A');
     switch(fourcc)
     {
     case FOURCC(Y800):
@@ -163,13 +202,84 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo
         size_t stepUV = frame_info.stride;
         CV_CheckGE(stepUV, (size_t)sz.width, "stride must be bigger than or equal to width");
 
-        dst.create(Size(sz.width, sz.height * 3 / 2), CV_8UC1);
-        Mat dst_ = dst.getMat();
+        if (params_.fourcc_convert == fourcc_BGR)
+        {
+            dst.create(Size(sz.width, sz.height), CV_8UC3);
+            Mat dst_ = dst.getMat();
+            Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
+            Mat srcUV(Size(sz.width/2, sz.height / 2), CV_8UC2,
+                AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
+            cvtColorTwoPlane(srcY, srcUV, dst_, COLOR_YUV2BGR_NV12);
+        }
+        else if (params_.fourcc_convert == fourcc_BGRA)
+        {
+            dst.create(Size(sz.width, sz.height), CV_8UC4);
+        }
+        else
+        {
+            dst.create(Size(sz.width, sz.height * 3 / 2), CV_8UC1);
+            Mat dst_ = dst.getMat();
+            Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
+            Mat srcUV(Size(sz.width, sz.height / 2), CV_8UC1,
+                AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
+            srcY.copyTo(dst_(Rect(0, 0, sz.width, sz.height)));
+            srcUV.copyTo(dst_(Rect(0, sz.height, sz.width, sz.height / 2)));
+        }
+
+        break;
+    }
+    } // end switch
+}
+
+void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, AL_TBuffer* pFrame,
+                                     RawInfo& frame_info)
+{
+    TFourCC fourcc = AL_PixMapBuffer_GetFourCC(pFrame);
+    AL_StringFourCC fourcc_str = AL_FourCCToString(fourcc);
+    AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
+    int32_t bitdepth = AL_GetBitDepth(fourcc);
+    int32_t stride = AL_PixMapBuffer_GetPlanePitch(pFrame, AL_PLANE_Y);
+    frame_info.width = tYuvDim.iWidth;
+    frame_info.height = tYuvDim.iHeight;
+    frame_info.fourcc = fourcc;
+    frame_info.bitDepth = bitdepth;
+    frame_info.stride = stride;
+    switch(fourcc)
+    {
+    case FOURCC(Y800):
+    {
+        Size sz = Size(frame_info.width, frame_info.height);
+        planes.create(1, 1, CV_8UC1);
+        std::vector<Mat> newplanes;
+        newplanes.resize(1);
+        newplanes[0].create(sz, CV_8UC1);
+        size_t step = frame_info.width;
+        CV_CheckGE(step, (size_t)frame_info.width, "");
+        Mat src(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step);
+        src.copyTo(newplanes[0]);
+        planes.assign(newplanes);
+        break;
+    }
+    case (FOURCC(NV12)):
+    {
+        Size sz = Size(frame_info.width, frame_info.height);
+        Size szUV = Size(frame_info.width/2, frame_info.height/2);
+
+        size_t stepY = frame_info.stride;
+        CV_CheckGE(stepY, (size_t)sz.width, "stride must be bigger than or equal to width");
+        size_t stepUV = frame_info.stride;
+        CV_CheckGE(stepUV, (size_t)sz.width, "stride must be bigger than or equal to width");
+
+        planes.create(2, 1, CV_8UC1);
+        std::vector<Mat> newplanes;
+        newplanes.resize(2);
+        newplanes[0].create(sz, CV_8UC1);
+        newplanes[1].create(szUV, CV_8UC2);
         Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
-        Mat srcUV(Size(sz.width, sz.height / 2), CV_8UC1,
-            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
-        srcY.copyTo(dst_(Rect(0, 0, sz.width, sz.height)));
-        srcUV.copyTo(dst_(Rect(0, sz.height, sz.width, sz.height / 2)));
+        Mat srcUV(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
+        srcY.copyTo(newplanes[0]);
+        srcUV.copyTo(newplanes[1]);
+        planes.assign(newplanes);
         break;
     }
     } // end switch
