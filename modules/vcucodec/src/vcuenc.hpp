@@ -13,8 +13,13 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#include "ctrlsw_enc.hpp"
 #include "opencv2/vcucodec.hpp"
+
+#include "private/encoder/CfgParser.h" // ConfigFile
+
+struct LayerResources;
+struct CIpDevice;
+struct EncoderSink;
 
 namespace cv {
 namespace vcucodec {
@@ -33,8 +38,8 @@ private:
     String filename_;
     EncoderInitParams params_;
     std::vector<std::unique_ptr<LayerResources>> pLayerResources;
-    unique_ptr<EncoderSink> enc;
-    shared_ptr<CIpDevice> pIpDevice;
+    std::unique_ptr<EncoderSink> enc;
+    std::shared_ptr<CIpDevice> pIpDevice;
     ConfigFile cfg;
 };
 

@@ -14,6 +14,7 @@
    limitations under the License.
 */
 #include "vcuenc.hpp"
+#include "ctrlsw_enc.hpp"
 
 #include "private/vcuutils.hpp"
 
@@ -53,7 +54,7 @@ void VCUEncoder::write(InputArray frame)
     if(!frame.isMat()) {
         return;
     }
-    
+
     cv::Size size = frame.size();
     IFrameSink* sink = enc.get();
     AL_TDimension tUpdatedDim = AL_TDimension { AL_GetSrcWidth(cfg.Settings.tChParam[0]), AL_GetSrcHeight(cfg.Settings.tChParam[0])};
@@ -72,7 +73,9 @@ void VCUEncoder::write(InputArray frame)
 
 bool VCUEncoder::set(int propId, double value)
 {
-
+    (void)propId;
+    (void)value;
+    return false;
 }
 
 double VCUEncoder::get(int propId) const

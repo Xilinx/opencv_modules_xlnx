@@ -27,8 +27,6 @@ namespace cv {
 namespace vcucodec {
 namespace utils {
 
-// Implementation of private utility functions
-
 }  // namespace utils
 
 namespace vcu2 {
@@ -37,6 +35,7 @@ namespace vcu2 {
 
 void testAllegroDecoderInitRiscV() {
     AL_ERR err = AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
+    (void) err;
     // Optionally handle the error, e.g.:
     // if (err != AL_SUCCESS) { /* handle error */ }
 }

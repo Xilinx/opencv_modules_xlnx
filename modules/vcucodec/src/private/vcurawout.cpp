@@ -41,6 +41,7 @@ int32_t convertBitDepthToEven(int32_t iBd)
     return ((iBd % 2) != 0) ? iBd + 1 : iBd;
 }
 
+
 } // anonymous namespace
 
 
@@ -175,13 +176,14 @@ bool RawOutputImpl::process(Ptr<Frame> frame, int32_t iBitDepthAlloc, bool& bIsM
 Ptr<Frame> RawOutputImpl::convertFrameBuffer(Ptr<Frame> frame, int32_t iBdOut,
     AL_TPosition const& tPos, TFourCC tOutFourCC)
 {
+    (void) iBdOut;
     AL_TBuffer* pInput = frame->getBuffer();
-    TFourCC tRecFourCC = AL_PixMapBuffer_GetFourCC(pInput);
+    //TFourCC tRecFourCC = AL_PixMapBuffer_GetFourCC(pInput);
     AL_TDimension tRecDim = AL_PixMapBuffer_GetDimension(pInput);
-    AL_EChromaMode eRecChromaMode = AL_GetChromaMode(tRecFourCC);
+    //AL_EChromaMode eRecChromaMode = AL_GetChromaMode(tRecFourCC);
 
     TFourCC tConvFourCC = tOutFourCC;
-    AL_TPicFormat tConvPicFormat;
+    //AL_TPicFormat tConvPicFormat;
     assert(tConvFourCC);
 
     AL_PixMapBuffer_SetDimension(pInput, { tPos.iX + tRecDim.iWidth, tPos.iY + tRecDim.iHeight });
@@ -214,7 +216,6 @@ void RawOutputImpl::flush() {
 void RawOutputImpl::processFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOutFourCC)
 {
     AL_TBuffer& tRecBuf = *frame->getBuffer();
-    AL_TInfoDecode const& info = frame->getInfo();
     AL_PixMapBuffer_SetDimension(&tRecBuf, frame->getDimension());
 
     iBdOut = convertBitDepthToEven(iBdOut);

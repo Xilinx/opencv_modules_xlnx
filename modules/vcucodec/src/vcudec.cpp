@@ -154,7 +154,7 @@ bool VCUDecoder::set(int propId, double value)
     if (propId < CV__CAP_PROP_LATEST) {
         result = setCaptureProperty(propId, value);
     }
-    return false;
+    return result;
 }
 
 double VCUDecoder::get(int propId) const {
@@ -178,7 +178,6 @@ void VCUDecoder::cleanup() {
 void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info)
 {
     TFourCC fourcc = AL_PixMapBuffer_GetFourCC(pFrame);
-    AL_StringFourCC fourcc_str = AL_FourCCToString(fourcc);
     AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
     int32_t bitdepth = AL_GetBitDepth(fourcc);
     int32_t stride = AL_PixMapBuffer_GetPlanePitch(pFrame, AL_PLANE_Y);
@@ -242,7 +241,6 @@ void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, AL_TBuffer* pFr
                                      RawInfo& frame_info)
 {
     TFourCC fourcc = AL_PixMapBuffer_GetFourCC(pFrame);
-    AL_StringFourCC fourcc_str = AL_FourCCToString(fourcc);
     AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
     int32_t bitdepth = AL_GetBitDepth(fourcc);
     int32_t stride = AL_PixMapBuffer_GetPlanePitch(pFrame, AL_PLANE_Y);
@@ -295,6 +293,7 @@ void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, AL_TBuffer* pFr
 bool VCUDecoder::setCaptureProperty(int propId, double value)
 {
     bool result;
+    (void)value;
     switch (propId)
     {
     // unsupported properties:

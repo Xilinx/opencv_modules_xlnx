@@ -24,7 +24,6 @@ extern "C" {
 #include "lib_common/PixMapBuffer.h"
 
 #include "lib_common_dec/DecInfo.h"
-
 }
 
 namespace cv {
@@ -96,12 +95,14 @@ Frame::Frame(Size const &size, int fourcc)
     }
     AL_Buffer_Ref(frame_);
     AL_PixMapBuffer_SetDimension(frame_, tDim);
-    info_->tDim = tDim;
-    info_->tCrop = {0, 0, tDim.iWidth, tDim.iHeight};
+    info_->tDim = tRoundedDim;
+    bool bCropped = tDim.iWidth != tRoundedDim.iWidth || tDim.iHeight != tRoundedDim.iHeight;
     info_->eChromaMode = tPicFormat.eChromaMode;
     info_->uBitDepthY = tPicFormat.uBitDepth;
     info_->uBitDepthC = tPicFormat.uBitDepth;
-    info_->tCrop = {0, 0, tDim.iWidth, tDim.iHeight};
+    uint32_t cropped_width = bCropped ? static_cast<uint32_t>(tDim.iWidth) : 0;
+    uint32_t cropped_height = bCropped ? static_cast<uint32_t>(tDim.iHeight) : 0;
+    info_->tCrop = {bCropped, 0, 0, cropped_width, cropped_height};
     info_->eFbStorageMode = tPicFormat.eStorageMode;
     info_->ePicStruct = AL_PS_FRM;
     info_->uCRC = 0;

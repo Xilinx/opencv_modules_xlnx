@@ -33,12 +33,15 @@ namespace { // anonymous
 
 const std::string versionToStr(uint32_t const& version)
 {
-  std::stringstream ss;
-  ss << std::to_string((uint8_t)(version >> 20)) << ".";
-  ss << std::to_string((uint8_t)(version >> 12)) << ".";
-  ss << std::to_string((uint8_t)(version));
+    uint8_t major = static_cast<uint8_t>(version >> 20);
+    uint8_t minor = static_cast<uint8_t>(version >> 12);
+    uint8_t patch = static_cast<uint8_t>(version);
+    std::stringstream ss;
+    ss << std::to_string(static_cast<unsigned int>(major)) << ".";
+    ss << std::to_string(static_cast<unsigned int>(minor)) << ".";
+    ss << std::to_string(static_cast<unsigned int>(patch));
 
-  return ss.str();
+    return ss.str();
 }
 } // namespace anonymous
 
