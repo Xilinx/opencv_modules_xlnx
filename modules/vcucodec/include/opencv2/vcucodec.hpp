@@ -75,9 +75,9 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 
 
     /// Constructor to initialize decoder parameters with default values.
-    CV_WRAP DecoderInitParams(CodecType type = VCU_HEVC, int fcc = VCU_FOURCC_AUTO,
-                              int fcc_convert = 0, int maxf = 0)
-        : codecType(type), fourcc(fcc), fourcc_convert(fcc_convert), maxFrames(maxf)
+    CV_WRAP DecoderInitParams(CodecType codecType = VCU_HEVC, int fourcc = VCU_FOURCC_AUTO,
+                              int fourcc_convert = 0, int maxFrames = 0)
+        : codecType(codecType), fourcc(fourcc), fourcc_convert(fourcc_convert), maxFrames(maxFrames)
     {}
 };
 
@@ -130,11 +130,11 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW int gopLength;       ///< GOP (Group of Pictures) length
 
     /// Constructor to initialize encoder parameters with default values.
-    CV_WRAP EncoderInitParams(CodecType type = VCU_HEVC,
-            int fcc = VideoWriter::fourcc('N', 'V', '1', '2'),
-            int brate = 4000, int frate = 30, int glength = 60)
-        : codecType(type), fourcc(fcc), bitrate(brate), frameRate(frate),
-          gopLength(glength) {}
+    CV_WRAP EncoderInitParams(CodecType codecType = VCU_HEVC,
+            int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'),
+            int bitrate = 4000, int frameRate = 30, int gopLength = 60)
+        : codecType(codecType), fourcc(fourcc), bitrate(bitrate), frameRate(frameRate),
+          gopLength(gopLength) {}
 };
 
 /// Encoder interface for encoding video frames to a stream.

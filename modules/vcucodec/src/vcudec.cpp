@@ -220,6 +220,11 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo
         else if (params_.fourcc_convert == fourcc_BGRA)
         {
             dst.create(Size(sz.width, sz.height), CV_8UC4);
+            Mat dst_ = dst.getMat();
+            Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
+            Mat srcUV(Size(sz.width/2, sz.height / 2), CV_8UC2,
+                AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
+            cvtColorTwoPlane(srcY, srcUV, dst_, COLOR_YUV2BGRA_NV12);
         }
         else
         {
@@ -257,7 +262,6 @@ void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, AL_TBuffer* pFr
         planes.create(1, 1, CV_8UC1);
         std::vector<Mat> newplanes;
         newplanes.resize(1);
-        newplanes[0].create(sz, CV_8UC1);
         size_t step = frame_info.width;
         CV_CheckGE(step, (size_t)frame_info.width, "");
         Mat src(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step);
@@ -275,11 +279,11 @@ void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, AL_TBuffer* pFr
         size_t stepUV = frame_info.stride;
         CV_CheckGE(stepUV, (size_t)sz.width, "stride must be bigger than or equal to width");
 
-        planes.create(2, 1, CV_8UC1);
+        int sizes[] = {2};  // 2 planes
+        planes.create(1, sizes, CV_8UC1);  // 1 dimension, array of 2 elements
         std::vector<Mat> newplanes;
         newplanes.resize(2);
-        newplanes[0].create(sz, CV_8UC1);
-        newplanes[1].create(szUV, CV_8UC2);
+
         Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
         Mat srcUV(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
         srcY.copyTo(newplanes[0]);
