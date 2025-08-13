@@ -36,49 +36,29 @@ extern "C" {
 #include "lib_common/PicFormat.h"
 #include "lib_common/PixMapBuffer.h"
 #include "lib_common/StreamBuffer.h"
-#include "lib_common/FbcMapSize.h"
 #include "lib_common/BufferPictureDecMeta.h"
 
 #include "lib_common_dec/DecBuffers.h"
-#include "lib_common_dec/DecoderTraceHook.h"
 #include "lib_common_dec/DecOutputSettings.h"
-#include "lib_common_dec/HDRMeta.h"
-#include "lib_common_dec/IpDecFourCC.h"
 
 #include "lib_decode/DecSettings.h"
-#include "lib_decode/LibDecoderRiscv.h"
 #include "lib_decode/lib_decode.h"
 
-#include "lib_fpga/DmaAlloc.h"
 
 #include "lib_log/LoggerDefault.h"
 }
 
 #include "lib_app/BufPool.h"
-#include "lib_app/console.h"
-#include "lib_app/convert.h"
-#include "lib_app/plateform.h"
 #include "lib_app/PixMapBufPool.h"
-#include "lib_app/SinkFilter.h"
-#include "lib_app/SinkCrop.h"
-#include "lib_app/SinkCrcDump.h"
-#include "lib_app/SinkFrame.h"
 #include "lib_app/timing.h"
-#include "lib_app/utils.h"
-#include "lib_app/YuvIO.h"
 
-#include <atomic>
-#include <cassert>
 #include <condition_variable>
-#include <cstddef>
-#include <deque>
 #include <functional>
 #include <iostream>
 #include <map>
 #include <queue>
 #include <set>
 #include <sstream>
-#include <string.h>
 #include <string>
 #include <thread>
 

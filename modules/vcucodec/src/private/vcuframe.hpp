@@ -35,6 +35,8 @@ typedef struct AL_TDimension AL_TDimension;
 namespace cv {
 namespace vcucodec {
 
+class RawInfo;
+
 /// Class Frame represents a decoded frame with its associated metadata and lifecycle management.
 class Frame
 {
@@ -51,14 +53,16 @@ public:
     ~Frame();
 
     void invalidate();
+    void rawInfo(RawInfo& rawInfo) const;
     AL_TBuffer *getBuffer() const;
-    AL_TInfoDecode const &getInfo() const;
+    AL_TInfoDecode const & getInfo() const;
     bool isMainOutput() const;
     unsigned int bitDepthY() const;
     unsigned int bitDepthUV() const;
-    AL_TCropInfo const &getCropInfo() const;
-    AL_TDimension const &getDimension() const;
+    AL_TCropInfo const & getCropInfo() const;
+    AL_TDimension const & getDimension() const;
     int getFourCC() const;
+
     void link(Ptr<Frame> frame);
 
     /// Create a new frame from an existing buffer and info.

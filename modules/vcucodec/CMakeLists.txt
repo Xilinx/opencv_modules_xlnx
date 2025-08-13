@@ -79,7 +79,8 @@ if(VCU_INCLUDE_DIR AND VCU_LIBS_FOUND)
     endif()
 
     # Disable warnings as errors for vcucodec module to avoid build issues
-    target_compile_options(${the_module} PRIVATE -Wno-error -Wno-shadow)
+    target_compile_options(${the_module} PRIVATE -Wno-error)
+    ocv_warnings_disable(CMAKE_CXX_FLAGS -Wshadow)
 
 else()
     message(WARNING "VCU2 Control Software not found. VCU codec functionality will be limited.")

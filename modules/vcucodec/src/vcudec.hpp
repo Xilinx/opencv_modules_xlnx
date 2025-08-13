@@ -17,6 +17,9 @@
 #include "opencv2/vcucodec.hpp"
 #include "private/vcudeccontext.hpp"
 
+#include <map>
+#include <mutex>
+
 namespace cv {
 namespace vcucodec {
 
@@ -34,9 +37,10 @@ public:
 
 private:
     void   cleanup();
-    void   retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info);
-    void   retrieveVideoPlanes(OutputArrayOfArrays dst, AL_TBuffer* pFrame, RawInfo& frame_info);
-    bool   setCaptureProperty(int propId, double value);
+    void   retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info);
+    void   retrieveVideoPlanes(OutputArrayOfArrays dst, Ptr<Frame> frame, RawInfo& frame_info);
+    void   updateRawInfo(RawInfo& frame_info);
+    bool   setCaptureProperty(int propId, double value, bool external);
     double getCaptureProperty(int propId) const;
 
     String filename_;
@@ -46,6 +50,11 @@ private:
     WorkerConfig wCfg = {nullptr, nullptr};
     Ptr<RawOutput> rawOutput_ = nullptr;
     std::shared_ptr<DecContext> decodeCtx_ = nullptr;
+    RawInfo rawInfo_;
+    std::mutex rawInfoMutex_;
+    std::map<int, double> captureProperties_;
+    mutable std::mutex capturePropertiesMutex_;
+    uint32_t frameIndex_ = 0;
 };
 
 

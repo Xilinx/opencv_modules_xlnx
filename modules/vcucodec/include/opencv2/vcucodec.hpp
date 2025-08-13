@@ -53,15 +53,38 @@ enum CodecType
     VCU_JPEG = 2,    ///< JPEG only (VCU2 and decode only)
 };
 
+enum PicStruct
+{
+    VCU_PS_FRAME        =  0, ///< Frame picture structure
+    VCU_PS_TOP          =  1, ///< Top field
+    VCU_PS_BOT          =  2, ///< Bottom field
+    VCU_PS_TOP_BOT      =  3, ///< Top and bottom fields
+    VCU_PS_BOT_TOP      =  4, ///< Bottom and top fields
+    VCU_PS_TOP_BOT_TOP  =  5, ///< Top field followed by bottom field followed by top field
+    VCU_PS_BOT_TOP_BOT  =  6, ///< Bottom field followed by top field followed by bottom field
+    VCU_PS_FRM_x2       =  7, ///< Frame picture structure repeated twice
+    VCU_PS_FRM_x3       =  8, ///< Frame picture structure repeated three times
+    VCU_PS_TOP_PREV_BOT =  9, ///< Top field with previous bottom field
+    VCU_PS_BOT_PREV_TOP = 10, ///< Bottom field with previous top field
+    VCU_PS_TOP_NEXT_BOT = 11, ///< Top field with next bottom field
+    VCU_PS_BOT_NEXT_TOP = 12, ///< Bottom field with next top field
+};
 
 /// Information about a raw YUV frame containing metadata such as format, dimensions, and stride.
 struct CV_EXPORTS_W_SIMPLE RawInfo {
-    CV_PROP_RW bool eos;      ///< End of stream flag, other information is valid only if false
-    CV_PROP_RW int  fourcc;   ///< Output format as FOURCC code
-    CV_PROP_RW int  bitDepth; ///< Bit depth of the output data, 8, 10, or 12 bits per channel
-    CV_PROP_RW int  stride;   ///< Stride of the output frame in bytes
-    CV_PROP_RW int  width;    ///< Width of the raw frame
-    CV_PROP_RW int  height;   ///< Height of the raw frame
+    CV_PROP_RW bool eos;            ///< End-of-stream flag, below information valid only if false
+    CV_PROP_RW int  fourcc;         ///< Output format as FOURCC code
+    CV_PROP_RW int  bitsPerLuma;    ///< Bit depth of the output data, 8, 10, or 12 bits per channel
+    CV_PROP_RW int  bitsPerChroma;  ///< Bit depth of the output data, 8, 10, or 12 bits per channel
+    CV_PROP_RW int  stride;         ///< Stride of the output frame in bytes
+    CV_PROP_RW int  width;          ///< Width of the raw frame
+    CV_PROP_RW int  height;         ///< Height of the raw frame
+    CV_PROP_RW int  pos_x;          ///< Position x offset
+    CV_PROP_RW int  pos_y;          ///< Position y offset
+    CV_PROP_RW int  crop_top;       ///< Crop top offset
+    CV_PROP_RW int  crop_bottom;    ///< Crop bottom offset
+    CV_PROP_RW int  crop_left;      ///< Crop left offset
+    CV_PROP_RW int  crop_right;     ///< Crop right offset
 };
 
 /// Struct DecoderInitParams contains initialization parameters for the decoder.
@@ -110,12 +133,20 @@ public:
 
     /// Set a property for the decoder.
     /// @return true if the property was set successfully, false otherwise
+    /// Properties that user can set:
+    /// - None
     CV_WRAP virtual bool set(
         int propId,  ///< Property identifier
         double value ///< Value to set for the property
     ) = 0;
 
     /// Get the value of a property.
+    /// Provided properties:
+    /// - CAP_PROP_FOURCC: The codec type (H264, HEVC, MJPG)
+    /// - CAP_PROP_CODEC_PIXEL_FORMAT: The pixel format of the decoded frames (NV12, ...)
+    /// - CAP_PROP_FRAME_WIDTH: Width of the decoded frames
+    /// - CAP_PROP_FRAME_HEIGHT: Height of the decoded frames
+    /// - CAP_PROP_POS_FRAMES: Current frame position in the stream
     CV_WRAP virtual double get(
         int propId ///< Property identifier
     ) const = 0;

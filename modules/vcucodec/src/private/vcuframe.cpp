@@ -15,6 +15,8 @@
 */
 #include "vcuframe.hpp"
 
+#include "opencv2/vcucodec.hpp"
+
 extern "C" {
 #include "lib_common/BufferAPI.h"
 #include "lib_common/BufferPixMapMeta.h"
@@ -130,6 +132,31 @@ void Frame::invalidate()
         AL_Buffer_InvalidateMemory(frame_);
     }
 }
+
+void Frame::rawInfo(RawInfo& rawInfo) const {
+    AL_TBuffer* pFrame = getBuffer();
+    TFourCC fourcc = AL_PixMapBuffer_GetFourCC(pFrame);
+    AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
+    //int32_t bitdepth = AL_GetBitDepth(fourcc);
+    int32_t stride = AL_PixMapBuffer_GetPlanePitch(pFrame, AL_PLANE_Y);
+    AL_TCropInfo cropInfo = getCropInfo();
+    bool cropping = cropInfo.bCropping;
+
+    // frame_info.eos : set elsewhere
+    rawInfo.fourcc = fourcc;
+    rawInfo.bitsPerLuma = bitDepthY();
+    rawInfo.bitsPerChroma = bitDepthUV();
+    rawInfo.stride = stride;
+    rawInfo.width = tYuvDim.iWidth;
+    rawInfo.height = tYuvDim.iHeight;
+    rawInfo.pos_x = 0;
+    rawInfo.pos_y = 0;
+    rawInfo.crop_top = cropping? cropInfo.uCropOffsetTop : 0;
+    rawInfo.crop_bottom = cropping? cropInfo.uCropOffsetBottom : 0;
+    rawInfo.crop_left = cropping? cropInfo.uCropOffsetLeft : 0;
+    rawInfo.crop_right = cropping? cropInfo.uCropOffsetRight : 0;
+}
+
 
 AL_TBuffer *Frame::getBuffer() const { return frame_; }
 

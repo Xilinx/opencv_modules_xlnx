@@ -25,27 +25,30 @@ extern "C" {
 
 namespace cv {
 namespace vcucodec {
-namespace utils {
 
-}  // namespace utils
-
-namespace vcu2 {
-
-#ifdef HAVE_VCU2_CTRLSW
-
-void testAllegroDecoderInitRiscV() {
-    AL_ERR err = AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
-    (void) err;
-    // Optionally handle the error, e.g.:
-    // if (err != AL_SUCCESS) { /* handle error */ }
+bool operator==(const RawInfo& lhs, const RawInfo& rhs)
+{
+    if (lhs.eos || rhs.eos)
+        return false;
+    bool equal = lhs.fourcc == rhs.fourcc &&
+        lhs.bitsPerLuma == rhs.bitsPerLuma &&
+        lhs.bitsPerChroma == rhs.bitsPerChroma &&
+        lhs.stride == rhs.stride &&
+        lhs.width == rhs.width &&
+        lhs.height == rhs.height &&
+        lhs.pos_x == rhs.pos_x &&
+        lhs.pos_y == rhs.pos_y &&
+        lhs.crop_top == rhs.crop_top &&
+        lhs.crop_bottom == rhs.crop_bottom &&
+        lhs.crop_left == rhs.crop_left &&
+        lhs.crop_right == rhs.crop_right;
+    return equal;
 }
 
-#else
+bool operator!=(const RawInfo& lhs, const RawInfo& rhs)
+{
+    return !(lhs == rhs);
+}
 
-// When VCU2 is not available, these functions are already inlined in the header
-
-#endif // HAVE_VCU2_CTRLSW
-
-} // namespace vcu2
 } // namespace vcucodec
 } // namespace cv

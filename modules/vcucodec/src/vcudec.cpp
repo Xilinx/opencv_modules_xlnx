@@ -31,6 +31,12 @@ extern "C" {
 #include <thread>
 namespace cv {
 namespace vcucodec {
+namespace { // anonymous
+
+const int fourcc_BGR = VideoWriter::fourcc('B', 'G', 'R', ' ');
+const int fourcc_BGRA = VideoWriter::fourcc('B', 'G', 'R', 'A');
+
+} // anonymous namespace
 
 VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     : filename_(filename), params_(params), rawOutput_(RawOutput::create())
@@ -42,11 +48,22 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     std::shared_ptr<Config> pDecConfig = std::shared_ptr<Config>(new Config());
     pDecConfig->sIn = (std::string)filename;
 
-    switch(params_.codecType) {
-    case VCU_AVC:  pDecConfig->tDecSettings.eCodec = AL_CODEC_AVC;  break;
-    case VCU_HEVC: pDecConfig->tDecSettings.eCodec = AL_CODEC_HEVC; break;
-    case VCU_JPEG: pDecConfig->tDecSettings.eCodec = AL_CODEC_JPEG; break;
-    default: CV_Error(cv::Error::StsBadArg, "Unsupported codec type");
+    switch(params_.codecType)
+    {
+    // note pixel FOURCC is returned in property CAP_PROP_CODEC_PIXEL_FORMAT (not CAP_PROP_FOURCC)
+    case VCU_AVC:
+        pDecConfig->tDecSettings.eCodec = AL_CODEC_AVC;
+        setCaptureProperty(CAP_PROP_FOURCC, FOURCC(H264), false);
+        break;
+    case VCU_HEVC:
+        pDecConfig->tDecSettings.eCodec = AL_CODEC_HEVC;
+        setCaptureProperty(CAP_PROP_FOURCC, FOURCC(HEVC), false);
+        break;
+    case VCU_JPEG: pDecConfig->tDecSettings.eCodec = AL_CODEC_JPEG;
+        setCaptureProperty(CAP_PROP_FOURCC, FOURCC(MJPG), false);
+        break;
+    default:
+        CV_Error(cv::Error::StsBadArg, "Unsupported codec type");
     }
 
     if (params.fourcc == 0 || params.fourcc == FOURCC(AUTO))
@@ -61,14 +78,18 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     if (params_.maxFrames > 0)
         pDecConfig->iMaxFrames = params_.maxFrames;
 
+    rawInfo_.eos = true; // use as uninitialized indicator
     decodeCtx_ = DecContext::create(pDecConfig, rawOutput_, wCfg);
     initialized_ = decodeCtx_ != nullptr;
-    if (!initialized_) {
+    if (!initialized_)
+    {
         CV_Error(cv::Error::StsError, "VCU2 decoder initialization failed");
     }
+    setCaptureProperty(CAP_PROP_POS_FRAMES, frameIndex_, true);
 }
 
-VCUDecoder::~VCUDecoder() {
+VCUDecoder::~VCUDecoder()
+{
     CV_LOG_DEBUG(NULL, "VCUDecoder destructor called");
     cleanup();
 }
@@ -77,7 +98,8 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
 {
     Ptr<Frame> pFrame = nullptr;
 
-    if (!vcu2_available_ || !initialized_) {
+    if (!vcu2_available_ || !initialized_)
+    {
         CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
         return false;
     }
@@ -85,22 +107,27 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     if(!decodeCtx_)
         return false;
 
-    if(!decodeCtx_->running()) {
+    if(!decodeCtx_->running())
+    {
         decodeCtx_->start(wCfg);
     }
 
     CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
-    if(decodeCtx_->eos()) {
+    if(decodeCtx_->eos())
+    {
         pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
     } else {
         pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
     }
 
     frame_info.eos = false;
-    if(pFrame) {
-        retrieveVideoFrame(frame, pFrame->getBuffer(), frame_info);
+    if(pFrame)
+    {
+        retrieveVideoFrame(frame, pFrame, frame_info);
+        setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
     } else  {
-        if(decodeCtx_->eos()) {
+        if(decodeCtx_->eos())
+        {
             frame_info.eos = true;
             decodeCtx_->finish();
         }
@@ -114,7 +141,8 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
 {
     Ptr<Frame> pFrame = nullptr;
 
-    if (!vcu2_available_ || !initialized_) {
+    if (!vcu2_available_ || !initialized_)
+    {
         CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
         return false;
     }
@@ -122,22 +150,27 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
     if(!decodeCtx_)
         return false;
 
-    if(!decodeCtx_->running()) {
+    if(!decodeCtx_->running())
+    {
         decodeCtx_->start(wCfg);
     }
 
     CV_LOG_DEBUG(NULL, "VCU2 nextFramePlanes called (placeholder implementation)");
-    if(decodeCtx_->eos()) {
+    if(decodeCtx_->eos())
+    {
         pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
     } else {
         pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
     }
 
     frame_info.eos = false;
-    if(pFrame) {
-        retrieveVideoPlanes(planes, pFrame->getBuffer(), frame_info);
+    if(pFrame)
+    {
+        retrieveVideoPlanes(planes, pFrame, frame_info);
+        setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
     } else  {
-        if(decodeCtx_->eos()) {
+        if(decodeCtx_->eos())
+        {
             frame_info.eos = true;
             decodeCtx_->finish();
         }
@@ -151,23 +184,27 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
 bool VCUDecoder::set(int propId, double value)
 {
     bool result = false;
-    if (propId < CV__CAP_PROP_LATEST) {
-        result = setCaptureProperty(propId, value);
+    if (propId < CV__CAP_PROP_LATEST)
+    {
+        result = setCaptureProperty(propId, value, true);
     }
     return result;
 }
 
 double VCUDecoder::get(int propId) const {
     double result = 0.0;
-    if (propId < CV__CAP_PROP_LATEST) {
+    if (propId < CV__CAP_PROP_LATEST)
+    {
         result = getCaptureProperty(propId);
     }
     return result; // Placeholder implementation
 }
 
 
-void VCUDecoder::cleanup() {
-    if (vcu2_available_ && initialized_) {
+void VCUDecoder::cleanup()
+{
+    if (vcu2_available_ && initialized_)
+    {
         decodeCtx_->finish();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         AL_Lib_Decoder_DeInit();
@@ -175,20 +212,13 @@ void VCUDecoder::cleanup() {
     initialized_ = false;
 }
 
-void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo& frame_info)
+void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info)
 {
-    TFourCC fourcc = AL_PixMapBuffer_GetFourCC(pFrame);
-    AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
-    int32_t bitdepth = AL_GetBitDepth(fourcc);
-    int32_t stride = AL_PixMapBuffer_GetPlanePitch(pFrame, AL_PLANE_Y);
-    frame_info.width = tYuvDim.iWidth;
-    frame_info.height = tYuvDim.iHeight;
-    frame_info.fourcc = fourcc;
-    frame_info.bitDepth = bitdepth;
-    frame_info.stride = stride;
-    const int fourcc_BGR = VideoWriter::fourcc('B', 'G', 'R', ' ');
-    const int fourcc_BGRA = VideoWriter::fourcc('B', 'G', 'R', 'A');
-    switch(fourcc)
+    AL_TBuffer* pFrame = frame->getBuffer();
+    frame->rawInfo(frame_info);
+    updateRawInfo(frame_info);
+
+    switch(frame_info.fourcc)
     {
     case FOURCC(Y800):
     {
@@ -242,19 +272,14 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, AL_TBuffer* pFrame, RawInfo
     } // end switch
 }
 
-void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, AL_TBuffer* pFrame,
+void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, Ptr<Frame> frame,
                                      RawInfo& frame_info)
 {
-    TFourCC fourcc = AL_PixMapBuffer_GetFourCC(pFrame);
-    AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
-    int32_t bitdepth = AL_GetBitDepth(fourcc);
-    int32_t stride = AL_PixMapBuffer_GetPlanePitch(pFrame, AL_PLANE_Y);
-    frame_info.width = tYuvDim.iWidth;
-    frame_info.height = tYuvDim.iHeight;
-    frame_info.fourcc = fourcc;
-    frame_info.bitDepth = bitdepth;
-    frame_info.stride = stride;
-    switch(fourcc)
+    AL_TBuffer* pFrame = frame->getBuffer();
+    frame->rawInfo(frame_info);
+    updateRawInfo(frame_info);
+
+    switch(frame_info.fourcc)
     {
     case FOURCC(Y800):
     {
@@ -294,104 +319,71 @@ void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, AL_TBuffer* pFr
     } // end switch
 }
 
-bool VCUDecoder::setCaptureProperty(int propId, double value)
+/*
+CAP_PROP_FRAME_TYPE
+CAP_PROP_SAR_NUM
+CAP_PROP_SAR_DEN
+CAP_PROP_BITRATE
+CAP_PROP_FRAME_TYPE (I,P,B)
+*/
+
+
+void VCUDecoder::updateRawInfo(RawInfo& frame_info)
 {
-    bool result;
-    (void)value;
-    switch (propId)
+    bool changed = frame_info != rawInfo_; // false if any has .eos member set
+    if (changed)
     {
-    // unsupported properties:
-    case CAP_PROP_POS_MSEC:
-    case CAP_PROP_POS_FRAMES:
-    case CAP_PROP_POS_AVI_RATIO:
-    case CAP_PROP_FRAME_WIDTH:
-    case CAP_PROP_FRAME_HEIGHT:
-    case CAP_PROP_FOURCC:
-    case CAP_PROP_FRAME_COUNT:
-    case CAP_PROP_FPS:
-    case CAP_PROP_FORMAT:
-    case CAP_PROP_MODE:
-    case CAP_PROP_BRIGHTNESS:
-    case CAP_PROP_CONTRAST:
-    case CAP_PROP_SATURATION:
-    case CAP_PROP_HUE:
-    case CAP_PROP_GAIN:
-    case CAP_PROP_EXPOSURE:
-    case CAP_PROP_CONVERT_RGB:
-    case CAP_PROP_WHITE_BALANCE_BLUE_U:
-    case CAP_PROP_RECTIFICATION:
-    case CAP_PROP_MONOCHROME:
-    case CAP_PROP_SHARPNESS:
-    case CAP_PROP_AUTO_EXPOSURE:
-    case CAP_PROP_GAMMA:
-    case CAP_PROP_TEMPERATURE:
-    case CAP_PROP_TRIGGER:
-    case CAP_PROP_TRIGGER_DELAY:
-    case CAP_PROP_WHITE_BALANCE_RED_V:
-    case CAP_PROP_ZOOM:
-    case CAP_PROP_FOCUS:
-    case CAP_PROP_GUID:
-    case CAP_PROP_ISO_SPEED:
-    case CAP_PROP_BACKLIGHT:
-    case CAP_PROP_PAN:
-    case CAP_PROP_TILT:
-    case CAP_PROP_ROLL:
-    case CAP_PROP_IRIS:
-    case CAP_PROP_SETTINGS:
-    case CAP_PROP_BUFFERSIZE:
-    case CAP_PROP_AUTOFOCUS:
-        result = false;
-        break;
+        std::lock_guard<std::mutex> lock(rawInfoMutex_);
+        if (rawInfo_.eos || rawInfo_.fourcc != frame_info.fourcc)
+        {
+            setCaptureProperty(CAP_PROP_CODEC_PIXEL_FORMAT, (double)frame_info.fourcc, false);
+        }
+        if (rawInfo_.eos || rawInfo_.width != frame_info.width) {
+            setCaptureProperty(CAP_PROP_FRAME_WIDTH, (double)frame_info.width, false);
+        }
+        if (rawInfo_.eos || rawInfo_.height != frame_info.height) {
+            setCaptureProperty(CAP_PROP_FRAME_HEIGHT, (double)frame_info.height, false);
+        }
+        rawInfo_ = frame_info;
     }
-    return result; // Placeholder implementation
 }
+
+bool VCUDecoder::setCaptureProperty(int propId, double value, bool external)
+{
+    std::lock_guard<std::mutex> lock(capturePropertiesMutex_);
+
+    bool result = true;
+
+    if (!external)
+    {
+        captureProperties_[propId] = value;
+    }
+    else
+    {
+        switch (propId)
+        {
+            // supported to be set by external client:
+
+        case CAP_PROP_FPS:
+            captureProperties_[propId] = value;
+            break;
+
+        default:
+            result = false;
+            break;
+        }
+    }
+    return result;
+}
+
 double VCUDecoder::getCaptureProperty(int propId) const
 {
-    double result;
-    switch (propId)
+    double result = 0.0;
+    std::lock_guard<std::mutex> lock(capturePropertiesMutex_);
+    auto it = captureProperties_.find(propId);
+    if (it != captureProperties_.end())
     {
-    // unsupported properties:
-    case CAP_PROP_POS_MSEC:
-    case CAP_PROP_POS_FRAMES:
-    case CAP_PROP_POS_AVI_RATIO:
-    case CAP_PROP_FRAME_WIDTH:
-    case CAP_PROP_FRAME_HEIGHT:
-    case CAP_PROP_FOURCC:
-    case CAP_PROP_FRAME_COUNT:
-    case CAP_PROP_FPS:
-    case CAP_PROP_FORMAT:
-    case CAP_PROP_MODE:
-    case CAP_PROP_BRIGHTNESS:
-    case CAP_PROP_CONTRAST:
-    case CAP_PROP_SATURATION:
-    case CAP_PROP_HUE:
-    case CAP_PROP_GAIN:
-    case CAP_PROP_EXPOSURE:
-    case CAP_PROP_CONVERT_RGB:
-    case CAP_PROP_WHITE_BALANCE_BLUE_U:
-    case CAP_PROP_RECTIFICATION:
-    case CAP_PROP_MONOCHROME:
-    case CAP_PROP_SHARPNESS:
-    case CAP_PROP_AUTO_EXPOSURE:
-    case CAP_PROP_GAMMA:
-    case CAP_PROP_TEMPERATURE:
-    case CAP_PROP_TRIGGER:
-    case CAP_PROP_TRIGGER_DELAY:
-    case CAP_PROP_WHITE_BALANCE_RED_V:
-    case CAP_PROP_ZOOM:
-    case CAP_PROP_FOCUS:
-    case CAP_PROP_GUID:
-    case CAP_PROP_ISO_SPEED:
-    case CAP_PROP_BACKLIGHT:
-    case CAP_PROP_PAN:
-    case CAP_PROP_TILT:
-    case CAP_PROP_ROLL:
-    case CAP_PROP_IRIS:
-    case CAP_PROP_SETTINGS:
-    case CAP_PROP_BUFFERSIZE:
-    case CAP_PROP_AUTOFOCUS:
-       result = 0.0; // Placeholder for properties that are not implemented
-       break;
+        result = it->second;
     }
     return result;
 }
