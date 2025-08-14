@@ -112,7 +112,6 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
         decodeCtx_->start(wCfg);
     }
 
-    CV_LOG_DEBUG(NULL, "VCU2 nextFrame called (placeholder implementation)");
     if(decodeCtx_->eos())
     {
         pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
@@ -123,7 +122,7 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     frame_info.eos = false;
     if(pFrame)
     {
-        retrieveVideoFrame(frame, pFrame, frame_info);
+        retrieveVideoFrame(frame, pFrame, frame_info, false);
         setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
     } else  {
         if(decodeCtx_->eos())
@@ -166,7 +165,7 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
     frame_info.eos = false;
     if(pFrame)
     {
-        retrieveVideoPlanes(planes, pFrame, frame_info);
+        retrieveVideoFrame(planes, pFrame, frame_info, true);
         setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
     } else  {
         if(decodeCtx_->eos())
@@ -212,108 +211,152 @@ void VCUDecoder::cleanup()
     initialized_ = false;
 }
 
-void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info)
+void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
+    int fourcc_convert, bool vector_output, bool single_output_buffer)
 {
-    AL_TBuffer* pFrame = frame->getBuffer();
-    frame->rawInfo(frame_info);
-    updateRawInfo(frame_info);
+    int nr_components = src.size();
+    std::vector<Mat> planes;
+    planes.resize(nr_components);
+    Mat& planeY = planes[0];
+    Mat& planeU = planes[1];
+    Mat& planeV = planes[2];
+    Mat& planeUV = planes[1];
+    Mat& planeRGB = planes[0];
+    Mat& planeYUV = planes[0];
 
-    switch(frame_info.fourcc)
-    {
-    case FOURCC(Y800):
-    {
-        Size sz = Size(frame_info.width, frame_info.height);
-        size_t step = frame_info.width;
-        CV_CheckGE(step, (size_t)frame_info.width, "");
-        Mat src(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step);
-        src.copyTo(dst);
-        break;
-    }
-    case (FOURCC(NV12)):
-    {
-        Size sz = Size(frame_info.width, frame_info.height);
+    if (nr_components == 1) {
+        Mat& srcY = src[0];
+        Size szY = src[0].size();
 
-        size_t stepY = frame_info.stride;
-        CV_CheckGE(stepY, (size_t)sz.width, "stride must be bigger than or equal to width");
-        size_t stepUV = frame_info.stride;
-        CV_CheckGE(stepUV, (size_t)sz.width, "stride must be bigger than or equal to width");
-
-        if (params_.fourcc_convert == fourcc_BGR)
+        if (fourcc_convert == fourcc_BGR)
         {
-            dst.create(Size(sz.width, sz.height), CV_8UC3);
-            Mat dst_ = dst.getMat();
-            Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
-            Mat srcUV(Size(sz.width/2, sz.height / 2), CV_8UC2,
-                AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
-            cvtColorTwoPlane(srcY, srcUV, dst_, COLOR_YUV2BGR_NV12);
+            planeRGB.create(szY, CV_8UC3);
+            cvtColor(srcY, planeRGB, COLOR_GRAY2BGR);
         }
-        else if (params_.fourcc_convert == fourcc_BGRA)
+        else if (fourcc_convert == fourcc_BGRA)
         {
-            dst.create(Size(sz.width, sz.height), CV_8UC4);
-            Mat dst_ = dst.getMat();
-            Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
-            Mat srcUV(Size(sz.width/2, sz.height / 2), CV_8UC2,
-                AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
-            cvtColorTwoPlane(srcY, srcUV, dst_, COLOR_YUV2BGRA_NV12);
+            planeRGB.create(szY, CV_8UC4);
+            cvtColor(srcY, planeRGB, COLOR_GRAY2BGRA);
         }
         else
         {
-            dst.create(Size(sz.width, sz.height * 3 / 2), CV_8UC1);
-            Mat dst_ = dst.getMat();
-            Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
-            Mat srcUV(Size(sz.width, sz.height / 2), CV_8UC1,
-                AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
-            srcY.copyTo(dst_(Rect(0, 0, sz.width, sz.height)));
-            srcUV.copyTo(dst_(Rect(0, sz.height, sz.width, sz.height / 2)));
+            srcY.copyTo(dst);
         }
-
-        break;
     }
-    } // end switch
+    else if (nr_components == 2)
+    {
+        Mat& srcY = src[0];
+        Mat& srcUV = src[1];
+        Size szY = src[0].size();
+        Size szUV = src[1].size();
+        if (fourcc_convert == fourcc_BGR)
+        {
+            planeRGB.create(szY, CV_8UC3);
+            cvtColorTwoPlane(srcY, srcUV, planeRGB, COLOR_YUV2BGR_NV12);
+        }
+        else if (fourcc_convert == fourcc_BGRA)
+        {
+            planeRGB.create(szY, CV_8UC4);
+            cvtColorTwoPlane(srcY, srcUV, planeRGB, COLOR_YUV2BGRA_NV12);
+        }
+        else
+        {
+            if (single_output_buffer) {
+                planeYUV.create(Size(szY.width, szY.height * 3 / 2), CV_8UC1);
+                srcY.copyTo(planeY(Rect(0, 0, szY.width, szY.height)));
+                srcUV.reshape(1, srcUV.rows).copyTo(planeYUV(Rect(0, szY.height, szUV.width*2,
+                    szUV.height)));
+            } else {
+                srcY.copyTo(planeY);
+                srcUV.copyTo(planeUV);
+            }
+        }
+    }
+    else if (nr_components == 3)
+    {
+        Mat& srcY = src[0];
+        Mat& srcU = src[1];
+        Mat& srcV = src[2];
+        Size szY = src[0].size();
+        Size szU = src[1].size();
+        Size szV = src[2].size();
+        if (fourcc_convert == fourcc_BGR)
+        {
+            planeRGB.create(szY, CV_8UC3);
+            Mat imgYUVpacked;
+            merge(src, imgYUVpacked); // expensive extra copy
+            cvtColor(imgYUVpacked, planeRGB, COLOR_YUV2BGR);
+        }
+        else if (fourcc_convert == fourcc_BGRA)
+        {
+            planeRGB.create(szY, CV_8UC4);
+            Mat imgYUVpacked;
+            merge(src, imgYUVpacked); // expensive extra copy
+            Mat imgBGR;
+            imgBGR.create(szY, CV_8UC3);
+            cvtColor(imgYUVpacked, imgBGR, COLOR_YUV2BGR); // another expensive extra copy
+            cvtColor(imgBGR, planeRGB, COLOR_BGR2BGRA);
+        }
+        else
+        {
+            if (single_output_buffer)
+            {
+                planeYUV.create(Size(szY.width, szY.height * 3), CV_8UC1);
+                srcY.copyTo(planeYUV(Rect(0, 0, szY.width, szY.height)));
+                srcU.copyTo(planeYUV(Rect(0, szY.height, szU.width, szU.height)));
+                srcV.copyTo(planeYUV(Rect(0, szY.height + szU.height, szV.width, szV.height)));
+            }
+            else
+            {
+                srcY.copyTo(planeY);
+                srcU.copyTo(planeU);
+                srcV.copyTo(planeV);
+            }
+        }
+    }
+
+    if (vector_output)
+    {
+        int sizes[] = {nr_components};  // n planes
+        dst.create(1, sizes, CV_8UC1);
+        dst.assign(planes);
+    }
+    else
+    {
+        dst.assign(planes[0]);
+    }
+
 }
 
-void VCUDecoder::retrieveVideoPlanes(OutputArrayOfArrays planes, Ptr<Frame> frame,
-                                     RawInfo& frame_info)
+void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
+                                    bool vector_output)
 {
     AL_TBuffer* pFrame = frame->getBuffer();
     frame->rawInfo(frame_info);
     updateRawInfo(frame_info);
-
     switch(frame_info.fourcc)
     {
     case FOURCC(Y800):
     {
         Size sz = Size(frame_info.width, frame_info.height);
-        planes.create(1, 1, CV_8UC1);
-        std::vector<Mat> newplanes;
-        newplanes.resize(1);
         size_t step = frame_info.width;
-        CV_CheckGE(step, (size_t)frame_info.width, "");
-        Mat src(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step);
-        src.copyTo(newplanes[0]);
-        planes.assign(newplanes);
+        std::vector<Mat> src =
+            { Mat(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
+        bool single_output_buffer = true;
+        copyToDestination(dst, src, params_.fourcc_convert, vector_output, single_output_buffer);
         break;
     }
     case (FOURCC(NV12)):
     {
-        Size sz = Size(frame_info.width, frame_info.height);
-        Size szUV = Size(frame_info.width/2, frame_info.height/2);
-
+        Size szY = Size(frame_info.width, frame_info.height);
+        Size szUV = Size(frame_info.width / 2, frame_info.height / 2);
         size_t stepY = frame_info.stride;
-        CV_CheckGE(stepY, (size_t)sz.width, "stride must be bigger than or equal to width");
         size_t stepUV = frame_info.stride;
-        CV_CheckGE(stepUV, (size_t)sz.width, "stride must be bigger than or equal to width");
-
-        int sizes[] = {2};  // 2 planes
-        planes.create(1, sizes, CV_8UC1);  // 1 dimension, array of 2 elements
-        std::vector<Mat> newplanes;
-        newplanes.resize(2);
-
-        Mat srcY(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY);
-        Mat srcUV(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV);
-        srcY.copyTo(newplanes[0]);
-        srcUV.copyTo(newplanes[1]);
-        planes.assign(newplanes);
+        std::vector<Mat> src =
+            { Mat(szY, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
+              Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
+        bool single_output_buffer = !vector_output;
+        copyToDestination(dst, src, params_.fourcc_convert, vector_output, single_output_buffer);
         break;
     }
     } // end switch

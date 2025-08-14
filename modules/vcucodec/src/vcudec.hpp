@@ -37,8 +37,10 @@ public:
 
 private:
     void   cleanup();
-    void   retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info);
-    void   retrieveVideoPlanes(OutputArrayOfArrays dst, Ptr<Frame> frame, RawInfo& frame_info);
+    void   copyToDestination(OutputArray dst, std::vector<Mat>& src, int fourcc_convert,
+                             bool vector_output, bool single_output_buffer);
+    void   retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
+                              bool vector_output);
     void   updateRawInfo(RawInfo& frame_info);
     bool   setCaptureProperty(int propId, double value, bool external);
     double getCaptureProperty(int propId) const;
