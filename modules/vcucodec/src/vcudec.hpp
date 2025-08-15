@@ -37,7 +37,7 @@ public:
 
 private:
     void   cleanup();
-    void   copyToDestination(OutputArray dst, std::vector<Mat>& src, int fourcc_convert,
+    void   copyToDestination(OutputArray dst, std::vector<Mat>& src, int fourccConvert,
                              bool vector_output, bool single_output_buffer);
     void   retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
                               bool vector_output);

@@ -78,6 +78,8 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     if (params_.maxFrames > 0)
         pDecConfig->iMaxFrames = params_.maxFrames;
 
+    pDecConfig->iOutputBitDepth = params_.bitDepth;
+
     rawInfo_.eos = true; // use as uninitialized indicator
     decodeCtx_ = DecContext::create(pDecConfig, rawOutput_, wCfg);
     initialized_ = decodeCtx_ != nullptr;
@@ -212,7 +214,7 @@ void VCUDecoder::cleanup()
 }
 
 void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
-    int fourcc_convert, bool vector_output, bool single_output_buffer)
+    int fourccConvert, bool vector_output, bool single_output_buffer)
 {
     int nr_components = src.size();
     std::vector<Mat> planes;
@@ -228,12 +230,12 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
         Mat& srcY = src[0];
         Size szY = src[0].size();
 
-        if (fourcc_convert == fourcc_BGR)
+        if (fourccConvert == fourcc_BGR)
         {
             planeRGB.create(szY, CV_8UC3);
             cvtColor(srcY, planeRGB, COLOR_GRAY2BGR);
         }
-        else if (fourcc_convert == fourcc_BGRA)
+        else if (fourccConvert == fourcc_BGRA)
         {
             planeRGB.create(szY, CV_8UC4);
             cvtColor(srcY, planeRGB, COLOR_GRAY2BGRA);
@@ -249,12 +251,12 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
         Mat& srcUV = src[1];
         Size szY = src[0].size();
         Size szUV = src[1].size();
-        if (fourcc_convert == fourcc_BGR)
+        if (fourccConvert == fourcc_BGR)
         {
             planeRGB.create(szY, CV_8UC3);
             cvtColorTwoPlane(srcY, srcUV, planeRGB, COLOR_YUV2BGR_NV12);
         }
-        else if (fourcc_convert == fourcc_BGRA)
+        else if (fourccConvert == fourcc_BGRA)
         {
             planeRGB.create(szY, CV_8UC4);
             cvtColorTwoPlane(srcY, srcUV, planeRGB, COLOR_YUV2BGRA_NV12);
@@ -280,14 +282,14 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
         Size szY = src[0].size();
         Size szU = src[1].size();
         Size szV = src[2].size();
-        if (fourcc_convert == fourcc_BGR)
+        if (fourccConvert == fourcc_BGR)
         {
             planeRGB.create(szY, CV_8UC3);
             Mat imgYUVpacked;
             merge(src, imgYUVpacked); // expensive extra copy
             cvtColor(imgYUVpacked, planeRGB, COLOR_YUV2BGR);
         }
-        else if (fourcc_convert == fourcc_BGRA)
+        else if (fourccConvert == fourcc_BGRA)
         {
             planeRGB.create(szY, CV_8UC4);
             Mat imgYUVpacked;
@@ -343,7 +345,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         std::vector<Mat> src =
             { Mat(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
         bool single_output_buffer = true;
-        copyToDestination(dst, src, params_.fourcc_convert, vector_output, single_output_buffer);
+        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer);
         break;
     }
     case (FOURCC(NV12)):
@@ -356,9 +358,12 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
             { Mat(szY, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
               Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
         bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourcc_convert, vector_output, single_output_buffer);
+        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer);
         break;
     }
+    default:
+        CV_Error(Error::StsUnsupportedFormat, "Unsupported pixel format");
+        break;
     } // end switch
 }
 

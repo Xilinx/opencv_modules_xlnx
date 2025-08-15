@@ -23,6 +23,8 @@
 #include "vcurawout.hpp"
 #include "vcureader.hpp"
 
+#include "opencv2/vcucodec.hpp"
+
 extern "C" {
 #include "config.h"
 #include "lib_common/BufCommon.h"
@@ -73,6 +75,24 @@ typedef struct AL_IDecScheduler AL_IDecScheduler;
 
 namespace cv {
 namespace vcucodec {
+
+static_assert((int)OUTPUT_BD_FIRST == (int)VCU_BD_FIRST);
+static_assert((int)OUTPUT_BD_ALLOC == (int)VCU_BD_ALLOC);
+static_assert((int)OUTPUT_BD_STREAM == (int)VCU_BD_STREAM);
+
+static_assert((int)VCU_PS_FRM == int(AL_PS_FRM));
+static_assert((int)VCU_PS_TOP == int(AL_PS_TOP_FLD));
+static_assert((int)VCU_PS_BOT == int(AL_PS_BOT_FLD));
+static_assert((int)VCU_PS_TOP_BOT == int(AL_PS_TOP_BOT));
+static_assert((int)VCU_PS_BOT_TOP == int(AL_PS_BOT_TOP));
+static_assert((int)VCU_PS_TOP_BOT_TOP == int(AL_PS_TOP_BOT_TOP));
+static_assert((int)VCU_PS_BOT_TOP_BOT == int(AL_PS_BOT_TOP_BOT));
+static_assert((int)VCU_PS_FRM_x2 == int(AL_PS_FRM_x2));
+static_assert((int)VCU_PS_FRM_x3 == int(AL_PS_FRM_x3));
+static_assert((int)VCU_PS_TOP_PREV_BOT == int(AL_PS_TOP_FLD_WITH_PREV_BOT));
+static_assert((int)VCU_PS_BOT_PREV_TOP == int(AL_PS_BOT_FLD_WITH_PREV_TOP));
+static_assert((int)VCU_PS_TOP_NEXT_BOT == int(AL_PS_TOP_FLD_WITH_NEXT_BOT));
+static_assert((int)VCU_PS_BOT_NEXT_TOP == int(AL_PS_BOT_FLD_WITH_NEXT_TOP));
 
 class DecoderContext : public DecContext
 {

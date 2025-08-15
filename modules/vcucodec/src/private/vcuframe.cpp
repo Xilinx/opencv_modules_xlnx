@@ -144,17 +144,18 @@ void Frame::rawInfo(RawInfo& rawInfo) const {
 
     // frame_info.eos : set elsewhere
     rawInfo.fourcc = fourcc;
+    rawInfo.picStruct = static_cast<PicStruct>(info_->ePicStruct);
     rawInfo.bitsPerLuma = bitDepthY();
     rawInfo.bitsPerChroma = bitDepthUV();
     rawInfo.stride = stride;
     rawInfo.width = tYuvDim.iWidth;
     rawInfo.height = tYuvDim.iHeight;
-    rawInfo.pos_x = 0;
-    rawInfo.pos_y = 0;
-    rawInfo.crop_top = cropping? cropInfo.uCropOffsetTop : 0;
-    rawInfo.crop_bottom = cropping? cropInfo.uCropOffsetBottom : 0;
-    rawInfo.crop_left = cropping? cropInfo.uCropOffsetLeft : 0;
-    rawInfo.crop_right = cropping? cropInfo.uCropOffsetRight : 0;
+    rawInfo.posX = 0;
+    rawInfo.posY = 0;
+    rawInfo.cropTop = cropping? cropInfo.uCropOffsetTop : 0;
+    rawInfo.cropBottom = cropping? cropInfo.uCropOffsetBottom : 0;
+    rawInfo.cropLeft = cropping? cropInfo.uCropOffsetLeft : 0;
+    rawInfo.cropRight = cropping? cropInfo.uCropOffsetRight : 0;
 }
 
 

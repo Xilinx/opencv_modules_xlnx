@@ -36,8 +36,9 @@ def writebgr(f, frame):
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codecType=cv2.vcucodec.VCU_AVC,
     fourcc=FOURCC("NV12"),
-    fourcc_convert=0,  # No conversion, output raw NV12
-    maxFrames=0)
+    fourccConvert=0,  # No conversion, output raw NV12
+    maxFrames=0,
+    bitDepth=cv2.vcucodec.VCU_BD_FIRST)
 
 # Create decoder instance
 dec = cv2.vcucodec.createDecoder('./meet_car_720p_nv12.avc', decoderInitParams)
@@ -59,9 +60,9 @@ while True:
               f" BitDepth: {info.bitDepth}, Stride: {info.stride}")
 
         # Write frame data based on format
-        if decoderInitParams.fourcc_convert == 0:
+        if decoderInitParams.fourccConvert == 0:
             writeyuv(file, frame, info.width, info.height, info.stride)
-        elif decoderInitParams.fourcc_convert == FOURCC("BGR"):
+        elif decoderInitParams.fourccConvert == FOURCC("BGR"):
             writebgr(file, frame)
 
 file.close()
@@ -72,7 +73,7 @@ del dec
 
 - Set `codecType` for different codec types (VCU_AVC, VCU_HEVC)
 - Set `fourcc` to specify the desired output format (e.g., "NV12", "Y800")
-- Set `fourcc_convert` to 0 for no conversion, or use FOURCC("BGR") for BGR output
+- Set `fourccConvert` to 0 for no conversion, or use FOURCC("BGR") for BGR output
 - Frame information is provided in the `RawInfo` structure
 
 
@@ -81,8 +82,9 @@ del dec
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codecType=cv2.vcucodec.VCU_AVC,
     fourcc=FOURCC("NV12"),
-    fourcc_convert=FOURCC("BGR"),  # Convert to BGR
-    maxFrames=0)
+    fourccConvert=FOURCC("BGR"),  # Convert to BGR
+    maxFrames=0,
+    bitDepth=cv2.vcucodec.VCU_BD_FIRST)
 \endcode
 
 #### Example with separate planes for Y and UV
@@ -109,8 +111,9 @@ def writeyuv_planes(f, planeY, planeUV, width, height):
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codecType=cv2.vcucodec.VCU_AVC,
     fourcc=FOURCC("NV12"),
-    fourcc_convert=0, # FOURCC("BGR"),
-    maxFrames=0)
+    fourccConvert=0, # FOURCC("BGR"),
+    maxFrames=0,
+    bitDepth=VCU_BD_FIRST)
 
 dec = cv2.vcucodec.createDecoder('./meet_car_720p_nv12.avc', decoderInitParams)
 info = cv2.vcucodec.RawInfo()

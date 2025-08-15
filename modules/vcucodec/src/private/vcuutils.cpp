@@ -36,12 +36,12 @@ bool operator==(const RawInfo& lhs, const RawInfo& rhs)
         lhs.stride == rhs.stride &&
         lhs.width == rhs.width &&
         lhs.height == rhs.height &&
-        lhs.pos_x == rhs.pos_x &&
-        lhs.pos_y == rhs.pos_y &&
-        lhs.crop_top == rhs.crop_top &&
-        lhs.crop_bottom == rhs.crop_bottom &&
-        lhs.crop_left == rhs.crop_left &&
-        lhs.crop_right == rhs.crop_right;
+        lhs.posX == rhs.posX &&
+        lhs.posY == rhs.posY &&
+        lhs.cropTop == rhs.cropTop &&
+        lhs.cropBottom == rhs.cropBottom &&
+        lhs.cropLeft == rhs.cropLeft &&
+        lhs.cropRight == rhs.cropRight;
     return equal;
 }
 
