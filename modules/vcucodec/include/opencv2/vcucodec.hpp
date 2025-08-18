@@ -17,8 +17,10 @@
 #ifndef OPENCV_VCUCODEC_HPP
 #define OPENCV_VCUCODEC_HPP
 
+#include "vcutypes.hpp"
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
+
 
 #include <string>
 #include <stdexcept>
@@ -40,49 +42,6 @@ namespace vcucodec {
 
 //! @addtogroup vcucodec
 //! @{
-
-/// Auto-detect format, used where FOURCC is required but unknown, or automatically determined
-/// (for which also 'AUTO' or 'NULL' FOURCC codes can be passed)
-static int VCU_FOURCC_AUTO = 0;
-
-/// Enum CodecType defines the codec types supported by the VCU codec module.
-enum CodecType
-{
-    VCU_AVC  = 0,    ///< AVC/H.264 codec
-    VCU_HEVC = 1,    ///< HEVC/H.265 codec
-    VCU_JPEG = 2,    ///< JPEG only (VCU2 and decode only)
-};
-
-/// Enum PicStruct defines the picture structure of the frames or fields.
-enum PicStruct
-{
-    VCU_PS_FRM          =  0, ///< Frame picture structure
-    VCU_PS_TOP          =  1, ///< Top field
-    VCU_PS_BOT          =  2, ///< Bottom field
-    VCU_PS_TOP_BOT      =  3, ///< Top and bottom fields
-    VCU_PS_BOT_TOP      =  4, ///< Bottom and top fields
-    VCU_PS_TOP_BOT_TOP  =  5, ///< Top field followed by bottom field followed by top field
-    VCU_PS_BOT_TOP_BOT  =  6, ///< Bottom field followed by top field followed by bottom field
-    VCU_PS_FRM_x2       =  7, ///< Frame picture structure repeated twice
-    VCU_PS_FRM_x3       =  8, ///< Frame picture structure repeated three times
-    VCU_PS_TOP_PREV_BOT =  9, ///< Top field with previous bottom field
-    VCU_PS_BOT_PREV_TOP = 10, ///< Bottom field with previous top field
-    VCU_PS_TOP_NEXT_BOT = 11, ///< Top field with next bottom field
-    VCU_PS_BOT_NEXT_TOP = 12, ///< Bottom field with next top field
-};
-
-/// Enum BitDepth defines which bit depth to use for the frames. Note that truncation of bit depth
-/// is not supported; for example, if the stream has 10, or 12 bits per component, it will not
-/// truncate to 8. It will pat 8, or 10 to 12 bits per component when specified.
-/// Note in raster format, for 10 and 12 bits components, the value is padded with 0s to 16 bits.
-enum BitDepth {
-    VCU_BD_FIRST  =  0, ///< First bit depth found in stream.
-    VCU_BD_ALLOC  = -1, ///< Use preallocated bitdepth or bitdepth from stream
-    VCU_BD_STREAM = -2, ///< Bitdepth of decoded frame
-    VCU_BD_8      =  8, ///< 8 bits per component
-    VCU_BD_10     = 10, ///< 10 bits per component
-    VCU_BD_12     = 12  ///< 12 bits per component
-};
 
 /// Information about a raw YUV frame containing metadata such as format, dimensions, and stride.
 struct CV_EXPORTS_W_SIMPLE RawInfo {
@@ -107,17 +66,17 @@ struct CV_EXPORTS_W_SIMPLE RawInfo {
 /// Struct DecoderInitParams contains initialization parameters for the decoder.
 struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 {
-    CV_PROP_RW CodecType codecType;  ///< Codec type (VCU_AVC, VCU_HEVC, VCU_JPEG)
-    CV_PROP_RW int fourcc;           ///< Format of the output raw data as FOURCC code,
-                                     ///< Default is VCU_FOURCC_AUTO (determined automatically)
-    CV_PROP_RW int fourccConvert;   ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none)
-    CV_PROP_RW int maxFrames;        ///< Maximum number of frames to decode, 0 for unlimited
-    CV_PROP_RW BitDepth bitDepth;    ///< Specify output bit depth (first, alloc, stream, 8, 10, 12)
+    CV_PROP_RW Codec codec;       ///< Codec type (AVC, HEVC, JPEG)
+    CV_PROP_RW int fourcc;        ///< Format of the output raw data as FOURCC code,
+                                  ///< Default is VCU_FOURCC_AUTO (determined automatically)
+    CV_PROP_RW int fourccConvert; ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none)
+    CV_PROP_RW int maxFrames;     ///< Maximum number of frames to decode, 0 for unlimited
+    CV_PROP_RW BitDepth bitDepth; ///< Specify output bit depth (first, alloc, stream, 8, 10, 12)
 
     /// Constructor to initialize decoder parameters with default values.
-    CV_WRAP DecoderInitParams(CodecType codecType = VCU_HEVC, int fourcc = VCU_FOURCC_AUTO,
-        int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = VCU_BD_ALLOC)
-        : codecType(codecType), fourcc(fourcc), fourccConvert(fourccConvert),
+    CV_WRAP DecoderInitParams(Codec codec = Codec::HEVC, int fourcc = VCU_FOURCC_AUTO,
+        int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC)
+        : codec(codec), fourcc(fourcc), fourccConvert(fourccConvert),
           maxFrames(maxFrames), bitDepth(bitDepth)
     {}
 };
@@ -172,17 +131,17 @@ public:
 
 /// Struct EncoderParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
-    CV_PROP_RW CodecType codecType; ///< Codec type (VCU_AVC, VCU_HEVC, VCU_JPEG)
-    CV_PROP_RW int fourcc;          ///< Format of the raw data as FOURCC code
-    CV_PROP_RW int bitrate;         ///< Target bitrate in kbits per second
-    CV_PROP_RW int frameRate;       ///< Frame rate
-    CV_PROP_RW int gopLength;       ///< GOP (Group of Pictures) length
+    CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC, JPEG)
+    CV_PROP_RW int fourcc;     ///< Format of the raw data as FOURCC code
+    CV_PROP_RW int bitrate;    ///< Target bitrate in kbits per second
+    CV_PROP_RW int frameRate;  ///< Frame rate
+    CV_PROP_RW int gopLength;  ///< GOP (Group of Pictures) length
 
     /// Constructor to initialize encoder parameters with default values.
-    CV_WRAP EncoderInitParams(CodecType codecType = VCU_HEVC,
+    CV_WRAP EncoderInitParams(Codec codec = Codec::HEVC,
             int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'),
             int bitrate = 4000, int frameRate = 30, int gopLength = 60)
-        : codecType(codecType), fourcc(fourcc), bitrate(bitrate), frameRate(frameRate),
+        : codec(codec), fourcc(fourcc), bitrate(bitrate), frameRate(frameRate),
           gopLength(gopLength) {}
 };
 

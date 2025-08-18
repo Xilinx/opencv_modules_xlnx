@@ -48,18 +48,19 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     std::shared_ptr<Config> pDecConfig = std::shared_ptr<Config>(new Config());
     pDecConfig->sIn = (std::string)filename;
 
-    switch(params_.codecType)
+    switch(params_.codec)
     {
     // note pixel FOURCC is returned in property CAP_PROP_CODEC_PIXEL_FORMAT (not CAP_PROP_FOURCC)
-    case VCU_AVC:
+    case Codec::AVC:
         pDecConfig->tDecSettings.eCodec = AL_CODEC_AVC;
         setCaptureProperty(CAP_PROP_FOURCC, FOURCC(H264), false);
         break;
-    case VCU_HEVC:
+    case Codec::HEVC:
         pDecConfig->tDecSettings.eCodec = AL_CODEC_HEVC;
         setCaptureProperty(CAP_PROP_FOURCC, FOURCC(HEVC), false);
         break;
-    case VCU_JPEG: pDecConfig->tDecSettings.eCodec = AL_CODEC_JPEG;
+    case Codec::JPEG:
+        pDecConfig->tDecSettings.eCodec = AL_CODEC_JPEG;
         setCaptureProperty(CAP_PROP_FOURCC, FOURCC(MJPG), false);
         break;
     default:
@@ -78,7 +79,7 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     if (params_.maxFrames > 0)
         pDecConfig->iMaxFrames = params_.maxFrames;
 
-    pDecConfig->iOutputBitDepth = params_.bitDepth;
+    pDecConfig->iOutputBitDepth = static_cast<int>(params_.bitDepth);
 
     rawInfo_.eos = true; // use as uninitialized indicator
     decodeCtx_ = DecContext::create(pDecConfig, rawOutput_, wCfg);

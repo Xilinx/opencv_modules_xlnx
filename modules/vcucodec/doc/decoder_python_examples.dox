@@ -34,11 +34,11 @@ def writebgr(f, frame):
 
 # Create decoder parameters
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
-    codecType=cv2.vcucodec.VCU_AVC,
+    codec=cv2.vcucodec.CODEC_AVC,
     fourcc=FOURCC("NV12"),
     fourccConvert=0,  # No conversion, output raw NV12
     maxFrames=0,
-    bitDepth=cv2.vcucodec.VCU_BD_FIRST)
+    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST)
 
 # Create decoder instance
 dec = cv2.vcucodec.createDecoder('./meet_car_720p_nv12.avc', decoderInitParams)
@@ -71,7 +71,7 @@ del dec
 
 #### Usage Notes
 
-- Set `codecType` for different codec types (VCU_AVC, VCU_HEVC)
+- Set `codec` for different codec types (CODEC_AVC, CODEC_HEVC)
 - Set `fourcc` to specify the desired output format (e.g., "NV12", "Y800")
 - Set `fourccConvert` to 0 for no conversion, or use FOURCC("BGR") for BGR output
 - Frame information is provided in the `RawInfo` structure
@@ -80,11 +80,11 @@ del dec
 \code{.py}
 # Example with BGR conversion
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
-    codecType=cv2.vcucodec.VCU_AVC,
+    codec=cv2.vcucodec.CODEC_AVC,
     fourcc=FOURCC("NV12"),
     fourccConvert=FOURCC("BGR"),  # Convert to BGR
     maxFrames=0,
-    bitDepth=cv2.vcucodec.VCU_BD_FIRST)
+    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST)
 \endcode
 
 #### Example with separate planes for Y and UV
@@ -109,11 +109,11 @@ def writeyuv_planes(f, planeY, planeUV, width, height):
         f.write(planeUV[y, :width].tobytes())
 
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
-    codecType=cv2.vcucodec.VCU_AVC,
+    codec=cv2.vcucodec.CODEC_AVC,
     fourcc=FOURCC("NV12"),
     fourccConvert=0, # FOURCC("BGR"),
     maxFrames=0,
-    bitDepth=VCU_BD_FIRST)
+    bitDepth=BIT_DEPTH_FIRST)
 
 dec = cv2.vcucodec.createDecoder('./meet_car_720p_nv12.avc', decoderInitParams)
 info = cv2.vcucodec.RawInfo()
