@@ -129,6 +129,72 @@ public:
     ) const = 0;
 };
 
+///< Struct RCSettings provides Rate Control Settings
+struct CV_EXPORTS_W_SIMPLE RCSettings
+{
+    CV_PROP_RW RCMode  mode;          ///< Rate control mode (default VBR)
+    CV_PROP_RW Entropy entropy;       ///< Entropy coding mode (CAVLC or CABAC)
+    CV_PROP_RW int  bitrate;          ///< Target bitrate in kbits per second
+    CV_PROP_RW int  maxBitrate;       ///< Maximum bitrate in kbits per second
+    CV_PROP_RW int  cpbSize;          ///< Coded Picture Buffer (CPB) size in milliseconds.
+                                      ///< Cannot be smaller than initial-delay. Default: 3000.
+    CV_PROP_RW int  initialDelay;     ///< Initial delay in milliseconds. Default: 1000.
+    CV_PROP_RW bool fillerData;       ///< Add filler data in CBR mode. Default: true;
+    CV_PROP_RW int  maxQualityTarget; ///< 0-20. Maximum quality target for CAPPED_VBR. Default: 14.
+    CV_PROP_RW int  maxPictureSizeI;  ///< Maximum picture size in kBytes. Default: 0 (unlimited).
+    CV_PROP_RW int  maxPictureSizeP;  ///< for CBR/VBR, for I, P, B
+    CV_PROP_RW int  maxPictureSizeB;  ///< max = (bitrate/framerate) * allowed peak margin
+    CV_PROP_RW bool skipFrame;        ///< Skip a frame when the CPB buffer size is exceeded and
+                                      ///< replace with skip MBs (or CTBs). Default: false
+    CV_PROP_RW int maxSkip;           ///< Maximum number of skips in a row. Default: unlimited
+
+    CV_WRAP RCSettings(RCMode mode = RCMode::VBR, Entropy entropy = Entropy::CABAC,
+        int bitrate = 4000, int maxBitrate = 4000, int cbPSize = 3000, int initialDelay = 1000,
+        bool fillerData = true, int maxQualityTarget = 14, int maxPictureSizeI = 0,
+        int maxPictureSizeP = 0, int maxPictureSizeB = 0, bool skipFrame = false,  int maxSkip = -1)
+    : mode(mode), entropy(entropy), bitrate(bitrate), maxBitrate(maxBitrate), cpbSize(cbPSize),
+      initialDelay(initialDelay), fillerData(fillerData), maxQualityTarget(maxQualityTarget),
+      maxPictureSizeI(maxPictureSizeI), maxPictureSizeP(maxPictureSizeP),
+      maxPictureSizeB(maxPictureSizeB), skipFrame(skipFrame), maxSkip(maxSkip) {}
+};
+
+/// Struct GOPSettings specifies the structure of the Group Of Pictures (GOP).
+struct CV_EXPORTS_W_SIMPLE GOPSettings
+{
+    CV_PROP_RW GOPMode mode;      ///< Group of pictures mode.
+    CV_PROP_RW GDRMode gdrMode;   ///< Gradual Decoder Refresh scheme used for low delay gop-mode
+    CV_PROP_RW int  gopLength;    ///< Distance between two consecutive I-frames.
+                                  ///< Default: 30. Range 0-1000. (0,1 is intra-only)
+    CV_PROP_RW int  nrBFrames;    ///< Number of B-frames between two consecutive P-frames. For
+                                  ///< basic and pyramidal modes. 0-4 for basic GOP mode.
+                                  ///< 3,5, or 7 for pyramidal GOP mode. Default: 0.
+    CV_PROP_RW bool longTermRef;  ///< Specify that a long-term reference can be dynamically
+                                  ///< inserted. Default: false
+    CV_PROP_RW int  longTermFreq; ///< Specify the periodicity in frames; the distance between two
+                                  ///< consecutive long-term reference pictures. Default: 0.
+    CV_PROP_RW int  periodIDR;    ///< The number of frames between consecutive Instantaneous
+                                  ///< Decoder Refresh (IDR) pictures. This might be rounded to a
+                                  ///< multiple of the GOP length.
+                                  ///< -1 disables, 0 (default) first frame is IDR
+    CV_WRAP GOPSettings(GOPMode mode = GOPMode::BASIC, GDRMode gdrMode = GDRMode::DISABLE,
+        int gopLength = 30, int nrBFrames = 0, bool longTermRef = false,
+        int longTermFreq = 0, int periodIDR = 0)
+    : mode(mode), gdrMode(gdrMode), gopLength(gopLength), nrBFrames(nrBFrames),
+      longTermRef(longTermRef), longTermFreq(longTermFreq), periodIDR(periodIDR) {}
+};
+
+/// Struct ProfileSettings specifies the encoder profile, level and tier ; Encoder::getProfiles
+/// will return the supported profiles.
+struct CV_EXPORTS_W_SIMPLE ProfileSettings
+{
+    CV_PROP_RW String profile; ///< Encoder profile (e.g., "main", "high")
+    CV_PROP_RW String level;   ///< Encoder level (e.g., 4.1, 5.0)
+    CV_PROP_RW Tier   tier;    ///< Encoder tier (e.g., Main, High)
+
+    CV_WRAP ProfileSettings(String profile = "MAIN", String level = "5.2", Tier tier = Tier::MAIN)
+    : profile(profile), level(level), tier(tier) {}
+};
+
 /// Struct EncoderParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC, JPEG)
@@ -137,12 +203,13 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW int frameRate;  ///< Frame rate
     CV_PROP_RW int gopLength;  ///< GOP (Group of Pictures) length
 
+    CV_PROP_RW ProfileSettings profileSettings; ///< Encoder profile, level and tier settings
+
     /// Constructor to initialize encoder parameters with default values.
     CV_WRAP EncoderInitParams(Codec codec = Codec::HEVC,
-            int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'),
-            int bitrate = 4000, int frameRate = 30, int gopLength = 60)
-        : codec(codec), fourcc(fourcc), bitrate(bitrate), frameRate(frameRate),
-          gopLength(gopLength) {}
+        int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'), int bitrate = 4000,
+        int frameRate = 30, int gopLength = 60)
+    : codec(codec), fourcc(fourcc), bitrate(bitrate), frameRate(frameRate), gopLength(gopLength) {}
 };
 
 /// Encoder interface for encoding video frames to a stream.
@@ -167,6 +234,10 @@ public:
     CV_WRAP virtual double get(
         int propId ///< Property identifier
     ) const = 0;
+
+    /// Get supported profiles
+    static CV_WRAP String getProfiles(Codec codec);
+    static CV_WRAP String getLevels(Codec codec);
 };
 
 /// Factory function to create a decoder instance.

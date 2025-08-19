@@ -67,6 +67,54 @@ enum class BitDepth
     B12    = 12  ///< 12 bits per component
 };
 
+/// Enum Tier defines the tier for encoding.
+enum class Tier {
+    MAIN = 0,  ///< Use Main Tier profile
+    HIGH = 1   ///< Use High Tier profile
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//  RATE CONTROL
+
+/// Enum RCMode defines the Rate Control Mode to use for encoding.
+enum class RCMode
+{
+    CONST_QP    = 0, ///< Constant QP
+    CBR         = 1, ///< Constant bitrate.
+    VBR         = 2, ///< Variable bitrate.
+    LOW_LATENCY = 3, ///< Low latency mode.
+    CAPPED_VBR  = 4  ///< Capped variable bitrate.
+};
+
+/// Enum Entropy specifies which entropy coding to use, CAVLC or CABAC.
+enum class Entropy
+{
+    CAVLC, ///< Context-based Adaptive Variable Length Coding
+    CABAC  ///< Context-based Adaptive Binary Arithmetic Coding
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//  GROUP OF PICTURES
+
+/// Enum GOPMode specifies the structure of the Group Of Pictures.
+enum class GOPMode
+{
+    BASIC        = 2, ///< (default) IBBPBBP… or IPPPPP…
+    BASIC_B      = 3, ///< Like basic, using B-frame references instead of P-frames.
+    PYRAMIDAL    = 4, ///< B frames are used as reference by more B frames: IbbBbbP..
+    PYRAMIDAL_B  = 5, ///< Like pyramidal, using B-frame references instead of P-frames.
+    LOW_DELAY_P  = 8, ///< I picture followed by P-frames only, referencing only previous frame.
+    LOW_DELAY_B  = 9, ///< I picture followed by B-frames only, referencing only previous frame.
+    ADAPTIVE     = 16 ///< Use an adaptive number of consecutive B-frames.
+};
+
+/// Enum GDR Mode specifies the decoder refresh scheme to use.
+enum class GDRMode
+{
+    DISABLE    = 0, ///< No Gradual Decoder Refresh
+    VERTICAL   = 2, ///< Vertical Gradual Decoder Refresh
+    HORIZONTAL = 3  ///< Horizontal Gradual Decoder Refresh
+};
 
 
 //! @}
