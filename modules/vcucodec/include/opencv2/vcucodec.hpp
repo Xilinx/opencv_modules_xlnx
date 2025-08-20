@@ -43,7 +43,7 @@ namespace vcucodec {
 //! @addtogroup vcucodec
 //! @{
 
-/// Information about a raw YUV frame containing metadata such as format, dimensions, and stride.
+/// Struct RawInfo defines a raw YUV frame containing metadata such as format, dimensions, and stride.
 struct CV_EXPORTS_W_SIMPLE RawInfo {
     CV_PROP_RW bool eos;            ///< End-of-stream flag, below information valid only if false
     CV_PROP_RW int  fourcc;         ///< Output format as FOURCC code
@@ -81,7 +81,7 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
     {}
 };
 
-/// Decoder interface for decoding video streams
+/// @brief Class Decoder is the interface for decoding video streams.
 /// This interface provides methods to decode video frames from a stream.
 /// See: @ref dec_python_ex
 class CV_EXPORTS_W Decoder
@@ -129,7 +129,7 @@ public:
     ) const = 0;
 };
 
-///< Struct RCSettings provides Rate Control Settings
+/// Struct RCSettings provides Rate Control Settings.
 struct CV_EXPORTS_W_SIMPLE RCSettings
 {
     CV_PROP_RW RCMode  mode;          ///< Rate control mode (default VBR)
@@ -183,8 +183,7 @@ struct CV_EXPORTS_W_SIMPLE GOPSettings
       longTermRef(longTermRef), longTermFreq(longTermFreq), periodIDR(periodIDR) {}
 };
 
-/// Struct ProfileSettings specifies the encoder profile, level and tier ; Encoder::getProfiles
-/// will return the supported profiles.
+/// @brief Struct ProfileSettings specifies the encoder profile, level and tier.
 struct CV_EXPORTS_W_SIMPLE ProfileSettings
 {
     CV_PROP_RW String profile; ///< Encoder profile (e.g., "main", "high")
@@ -195,7 +194,7 @@ struct CV_EXPORTS_W_SIMPLE ProfileSettings
     : profile(profile), level(level), tier(tier) {}
 };
 
-/// Struct EncoderParams contains encoder parameters and statistics
+/// Struct EncoderInitParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC, JPEG)
     CV_PROP_RW int fourcc;     ///< Format of the raw data as FOURCC code
@@ -212,7 +211,7 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     : codec(codec), fourcc(fourcc), bitrate(bitrate), frameRate(frameRate), gopLength(gopLength) {}
 };
 
-/// Encoder interface for encoding video frames to a stream.
+/// @brief Class Encoder is the interface for encoding video frames to a stream.
 /// This interface provides methods to encode video frames and manage encoding parameters.
 class CV_EXPORTS_W Encoder
 {
@@ -249,7 +248,7 @@ CV_EXPORTS_W Ptr<Decoder> createDecoder(
 /// Factory function to create a decoder instance.
 CV_EXPORTS_W Ptr<Encoder> createEncoder(
     const String& filename,                               ///< Output video file name or stream URL
-    const EncoderInitParams& params = EncoderInitParams() ///< Encoder initialization parameters
+    const EncoderInitParams& params = EncoderInitParams() ///< %Encoder initialization parameters
 );
 
 //! @}

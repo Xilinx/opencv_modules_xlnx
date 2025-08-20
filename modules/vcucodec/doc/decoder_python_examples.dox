@@ -57,7 +57,7 @@ while True:
         count += 1
         print(f"{count} Width: {info.width}, Height: {info.height},"
               f" FourCC: {fourcc_to_string(info.fourcc)},"
-              f" BitDepth: {info.bitDepth}, Stride: {info.stride}")
+              f" BitDepth: {info.bitsPerLuma}, Stride: {info.stride}")
 
         # Write frame data based on format
         if decoderInitParams.fourccConvert == 0:
@@ -78,6 +78,9 @@ del dec
 
 
 \code{.py}
+#!/usr/bin/env python3
+import cv2
+
 # Example with BGR conversion
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codec=cv2.vcucodec.CODEC_AVC,
@@ -113,7 +116,7 @@ decoderInitParams = cv2.vcucodec.DecoderInitParams(
     fourcc=FOURCC("NV12"),
     fourccConvert=0, # FOURCC("BGR"),
     maxFrames=0,
-    bitDepth=BIT_DEPTH_FIRST)
+    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST)
 
 dec = cv2.vcucodec.createDecoder('./meet_car_720p_nv12.avc', decoderInitParams)
 info = cv2.vcucodec.RawInfo()
@@ -130,7 +133,7 @@ while True:
         count += 1
         print(f"{count} Width: {info.width}, Height: {info.height},"
               f" FourCC: {fourcc_to_string(info.fourcc)},"
-              f" BitDepth: {info.bitDepth}, Stride: {info.stride}, EOS: {info.eos}")
+              f" BitDepth: {info.bitsPerLuma}, Stride: {info.stride}, EOS: {info.eos}")
         planeY = planes[0]
         planeUV = planes[1]
         writeyuv_planes(file, planeY, planeUV, info.width, info.height)
