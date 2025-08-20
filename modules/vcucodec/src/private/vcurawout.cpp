@@ -49,7 +49,7 @@ class RawOutputImpl : public RawOutput
 {
 public:
     ~RawOutputImpl() override = default;
-    void configure(int fourcc, unsigned int bitDepth, int max_frames) override;
+    void configure(int fourcc, unsigned int bitDepth, int max_frames, int szReturnQueue) override;
 
     bool process(Ptr<Frame> frame, int32_t iBitDepthAlloc,
                  bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists) override;
@@ -67,11 +67,11 @@ private:
 
     AL_EFbStorageMode eMainOutputStorageMode;
     bool bOutputWritersCreated = false;
-    int32_t iBitDepth = 8;
+    int32_t  iBitDepth = 8;
     uint32_t uNumFrames = 0;
     uint32_t uMaxFrames = UINT32_MAX;
-    TFourCC tOutputFourCC = FOURCC(NULL);
-    TFourCC tInputFourCC = FOURCC(NULL);
+    TFourCC  tOutputFourCC = FOURCC(NULL);
+    TFourCC  tInputFourCC = FOURCC(NULL);
 
     bool bHasOutput = false;
     bool bEnableYuvOutput = false;
@@ -79,7 +79,7 @@ private:
 };
 
 
-void RawOutputImpl::configure(int fourcc, unsigned int bitDepth, int max_frames)
+void RawOutputImpl::configure(int fourcc, unsigned int bitDepth, int max_frames, int szReturnQueue)
 {
     tOutputFourCC = fourcc;
     if(tOutputFourCC != FOURCC(NULL)) {
@@ -95,6 +95,7 @@ void RawOutputImpl::configure(int fourcc, unsigned int bitDepth, int max_frames)
 
     iBitDepth = bitDepth;
     uMaxFrames = max_frames;
+    frame_queue_.setReturnQueueSize(szReturnQueue);
 }
 
 

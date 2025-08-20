@@ -47,6 +47,9 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
 
     std::shared_ptr<Config> pDecConfig = std::shared_ptr<Config>(new Config());
     pDecConfig->sIn = (std::string)filename;
+    if (params_.szReturnQueue > 0) {
+        pDecConfig->tDecSettings.uNumBuffersHeldByNextComponent = params_.szReturnQueue;
+    }
 
     switch(params_.codec)
     {
@@ -125,7 +128,7 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     frame_info.eos = false;
     if(pFrame)
     {
-        retrieveVideoFrame(frame, pFrame, frame_info, false);
+        retrieveVideoFrame(frame, pFrame, frame_info, false, false);
         setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
     } else  {
         if(decodeCtx_->eos())
@@ -139,18 +142,24 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     return true;
 }
 
-bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info) /* override */
+bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info, bool byRef)
 {
     Ptr<Frame> pFrame = nullptr;
 
     if (!vcu2_available_ || !initialized_)
     {
-        CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
+        CV_LOG_WARNING(NULL, "VCU2 not available or not initialized");
         return false;
     }
 
     if(!decodeCtx_)
         return false;
+
+    if (byRef && params_.szReturnQueue < 1)
+    {
+        CV_LOG_WARNING(NULL, "szReturnQueue must be >= 1 when byRef is true");
+        byRef = false;
+    }
 
     if(!decodeCtx_->running())
     {
@@ -168,7 +177,7 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
     frame_info.eos = false;
     if(pFrame)
     {
-        retrieveVideoFrame(planes, pFrame, frame_info, true);
+        retrieveVideoFrame(planes, pFrame, frame_info, true, byRef);
         setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
     } else  {
         if(decodeCtx_->eos())
@@ -215,7 +224,7 @@ void VCUDecoder::cleanup()
 }
 
 void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
-    int fourccConvert, bool vector_output, bool single_output_buffer)
+    int fourccConvert, bool vector_output, bool single_output_buffer, bool by_reference)
 {
     int nr_components = src.size();
     std::vector<Mat> planes;
@@ -243,7 +252,14 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
         }
         else
         {
-            srcY.copyTo(dst);
+            if (by_reference)
+            {
+                planeY = srcY;
+            }
+            else
+            {
+                srcY.copyTo(dst);
+            }
         }
     }
     else if (nr_components == 2)
@@ -264,7 +280,13 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
         }
         else
         {
-            if (single_output_buffer) {
+            if (by_reference)
+            {
+                planeY = srcY;
+                planeUV = srcUV;
+            }
+            else if (single_output_buffer)
+            {
                 planeYUV.create(Size(szY.width, szY.height * 3 / 2), CV_8UC1);
                 srcY.copyTo(planeY(Rect(0, 0, szY.width, szY.height)));
                 srcUV.reshape(1, srcUV.rows).copyTo(planeYUV(Rect(0, szY.height, szUV.width*2,
@@ -302,7 +324,13 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
         }
         else
         {
-            if (single_output_buffer)
+            if (by_reference)
+            {
+                planeY = srcY;
+                planeU = srcU;
+                planeV = srcV;
+            }
+            else if (single_output_buffer)
             {
                 planeYUV.create(Size(szY.width, szY.height * 3), CV_8UC1);
                 srcY.copyTo(planeYUV(Rect(0, 0, szY.width, szY.height)));
@@ -332,7 +360,7 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
 }
 
 void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
-                                    bool vector_output)
+                                    bool vector_output, bool by_reference)
 {
     AL_TBuffer* pFrame = frame->getBuffer();
     frame->rawInfo(frame_info);
@@ -346,7 +374,8 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         std::vector<Mat> src =
             { Mat(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
         bool single_output_buffer = true;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer);
+        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
+                          by_reference);
         break;
     }
     case (FOURCC(NV12)):
@@ -356,10 +385,11 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         size_t stepY = frame_info.stride;
         size_t stepUV = frame_info.stride;
         std::vector<Mat> src =
-            { Mat(szY, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
+            { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
               Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
         bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer);
+        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
+                          by_reference);
         break;
     }
     default:

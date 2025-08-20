@@ -72,12 +72,15 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
     CV_PROP_RW int fourccConvert; ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none)
     CV_PROP_RW int maxFrames;     ///< Maximum number of frames to decode, 0 for unlimited
     CV_PROP_RW BitDepth bitDepth; ///< Specify output bit depth (first, alloc, stream, 8, 10, 12)
+    CV_PROP_RW int szReturnQueue; ///< Return queue size when returning frames by reference.
+                                  ///< Minimum/Default (0), when set to 0 frames cannot be returned
+                                  ///< by reference.
 
     /// Constructor to initialize decoder parameters with default values.
     CV_WRAP DecoderInitParams(Codec codec = Codec::HEVC, int fourcc = VCU_FOURCC_AUTO,
         int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC)
         : codec(codec), fourcc(fourcc), fourccConvert(fourccConvert),
-          maxFrames(maxFrames), bitDepth(bitDepth)
+          maxFrames(maxFrames), bitDepth(bitDepth), szReturnQueue(0)
     {}
 };
 
@@ -98,13 +101,15 @@ public:
         CV_OUT RawInfo& frameInfo ///< Output parameter with information about the decoded frame
     ) = 0;
 
-    /// Decode the next frame from the stream into separate planes; does not support conversion to
-    /// BGR or BGRA (DecoderInitParams.fourccConvert is ignored)
+    /// Decode the next frame from the stream into separate planes.
+    /// When called to get frame n by reference, frame n - szReturnQueue is unreferenced.
     /// @return true if a frame was successfully decoded, false if no frames are available (yet)
     //          or if an error occurred.
     CV_WRAP virtual bool nextFramePlanes(
         CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame
-        CV_OUT RawInfo& frameInfo     ///< Output parameter with information about the decoded frame
+        CV_OUT RawInfo& frameInfo,  ///< Output parameter with information about the decoded frame
+        bool byRef = false   ///< Return frame by reference instead of a copy.
+                             ///< When set to true, szReturnQueue must be >= 1.
     ) = 0;
 
 
@@ -146,7 +151,7 @@ struct CV_EXPORTS_W_SIMPLE RCSettings
     CV_PROP_RW int  maxPictureSizeB;  ///< max = (bitrate/framerate) * allowed peak margin
     CV_PROP_RW bool skipFrame;        ///< Skip a frame when the CPB buffer size is exceeded and
                                       ///< replace with skip MBs (or CTBs). Default: false
-    CV_PROP_RW int maxSkip;           ///< Maximum number of skips in a row. Default: unlimited
+    CV_PROP_RW int  maxSkip;          ///< Maximum number of skips in a row. Default: unlimited
 
     CV_WRAP RCSettings(RCMode mode = RCMode::VBR, Entropy entropy = Entropy::CABAC,
         int bitrate = 4000, int maxBitrate = 4000, int cbPSize = 3000, int initialDelay = 1000,

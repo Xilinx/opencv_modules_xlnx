@@ -153,17 +153,6 @@ private:
 
 namespace { // anonymous
 
-/* We need at least 1 buffer to copy the output on a file */
-uint32_t constexpr uDefaultNumBuffersHeldByNextComponent = 1;
-
-AL_TDecSettings getDefaultDecSettings(void)
-{
-    AL_TDecSettings settings{};
-    AL_DecSettings_SetDefaults(&settings);
-    settings.uNumBuffersHeldByNextComponent = uDefaultNumBuffersHeldByNextComponent;
-    return settings;
-}
-
 AL_EFbStorageMode getMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings,
                                            AL_EFbStorageMode eOutstorageMode)
 {
@@ -445,7 +434,7 @@ void configureInputPool(Config const &config, AL_TAllocator *pAllocator, BufPool
 
 Config::Config()
 {
-    tDecSettings = getDefaultDecSettings();
+    AL_DecSettings_SetDefaults(&tDecSettings);
 }
 
 DecoderContext::DecoderContext(Config &config, AL_TAllocator *pAlloc, Ptr<RawOutput> rawOutput)
@@ -454,7 +443,8 @@ DecoderContext::DecoderContext(Config &config, AL_TAllocator *pAlloc, Ptr<RawOut
     pAllocator_ = pAlloc;
     pDecSettings_ = &config.tDecSettings;
     pUserOutputSettings_ = &config.tUserOutputSettings;
-    rawOutput_->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames);
+    rawOutput_->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames,
+        config.enableByRef ? pDecSettings_->uNumBuffersHeldByNextComponent : 0);
     running_ = false;
     eos_ = false;
     await_eos_ = false;
@@ -551,7 +541,7 @@ AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
         return AL_SUCCESS;
 
     /* Create the buffers */
-    int32_t iNumBuf = iBufferNumber + uDefaultNumBuffersHeldByNextComponent;
+    int32_t iNumBuf = iBufferNumber + pDecSettings_->uNumBuffersHeldByNextComponent;
 
     if (!baseBufPool_.Init(pAllocator_, iNumBuf, "decoded picture buffer"))
         return AL_ERR_NO_MEMORY;

@@ -31,16 +31,16 @@ public:
 
     // Implementation of the pure virtual functions from base class
     virtual bool   nextFrame(OutputArray frame, RawInfo& frame_info) override;
-    virtual bool   nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info) override;
+    virtual bool   nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info, bool byRef) override;
     virtual bool   set(int propId, double value) override;
     virtual double get(int propId) const override;
 
 private:
     void   cleanup();
     void   copyToDestination(OutputArray dst, std::vector<Mat>& src, int fourccConvert,
-                             bool vector_output, bool single_output_buffer);
+                             bool vector_output, bool single_output_buffer, bool by_reference);
     void   retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
-                              bool vector_output);
+                              bool vector_output, bool by_reference);
     void   updateRawInfo(RawInfo& frame_info);
     bool   setCaptureProperty(int propId, double value, bool external);
     double getCaptureProperty(int propId) const;

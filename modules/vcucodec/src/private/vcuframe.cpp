@@ -220,6 +220,18 @@ void Frame::link(Ptr<Frame> frame)
 }
 
 // class  FrameQueue
+
+FrameQueue::FrameQueue() {}
+
+FrameQueue::~FrameQueue() {}
+
+void FrameQueue::setReturnQueueSize(int size)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    returnQueueSize_ = std::max(size, 0);
+    resizeReturnQueue();
+}
+
 void FrameQueue::enqueue(Ptr<Frame> frame)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -230,11 +242,16 @@ void FrameQueue::enqueue(Ptr<Frame> frame)
 Ptr<Frame> FrameQueue::dequeue(std::chrono::milliseconds timeout)
 {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (cv_.wait_for(lock, timeout, [this]
-                     { return !queue_.empty(); }))
+    resizeReturnQueue();
+
+    if (cv_.wait_for(lock, timeout, [this]{ return !queue_.empty(); }))
     {
         Ptr<Frame> frame = queue_.front();
         queue_.pop();
+        if (returnQueueSize_ > 0)
+        {
+            returnQueue_.push(frame);
+        }
         return frame;
     }
     return nullptr;
@@ -249,9 +266,21 @@ bool FrameQueue::empty()
 void FrameQueue::clear()
 {
     std::lock_guard<std::mutex> lock(mutex_);
+    while (!returnQueue_.empty())
+    {
+        returnQueue_.pop();
+    }
     while (!queue_.empty())
     {
         queue_.pop();
+    }
+}
+
+void FrameQueue::resizeReturnQueue()
+{ // call when mutex_ is locked
+    while (returnQueue_.size() >  returnQueueSize_)
+    {
+        returnQueue_.pop();
     }
 }
 
