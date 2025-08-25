@@ -31,7 +31,9 @@ extern "C" {
 #include "lib_common/BufferAPI.h"
 #include "lib_common/BufferHandleMeta.h"
 #include "lib_common/BufferSeiMeta.h"
+#ifdef HAVE_VCU2_CTRLSW
 #include "lib_common/Context.h"
+#endif
 #include "lib_common/DisplayInfoMeta.h"
 #include "lib_common/Error.h"
 #include "lib_common/FourCC.h"
@@ -149,8 +151,8 @@ private:
     EDecErrorLevel eExitCondition = DEC_ERROR;
     AL_EVENT hExitMain_ = nullptr;
     std::mutex hDisplayMutex_;
+    uint32_t uNumBuffersHeldByNextComponent_ = 1;
 };
-
 namespace { // anonymous
 
 AL_EFbStorageMode getMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings,
@@ -158,6 +160,7 @@ AL_EFbStorageMode getMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSett
 {
     AL_EFbStorageMode eOutputStorageMode = eOutstorageMode;
 
+#ifdef HAVE_VCU2_CTRLSW
     if (tUserOutputSettings.bCustomFormat)
     {
         if (tUserOutputSettings.tPicFormat.eStorageMode != AL_FB_MAX_ENUM)
@@ -165,6 +168,7 @@ AL_EFbStorageMode getMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSett
         else
             eOutputStorageMode = AL_FB_RASTER;
     }
+#endif
 
     return eOutputStorageMode;
 }
@@ -443,8 +447,9 @@ DecoderContext::DecoderContext(Config &config, AL_TAllocator *pAlloc, Ptr<RawOut
     pAllocator_ = pAlloc;
     pDecSettings_ = &config.tDecSettings;
     pUserOutputSettings_ = &config.tUserOutputSettings;
+    uNumBuffersHeldByNextComponent_ = config.uNumBuffersHeldByNextComponent;
     rawOutput_->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames,
-        config.enableByRef ? pDecSettings_->uNumBuffersHeldByNextComponent : 0);
+        config.enableByRef ? uNumBuffersHeldByNextComponent_: 0);
     running_ = false;
     eos_ = false;
     await_eos_ = false;
@@ -541,7 +546,7 @@ AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
         return AL_SUCCESS;
 
     /* Create the buffers */
-    int32_t iNumBuf = iBufferNumber + pDecSettings_->uNumBuffersHeldByNextComponent;
+    int32_t iNumBuf = iBufferNumber + uNumBuffersHeldByNextComponent_;
 
     if (!baseBufPool_.Init(pAllocator_, iNumBuf, "decoded picture buffer"))
         return AL_ERR_NO_MEMORY;
@@ -583,8 +588,13 @@ void DecoderContext::createBaseDecoder(Ptr<Device> device)
     CB_.parsedSeiCB = {&parsedSei, this};
     CB_.errorCB = {&decoderError, this};
 
+#ifdef HAVE_VCU2_CTRLSW
     auto ctx = device->getCtx();
     AL_ERR error = AL_Decoder_CreateWithCtx(&hBaseDec_, ctx, pAllocator_, pDecSettings_, &CB_);
+#elif defined(HAVE_VCU_CTRLSW)
+    AL_IDecScheduler* pScheduler = static_cast<AL_IDecScheduler*>(device->getScheduler());
+    AL_ERR error = AL_Decoder_Create(&hBaseDec_, pScheduler, pAllocator_, pDecSettings_, &CB_);
+#endif
 
     if (AL_IS_ERROR_CODE(error))
         throw codec_error(error);
@@ -782,6 +792,7 @@ void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
     eos_ = true;
 }
 
+
 /*static*/ std::shared_ptr<DecContext>
 DecContext::create(std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput, WorkerConfig &wCfg)
 {
@@ -791,10 +802,15 @@ DecContext::create(std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput,
     pDecConfig->sDecDevicePath = sDecDefaultDevicePath;
 
     pDecConfig->tUserOutputSettings.tPicFormat.eStorageMode = AL_FB_RASTER;
+#ifdef HAVE_VCU2_CTRLSW
     pDecConfig->tUserOutputSettings.bCustomFormat = true;
-
+#endif
     // Setup of the decoder(s) architecture
+#ifdef HAVE_VCU2_CTRLSW
     AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_RISCV);
+#elif defined(HAVE_VCU_CTRLSW)
+    AL_Lib_Decoder_Init(AL_LIB_DECODER_ARCH_HOST);
+#endif
 
     // Create the device
     Ptr<Device> device;

@@ -48,7 +48,7 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     std::shared_ptr<Config> pDecConfig = std::shared_ptr<Config>(new Config());
     pDecConfig->sIn = (std::string)filename;
     if (params_.szReturnQueue > 0) {
-        pDecConfig->tDecSettings.uNumBuffersHeldByNextComponent = params_.szReturnQueue;
+        pDecConfig->uNumBuffersHeldByNextComponent = params_.szReturnQueue;
     }
 
     switch(params_.codec)

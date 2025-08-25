@@ -93,7 +93,11 @@ struct DecContext::Config
   bool bEnableCrop = false;
   int32_t iDecMaxAxiBurstSize = 0;
 
+  #ifdef HAVE_VCU2_CTRLSW
   AL_EDeviceType eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
+  #elif defined(HAVE_VCU_CTRLSW)
+  AL_EDeviceType eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
+  #endif
   AL_ESchedulerType eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
   int32_t iOutputBitDepth = OUTPUT_BD_ALLOC;
   TFourCC tOutputFourCC = FOURCC(NULL);
@@ -116,8 +120,8 @@ struct DecContext::Config
   int32_t iMaxFrames = INT32_MAX;
   bool bUsePreAlloc = false;
   bool enableByRef = false;
-
   EDecErrorLevel eExitCondition = DEC_ERROR;
+  uint32_t uNumBuffersHeldByNextComponent = 1;
 };
 
 struct DecContext::WorkerConfig

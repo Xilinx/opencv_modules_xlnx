@@ -36,7 +36,7 @@ if (HAVE_VCU_CTRLSW OR HAVE_VCU2_CTRLSW)
     endif()
 endif()
 
-if (HAVE_VCU2_CTRLSW)
+if (HAVE_VCU_CTRLSW OR HAVE_VCU2_CTRLSW OR HAVE_VDU_CTRLSW)
     find_library(ALLEGRO_APP_LIB allegro_app)
     if(NOT ALLEGRO_APP_LIB)
         set(VCU_LIBS_FOUND FALSE)
