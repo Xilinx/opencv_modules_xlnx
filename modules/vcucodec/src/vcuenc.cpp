@@ -105,8 +105,10 @@ AL_EProfile getProfile(Codec codec, String profile)
         if (auto it = avcProfiles.find(profile); it != avcProfiles.end())
             profileEnum = it->second;
         break;
+#ifdef HAVE_VCU2_CTRLSW
     case Codec::JPEG:
         profileEnum = AL_PROFILE_JPEG_EXT_HUFF;
+#endif
     }
     return profileEnum;
 }

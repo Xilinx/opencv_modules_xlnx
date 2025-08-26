@@ -15,7 +15,7 @@
 */
 #include "opencv2/vcucodec.hpp"
 
-#include "private/encoder/CfgParser.h" // ConfigFile
+#include "CfgParser.h" // ConfigFile
 
 struct LayerResources;
 struct CIpDevice;

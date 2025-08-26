@@ -39,15 +39,17 @@
 #include "lib_app/console.h"
 #include "lib_app/plateform.h"
 #include "lib_app/utils.h"
+#ifdef HAVE_VCU2_CTRLSW
 #include "lib_app/CompFrameReader.h"
 #include "lib_app/CompFrameCommon.h"
+#endif
 #include "lib_app/UnCompFrameReader.h"
 #include "lib_app/SinkFrame.h"
 
-#include "private/encoder/CfgParser.h"
-#include "private/encoder/CodecUtils.h"
-#include "private/encoder/IpDevice.h"
-#include "private/encoder/resource.h"
+#include "CfgParser.h"
+#include "CodecUtils.h"
+#include "IpDevice.h"
+#include "resource.h"
 
 extern "C" {
 #include "lib_common/BufferPictureMeta.h"
@@ -65,17 +67,17 @@ extern "C" {
 
 #include "lib_app/AL_RasterConvert.h"
 
-#include "private/encoder/sink_encoder.h"
-#include "private/encoder/sink_yuv_md5.h"
-//#include "private/encoder/sink_ratectrl_meta.h"
-#include "private/encoder/sink_lookahead.h"
-//#include "private/encoder/QPGenerator.h"
+#include "sink_encoder.h"
+#include "sink_yuv_md5.h"
+//#include "sink_ratectrl_meta.h"
+#include "sink_lookahead.h"
+//#include "QPGenerator.h"
 #include "lib_app/SinkStreamMd5.h"
-#include "private/encoder/sink_bitrate.h"
-#include "private/encoder/sink_bitstream_writer.h"
-#include "private/encoder/sink_repeater.h"
+#include "sink_bitrate.h"
+#include "sink_bitstream_writer.h"
+#include "sink_repeater.h"
 
-//#include "private/encoder/RCPlugin.h"
+//#include "RCPlugin.h"
 
 using namespace std;
 

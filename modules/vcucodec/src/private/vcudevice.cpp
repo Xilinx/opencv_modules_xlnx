@@ -16,11 +16,38 @@
 
 #include "vcudevice.hpp"
 
+const char* err = "only one of HAVE_VCU2_CTRLSW, HAVE_VCU_CTRLSW, HAVE_VDU_CTRLSW can be defined";
+#if defined(HAVE_VCU_CTRLSW) && (defined(HAVE_VCU2_CTRLSW) || defined(HAVE_VDU_CTRLSW))
+static_assert(false, err);
+#endif
+#if defined(HAVE_VCU2_CTRLSW) && (defined(HAVE_VCU_CTRLSW) || defined(HAVE_VDU_CTRLSW))
+static_assert(false, err);
+#endif
+#if defined(HAVE_VDU_CTRLSW) && (defined(HAVE_VCU2_CTRLSW) || defined(HAVE_VCU_CTRLSW))
+static_assert(false, err);
+#endif
+
+#ifdef HAVE_VCU_CTRLSW
+#include "lib_app/AllocatorHelper.h"
+#endif
+
 extern "C" {
 #include "config.h"
+#ifdef HAVE_VCU2_CTRLSW
 #include "lib_decode/LibDecoderRiscv.h"
+#endif
 #include "lib_common/Allocator.h"
+#ifdef HAVE_VCU2_CTRLSW
 #include "lib_common/Context.h"
+#endif
+#ifdef HAVE_VCU_CTRLSW
+//#include "lib_common/IDriver.h"
+#include "lib_common/HardwareDriver.h"
+#include "lib_common_dec/DecBuffers.h"
+#include "lib_common_dec/IpDecFourCC.h"
+#include "lib_decode/lib_decode.h"
+#include "lib_decode/DecSchedulerMcu.h"
+#endif
 }
 
 #include <memory>
@@ -96,18 +123,59 @@ void VCU2Device::configureRiscv(void)
     allocator_ = AL_Riscv_Decode_DmaAlloc_Create(ctx_);
     if (!allocator_)
         throw std::runtime_error("Can't find dma allocator");
-
 }
-
 #endif // HAVE_VCU2_CTRLSW
 
+#ifdef HAVE_VCU_CTRLSW
+class VCUDevice : public Device
+{
+public:
+    ~VCUDevice() override;
+    VCUDevice();
+
+    void* getScheduler() override { return scheduler_; }
+    AL_TAllocator* getAllocator() override { return allocator_.get(); }
+	void* getCtx() override { return nullptr; }
+    AL_ITimer* getTimer() override { return nullptr; };
+
+private:
+    void configureMcu(AL_TDriver* driver);
+    AL_IDecScheduler* scheduler_ = nullptr;
+    std::shared_ptr<AL_TAllocator> allocator_ = nullptr;
+};
+
+VCUDevice::VCUDevice()
+{
+    configureMcu(AL_GetHardwareDriver());
+}
+
+VCUDevice::~VCUDevice()
+{
+    if (scheduler_)
+        AL_IDecScheduler_Destroy(scheduler_);
+}
+
+void VCUDevice::configureMcu(AL_TDriver* driver)
+{
+  std::string g_DecDevicePath = "/dev/allegroDecodeIP";
+  allocator_ = CreateBoardAllocator(g_DecDevicePath.c_str(), AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE);
+
+  if(!allocator_)
+    throw std::runtime_error("Can't open DMA allocator");
+
+  scheduler_ = AL_DecSchedulerMcu_Create(driver, g_DecDevicePath.c_str());
+
+  if(!scheduler_)
+    throw std::runtime_error("Failed to create MCU scheduler");
+}
+#endif // HAVE_VCU_CTRLSW
 
 /*static*/ Ptr<Device> Device::create() {
 #ifdef HAVE_VCU2_CTRLSW
     return Ptr<Device>(new VCU2Device());
 #endif
 #ifdef HAVE_VCU_CTRLSW
-    return Ptr<Device>(nullptr);
+    return Ptr<Device>(new VCUDevice());
 #endif
 #ifdef HAVE_VDU_CTRLSW
     return Ptr<Device>(nullptr);

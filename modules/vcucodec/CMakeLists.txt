@@ -72,10 +72,16 @@ if(VCU_INCLUDE_DIR AND VCU_LIBS_FOUND)
     # Add compile definition to enable VCU/VDU/VCU2 support
     if(HAVE_VCU_CTRLSW)
         target_compile_definitions(${the_module} PRIVATE HAVE_VCU_CTRLSW)
+        target_include_directories(${the_module} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/private/encoder_vcu1
+        )
     elseif(HAVE_VDU_CTRLSW)
         target_compile_definitions(${the_mod+ule} PRIVATE HAVE_VDU_CTRLSW)
     elseif(HAVE_VCU2_CTRLSW)
         target_compile_definitions(${the_module} PRIVATE HAVE_VCU2_CTRLSW)
+        target_include_directories(${the_module} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/private/encoder
+        )
     endif()
 
     # Disable warnings as errors for vcucodec module to avoid build issues

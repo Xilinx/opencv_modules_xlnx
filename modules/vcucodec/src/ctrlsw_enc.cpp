@@ -2,7 +2,7 @@
 
 // SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
-#ifdef HAVE_VCU2_CTRLSW
+#if defined(HAVE_VCU_CTRLSW) || defined(HAVE_VCU2_CTRLSW)
 
 #include "ctrlsw_enc.hpp"
 
@@ -65,8 +65,13 @@ void SetDefaults(ConfigFile& cfg)
   cfg.MainInput.FileInfo.PictHeight = 0;
   cfg.MainInput.FileInfo.PictWidth = 0;
   cfg.RunInfo.encDevicePaths = {};
+#ifdef HAVE_VCU2_CTRLSW
   cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
   cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
+#elif defined(HAVE_VCU_CTRLSW)
+  cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
+  cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU;
+#endif
   cfg.RunInfo.bLoop = false;
   cfg.RunInfo.iMaxPict = INT32_MAX; // ALL
   cfg.RunInfo.iFirstPict = 0;
@@ -113,10 +118,18 @@ bool checkQPTableFolder(ConfigFile& cfg)
 {
   std::regex qp_file_per_frame_regex("QP(^|)(s|_[0-9]+)\\.hex");
 
+#ifdef HAVE_VCU2_CTRLSW
   if(!checkFolder(cfg.MainInput.sQPTablesFolder))
+#elif defined(HAVE_VCU_CTRLSW)
+  if(!FolderExists(cfg.MainInput.sQPTablesFolder))
+#endif
     return false;
 
+#ifdef HAVE_VCU2_CTRLSW
   return checkFileAvailability(cfg.MainInput.sQPTablesFolder, qp_file_per_frame_regex);
+#elif defined(HAVE_VCU_CTRLSW)
+  return FileExists(cfg.MainInput.sQPTablesFolder, qp_file_per_frame_regex);
+#endif
 }
 
 void ValidateConfig(ConfigFile& cfg)
@@ -293,11 +306,13 @@ unique_ptr<IConvSrc> AllocateSrcConverter(SrcConverterParams const& tSrcConverte
   {
   case AL_SRC_FORMAT_RASTER:
     return make_unique<CYuvSrcConv>(tSrcFrameInfo);
+#ifdef HAVE_VCU2_CTRLSW
   case AL_SRC_FORMAT_RASTER_MSB:
     return make_unique<CYuvSrcConv>(tSrcFrameInfo);
   case AL_SRC_FORMAT_TILE_64x4:
   case AL_SRC_FORMAT_TILE_32x4:
     return make_unique<CYuvSrcConv>(tSrcFrameInfo);
+#endif
   default:
     throw runtime_error("Unsupported source conversion.");
   }
@@ -350,12 +365,14 @@ AL_ESrcMode SrcFormatToSrcMode(AL_ESrcFormat eSrcFormat)
   {
   case AL_SRC_FORMAT_RASTER:
     return AL_SRC_RASTER;
+#ifdef HAVE_VCU2_CTRLSW
   case AL_SRC_FORMAT_RASTER_MSB:
     return AL_SRC_RASTER_MSB;
   case AL_SRC_FORMAT_TILE_64x4:
     return AL_SRC_TILE_64x4;
   case AL_SRC_FORMAT_TILE_32x4:
     return AL_SRC_TILE_32x4;
+#endif
   default:
     throw runtime_error("Unsupported source format.");
   }
@@ -713,7 +730,11 @@ unique_ptr<FrameReader> LayerResources::InitializeFrameReader(ConfigFile& cfg, i
 
   if(!bUseCompressedFormat)
     pFrameReader = unique_ptr<FrameReader>(new UnCompFrameReader(YuvFile, FileInfo, cfg.RunInfo.bLoop));
+#ifdef HAVE_VCU2_CTRLSW
   pFrameReader->SeekA(cfg.RunInfo.iFirstPict + iReadCount);
+#elif defined(HAVE_VCU_CTRLSW)
+  pFrameReader->SeekAbsolute(cfg.RunInfo.iFirstPict + iReadCount);
+#endif
 
   return pFrameReader;
 }
@@ -762,7 +783,9 @@ unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerReso
   auto pAllocator = pIpDevice->GetAllocator();
   auto pScheduler = pIpDevice->GetScheduler();
 
+#ifdef HAVE_VCU2_CTRLSW
   auto ctx = pIpDevice->GetCtx();
+#endif
 
   AL_EVENT hFinished = Rtos_CreateEvent(false);
   RCPlugin_Init(&cfg.Settings, &cfg.Settings.tChParam[0], pAllocator);
@@ -775,9 +798,11 @@ unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerReso
   // --------------------------------------------------------------------------------
   // Create Encoder
 
+#ifdef HAVE_VCU2_CTRLSW
   if(ctx)
     enc.reset(new EncoderSink(cfg, ctx, pAllocator));
   else
+#endif
   enc.reset(new EncoderSink(cfg, pScheduler, pAllocator));
 
   IFrameSink* firstSink = enc.get();
@@ -785,9 +810,11 @@ unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerReso
   if(AL_TwoPassMngr_HasLookAhead(cfg.Settings))
   {
 
+#ifdef HAVE_VCU2_CTRLSW
     if(ctx)
       encFirstPassLA.reset(new EncoderLookAheadSink(cfg, ctx, pAllocator));
     else
+#endif
     encFirstPassLA.reset(new EncoderLookAheadSink(cfg, pScheduler, pAllocator));
 
     encFirstPassLA->next = firstSink;
@@ -814,6 +841,7 @@ unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerReso
     if(!LayerRecFileName.empty())
     {
 
+#ifdef HAVE_VCU2_CTRLSW
       if(Settings.tChParam[0].eEncOptions & AL_OPT_COMPRESS)
       {
         std::unique_ptr<IFrameSink> recOutput(createCompFrameSink(LayerRecFileName, LayerRecFileName + ".map", Settings.tChParam[0].eRecStorageMode, 0));
@@ -824,6 +852,10 @@ unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerReso
         std::unique_ptr<IFrameSink> recOutput(createUnCompFrameSink(LayerRecFileName, AL_FB_RASTER));
         multisinkRec->addSink(recOutput);
       }
+#elif defined(HAVE_VCU_CTRLSW)
+      std::unique_ptr<IFrameSink> recOutput(createUnCompFrameSink(LayerRecFileName, AL_FB_RASTER));
+      multisinkRec->addSink(recOutput);
+#endif
     }
     enc->RecOutput[i] = std::move(multisinkRec);
   }
@@ -886,8 +918,10 @@ unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerReso
     RunInfo.iMaxPict = g_numFrameToRepeat;
   }
 
+#if 0 // encoder input file is not needed for opencv case
   for(int32_t i = 0; i < Settings.NumLayer; ++i)
     pLayerResources[i]->OpenEncoderInput(cfg, enc->hEnc);
+#endif
 
   return enc;
 }
@@ -911,7 +945,9 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
       Settings.tChParam[0].eEncOptions = (AL_EChEncOption)(Settings.tChParam[0].eEncOptions | AL_OPT_FORCE_REC);
     }
 
+#ifdef HAVE_VCU2_CTRLSW
     Settings.tChParam[0].bUseGMV = !cfg.sGMVFileName.empty();
+#endif
 
     AL_ESrcMode eSrcMode = SrcFormatToSrcMode(cfg.eSrcFormat);
 
@@ -928,8 +964,10 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
 
   auto& RunInfo = cfg.RunInfo;
 
+#ifdef HAVE_VCU2_CTRLSW
   if(RunInfo.eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED)
     eArch = AL_LIB_ENCODER_ARCH_RISCV;
+#endif
 
   if(!AL_IS_SUCCESS_CODE(AL_Lib_Encoder_Init(eArch)))
     throw runtime_error("Can't setup encode library");
@@ -939,7 +977,11 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
   param.eDeviceType = RunInfo.eDeviceType;
 
   param.pCfgFile = &cfg;
+#ifdef HAVE_VCU2_CTRLSW
   param.bTrackDma = RunInfo.trackDma;
+#elif defined(HAVE_VCU_CTRLSW)
+  param.eTrackDmaMode = RunInfo.eTrackDmaMode;
+#endif
 
   pIpDevice = shared_ptr<CIpDevice>(new CIpDevice);
 
@@ -953,4 +995,4 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
   return enc;
 }
 
-#endif // HAVE_VCU2_CTRLSW
+#endif // HAVE_VCU_CTRLSW || HAVE_VCU2_CTRLSW
