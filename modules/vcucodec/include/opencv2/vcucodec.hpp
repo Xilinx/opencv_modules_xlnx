@@ -209,6 +209,9 @@ struct CV_EXPORTS_W_SIMPLE ProfileSettings
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC, JPEG)
     CV_PROP_RW int fourcc;     ///< Format of the raw data as FOURCC code
+    CV_PROP_RW int pictWidth;  ///< Picture width
+    CV_PROP_RW int pictHeight; ///< Picture height
+    CV_PROP_RW RCMode rcMode;  ///< Rate control mode (CONST_QP, CBR, VBR, LOW_LATENCY, CAPPED_VBR)
     CV_PROP_RW int bitrate;    ///< Target bitrate in kbits per second
     CV_PROP_RW int frameRate;  ///< Frame rate
     CV_PROP_RW int gopLength;  ///< GOP (Group of Pictures) length
@@ -217,9 +220,11 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
 
     /// Constructor to initialize encoder parameters with default values.
     CV_WRAP EncoderInitParams(Codec codec = Codec::HEVC,
-        int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'), int bitrate = 4000,
-        int frameRate = 30, int gopLength = 60)
-    : codec(codec), fourcc(fourcc), bitrate(bitrate), frameRate(frameRate), gopLength(gopLength) {}
+        int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'), RCMode rcMode = RCMode::CBR,
+        int bitrate = 4000, int pictWidth = 1280, int pictHeight = 720, int frameRate = 30,
+        int gopLength = 60)
+    : codec(codec), fourcc(fourcc), pictWidth(pictWidth), pictHeight(pictHeight), rcMode(rcMode),
+        bitrate(bitrate), frameRate(frameRate), gopLength(gopLength) {}
 };
 
 /// @brief Class Encoder is the interface for encoding video frames to a stream.

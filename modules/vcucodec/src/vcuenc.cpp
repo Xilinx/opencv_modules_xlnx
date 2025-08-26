@@ -162,8 +162,10 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params)
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y800))
         cfg.Settings.tChParam[0].ePicFormat = AL_400_8BITS;
     cfg.MainInput.FileInfo.FrameRate = 60;
-    cfg.MainInput.FileInfo.PictHeight = 720;
-    cfg.MainInput.FileInfo.PictWidth = 1280;
+    cfg.MainInput.FileInfo.PictHeight = params.pictHeight;
+    cfg.MainInput.FileInfo.PictWidth = params.pictWidth;
+    cfg.Settings.tChParam[0].tRCParam.eRCMode = (AL_ERateCtrlMode)params.rcMode;
+    cfg.Settings.tChParam[0].tRCParam.uTargetBitRate = params.bitrate * 1000;
     SetCodingResolution(cfg);
     pLayerResources.emplace_back(std::make_unique<LayerResources>());
     enc = CtrlswEncOpen(cfg, pLayerResources, pIpDevice);
