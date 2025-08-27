@@ -63,6 +63,7 @@ extern "C" {
 #include <queue>
 #include <set>
 #include <sstream>
+#include <iomanip>
 #include <string>
 #include <thread>
 
@@ -91,10 +92,31 @@ public:
     void start(WorkerConfig wCfg) override;
     void finish() override;
 
-    bool running() const override { return running_; }
-    bool eos() const override { return eos_; }
+    bool running() const override
+    {
+        auto lock = std::lock_guard(mutex_);
+        return running_;
+    }
 
-public: // used by static callback functions in this file
+    bool eos() const override
+    {
+        auto lock = std::lock_guard(mutex_);
+        return eos_;
+    }
+
+    String streamInfo() const override
+    {
+        auto lock = std::lock_guard(mutex_);
+        return streamInfo_;
+    }
+
+    String statistics() const override
+    {
+        auto lock = std::lock_guard(mutex_);
+        return stats_;
+    }
+
+    public: // used by static callback functions in this file
     void createBaseDecoder(Ptr<Device> device);
     AL_HDecoder getBaseDecoderHandle() const { return hBaseDec_; }
     AL_ERR setupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const *pStreamSettings,
@@ -115,7 +137,7 @@ private:
     };
     void stopSendingBuffer()
     {
-        lockDisplay();
+        auto lock = lockDisplay();
         bPushBackToDecoder_ = false;
     };
     bool canSendBackBufferToDecoder() { return bPushBackToDecoder_; };
@@ -129,6 +151,7 @@ private:
                                               AL_TBuffer *pDecPict);
     void ctrlswDecRun(WorkerConfig wCfg);
 
+    mutable std::mutex mutex_;
     bool running_;
     bool eos_;
     bool await_eos_;
@@ -152,6 +175,8 @@ private:
     AL_EVENT hExitMain_ = nullptr;
     std::mutex hDisplayMutex_;
     uint32_t uNumBuffersHeldByNextComponent_ = 1;
+    String streamInfo_;
+    String stats_;
 };
 namespace { // anonymous
 
@@ -227,9 +252,9 @@ std::string sequencePictureToString(AL_ESequenceMode sequencePicture)
     return "max enum";
 }
 
-void showStreamInfo(int32_t BufferNumber, int32_t BufferSize,
-                    AL_TStreamSettings const *pStreamSettings, AL_TCropInfo const *pCropInfo,
-                    TFourCC tFourCC, AL_TDimension outputDim)
+String getStreamInfo(int32_t BufferNumber, int32_t BufferSize,
+                          AL_TStreamSettings const *pStreamSettings, AL_TCropInfo const *pCropInfo,
+                          TFourCC tFourCC, AL_TDimension outputDim)
 {
     int32_t iWidth = outputDim.iWidth;
     int32_t iHeight = outputDim.iHeight;
@@ -259,7 +284,7 @@ void showStreamInfo(int32_t BufferNumber, int32_t BufferSize,
        << std::endl;
     ss << "Buffers needed: " << BufferNumber << " of size " << BufferSize << std::endl;
 
-    LogInfo(CC_DARK_BLUE, "%s\n", ss.str().c_str());
+    return ss.str();
 }
 
 int32_t configureDecBufPool(PixMapBufPool &SrcBufPool, AL_TPicFormat const &tPicFormat,
@@ -367,17 +392,22 @@ struct codec_error : public std::runtime_error
     const AL_ERR Code;
 };
 
-void showStatistics(double durationInSeconds, int32_t iNumFrameConceal, int32_t decodedFrameNumber,
-                    bool timeoutOccurred)
+std::string getStatistics(double durationInSeconds, int32_t iNumFrameConceal,
+                          int32_t decodedFrameNumber, bool timeoutOccurred)
 {
     std::string guard = "Decoded time = ";
 
     if (timeoutOccurred)
         guard = "TIMEOUT = ";
 
-    auto msg = guard + "%.4f s;  Decoding FrameRate ~ %.4f Fps; Frame(s) conceal = %d\n";
-    LogInfo(msg.c_str(), durationInSeconds, decodedFrameNumber / durationInSeconds,
-            iNumFrameConceal);
+     double fps = durationInSeconds > 0.0 ? decodedFrameNumber / durationInSeconds : 0.0;
+
+     std::ostringstream ss;
+     ss.setf(std::ios::fixed);
+     ss << guard << std::setprecision(4) << durationInSeconds
+         << " s;  Decoding FrameRate ~ " << std::setprecision(4) << fps
+         << " Fps; Frame(s) conceal = " << iNumFrameConceal << '\n';
+     return ss.str();
 }
 
 void adjustStreamBufferSettings(Config &config)
@@ -539,8 +569,12 @@ AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
     AL_TCropInfo pUserCropInfo = *pCropInfo;
 
     AL_TDimension outputDim = pStreamSettings->tDim;
-    showStreamInfo(iBufferNumber, iBufferSize, pStreamSettings, &pUserCropInfo,
-                   AL_GetFourCC(pUserOutputSettings_->tPicFormat), outputDim);
+
+    {
+        auto lock = std::lock_guard(mutex_);
+        streamInfo_ = getStreamInfo(iBufferNumber, iBufferSize, pStreamSettings, &pUserCropInfo,
+                                    AL_GetFourCC(pUserOutputSettings_->tPicFormat), outputDim);
+    }
 
     if (baseBufPool_.IsInit())
         return AL_SUCCESS;
@@ -611,6 +645,7 @@ void DecoderContext::manageError(AL_ERR eError)
 
 void DecoderContext::start(WorkerConfig wCfg)
 {
+    auto lock = std::lock_guard(mutex_);
     ctrlswThread_ = std::thread(&DecoderContext::ctrlswDecRun, this, wCfg);
     ctrlswThread_.detach();
     running_ = true;
@@ -625,7 +660,7 @@ void DecoderContext::finish()
 
 void DecoderContext::receiveFrameToDisplayFrom(Ptr<Frame> pFrame)
 {
-    std::unique_lock<std::mutex> lock(hDisplayMutex_);
+    auto lock = lockDisplay();
 
     bool bLastFrame = pFrame == nullptr || await_eos_;
 
@@ -661,6 +696,7 @@ void DecoderContext::receiveFrameToDisplayFrom(Ptr<Frame> pFrame)
         await_eos_ = true;
         if (rawOutput_->idle())
         {
+            auto lock = std::lock_guard(mutex_);
             eos_ = true;
         }
     }
@@ -676,6 +712,7 @@ void DecoderContext::frameDone(Frame const &frame)
         }
     }
 
+    auto lock = std::lock_guard(mutex_);
     if (!eos_ && await_eos_ && rawOutput_->idle())
     {
         eos_ = true;
@@ -788,8 +825,13 @@ void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
         throw std::runtime_error("No frame decoded");
 
     auto const duration = (uEnd - uBegin) / 1000.0;
-    showStatistics(duration, getNumConcealedFrame(), getNumDecodedFrames(), timeoutOccurred);
-    eos_ = true;
+
+    {
+        auto lock = std::lock_guard(mutex_);
+        stats_ = getStatistics(duration, getNumConcealedFrame(), getNumDecodedFrames(),
+                               timeoutOccurred);
+        eos_ = true;
+    }
 }
 
 

@@ -211,6 +211,14 @@ double VCUDecoder::get(int propId) const {
     return result; // Placeholder implementation
 }
 
+String VCUDecoder::streamInfo() const {
+    return decodeCtx_ ? decodeCtx_->streamInfo() : String();
+}
+
+String VCUDecoder::statistics() const {
+    return decodeCtx_ ? decodeCtx_->statistics() : String();
+}
+
 
 void VCUDecoder::cleanup()
 {

@@ -61,6 +61,12 @@ class DecContext
     /// Check if the end of stream has been reached.
     virtual bool eos() const = 0;
 
+    /// Return information on the stream, available once the headers are parsed.
+    virtual String streamInfo() const = 0;
+
+    // Return statistics on the decoding process, available once decoding has finished.
+    virtual String statistics() const = 0;
+
     static std::shared_ptr<DecContext> create(std::shared_ptr<Config> pDecConfig,
         Ptr<RawOutput> rawOutput, WorkerConfig& wCfg);
 };

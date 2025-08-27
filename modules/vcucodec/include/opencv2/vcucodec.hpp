@@ -132,6 +132,12 @@ public:
     CV_WRAP virtual double get(
         int propId ///< Property identifier
     ) const = 0;
+
+    /// Get the information of the stream that was parsed (if any sofar).
+    CV_WRAP virtual String streamInfo() const = 0;
+
+    /// Get the statistics of the stream that was decoded (if any).
+    CV_WRAP virtual String statistics() const = 0;
 };
 
 /// Struct RCSettings provides Rate Control Settings.

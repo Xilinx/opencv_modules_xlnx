@@ -34,6 +34,8 @@ public:
     virtual bool   nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info, bool byRef) override;
     virtual bool   set(int propId, double value) override;
     virtual double get(int propId) const override;
+    virtual String streamInfo() const override;
+    virtual String statistics() const override;
 
 private:
     void   cleanup();
