@@ -1,0 +1,15 @@
+/*! \mainpage
+
+\htmlonly
+<script type="text/javascript">
+(function(){
+  try { window.location.replace('group__versal__zynq.html'); }
+  catch(e) { window.location.href = 'group__versal__zynq.html'; }
+})();
+</script>
+<noscript>
+  <meta http-equiv="refresh" content="0; url=modules.html">
+  <p>If you are not redirected automatically, follow this link to the <a href="group__versal__zynq.html">Modules</a> page.</p>
+</noscript>
+\endhtmlonly
+*/

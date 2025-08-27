@@ -75,6 +75,10 @@ del dec
 - Set `fourcc` to specify the desired output format (e.g., "NV12", "Y800")
 - Set `fourccConvert` to 0 for no conversion, or use FOURCC("BGR") for BGR output
 - Frame information is provided in the `RawInfo` structure
+- NextFrame will return after a time-out if no data is available, i.e. it will not block
+  indefinitely. The boolean info.eos is set to true when the end of the stream is reached. When set
+  to false the next frame has not been decoded yet. This can be the case when there are input
+  bottlenecks.
 
 
 \code{.py}
@@ -140,6 +144,42 @@ while True:
 
 file.close()
 del dec
+\endcode
+
+#### Example encoding decode output
+
+\code{.py}
+#! /usr/bin/env python3
+import cv2
+from props import *
+
+decoderInitParams = cv2.vcucodec.DecoderInitParams(
+    codec=cv2.vcucodec.CODEC_AVC,
+    fourcc=FOURCC("NV12"),
+    fourccConvert=0, # FOURCC("BGR"),
+    maxFrames=0,
+    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST)
+
+dec = cv2.vcucodec.createDecoder('./meet_car_720p_nv12.avc', decoderInitParams)
+
+params = cv2.vcucodec.EncoderInitParams()
+
+enc = cv2.vcucodec.createEncoder("./out.h265", params)
+
+while True:
+    ret, frame, info = dec.nextFrame()
+    if not ret:
+        print(f"got no frame: EOS: {info.eos}")
+        if info.eos:
+            break
+    else:
+        enc.write(frame)
+
+del dec
+del enc
+
+\code{.py}
+
 \endcode
 
 */

@@ -1,0 +1,18 @@
+/* Extra CSS overrides for Doxygen header alignment */
+#titlearea #projectlogo,
+#titlearea #projectalign {
+  vertical-align: middle;
+}
+
+#titlearea #projectlogo img {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Optional: keep the default header height and constrain logo size slightly */
+#titlearea table tr {
+  height: 56px; /* Doxygen default */
+}
+#titlearea #projectlogo img {
+  max-height: 48px; /* prevents visual bottom clipping if logo is taller */
+}
