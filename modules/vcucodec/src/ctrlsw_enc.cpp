@@ -12,8 +12,9 @@ static int32_t g_Stride = -1;
 static int32_t constexpr g_defaultMinBuffers = 2;
 static bool g_MultiChunk = false;
 
+#if 0
 /*****************************************************************************/
-AL_HANDLE alignedAlloc(AL_TAllocator* pAllocator, char const* pBufName, uint32_t uSize, uint32_t uAlign, uint32_t* uAllocatedSize, uint32_t* uAlignmentOffset)
+static AL_HANDLE alignedAlloc(AL_TAllocator* pAllocator, char const* pBufName, uint32_t uSize, uint32_t uAlign, uint32_t* uAllocatedSize, uint32_t* uAlignmentOffset)
 {
   *uAllocatedSize = 0;
   *uAlignmentOffset = 0;
@@ -31,9 +32,11 @@ AL_HANDLE alignedAlloc(AL_TAllocator* pAllocator, char const* pBufName, uint32_t
 
   return pBuf;
 }
+#endif
 
+#if 0
 /*****************************************************************************/
-void DisplayBuildInfo(void)
+static void DisplayBuildInfo(void)
 {
   BuildInfoDisplay displayBuildInfo {
     SCM_REV_SW, SCM_BRANCH, AL_CONFIGURE_COMMANDLINE, AL_COMPIL_FLAGS, DELIVERY_BUILD_NUMBER, DELIVERY_SCM_REV, DELIVERY_DATE
@@ -44,8 +47,9 @@ void DisplayBuildInfo(void)
 
   displayBuildInfo();
 }
+#endif
 
-void DisplayVersionInfo(void)
+static void DisplayVersionInfo(void)
 {
   DisplayVersionInfo(AL_ENCODER_COMPANY,
                      AL_ENCODER_PRODUCT_NAME,
@@ -82,11 +86,13 @@ void SetDefaults(ConfigFile& cfg)
   cfg.iForceStreamBufSize = 0;
 }
 
-void introspect(ConfigFile& cfg)
+#if 0
+static void introspect(ConfigFile& cfg)
 {
   (void)cfg;
   throw runtime_error("introspection is not compiled in");
 }
+#endif
 
 void SetCodingResolution(ConfigFile& cfg)
 {
@@ -114,7 +120,7 @@ void SetCodingResolution(ConfigFile& cfg)
 }
 
 /*****************************************************************************/
-bool checkQPTableFolder(ConfigFile& cfg)
+static bool checkQPTableFolder(ConfigFile& cfg)
 {
   std::regex qp_file_per_frame_regex("QP(^|)(s|_[0-9]+)\\.hex");
 
@@ -132,7 +138,7 @@ bool checkQPTableFolder(ConfigFile& cfg)
 #endif
 }
 
-void ValidateConfig(ConfigFile& cfg)
+static void ValidateConfig(ConfigFile& cfg)
 {
   string const invalid_settings("Invalid settings, check the [SETTINGS] section of your configuration file or check your commandline (use -h to get help)");
 
@@ -181,7 +187,7 @@ void ValidateConfig(ConfigFile& cfg)
   SetConsoleColor(CC_DEFAULT);
 }
 
-void SetMoreDefaults(ConfigFile& cfg)
+static void SetMoreDefaults(ConfigFile& cfg)
 {
   auto& FileInfo = cfg.MainInput.FileInfo;
   auto& Settings = cfg.Settings;
@@ -234,7 +240,7 @@ static shared_ptr<AL_TBuffer> AllocateConversionBuffer(int32_t iWidth, int32_t i
   return shared_ptr<AL_TBuffer>(pYuv, &AL_Buffer_Destroy);
 }
 
-bool ReadSourceFrameBuffer(AL_TBuffer* pBuffer, AL_TBuffer* conversionBuffer, unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, IConvSrc* hConv)
+static bool ReadSourceFrameBuffer(AL_TBuffer* pBuffer, AL_TBuffer* conversionBuffer, unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, IConvSrc* hConv)
 {
 
   AL_PixMapBuffer_SetDimension(pBuffer, tUpdatedDim);
@@ -253,7 +259,7 @@ bool ReadSourceFrameBuffer(AL_TBuffer* pBuffer, AL_TBuffer* conversionBuffer, un
   return true;
 }
 
-shared_ptr<AL_TBuffer> ReadSourceFrame(BaseBufPool* pBufPool, AL_TBuffer* conversionBuffer, unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, IConvSrc* hConv)
+static shared_ptr<AL_TBuffer> ReadSourceFrame(BaseBufPool* pBufPool, AL_TBuffer* conversionBuffer, unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, IConvSrc* hConv)
 {
   shared_ptr<AL_TBuffer> sourceBuffer = pBufPool->GetSharedBuffer();
 
@@ -265,7 +271,7 @@ shared_ptr<AL_TBuffer> ReadSourceFrame(BaseBufPool* pBufPool, AL_TBuffer* conver
   return sourceBuffer;
 }
 
-AL_TPicFormat GetSrcPicFormat(AL_TEncChanParam const& tChParam)
+static AL_TPicFormat GetSrcPicFormat(AL_TEncChanParam const& tChParam)
 {
   AL_ESrcMode eSrcMode = tChParam.eSrcMode;
   auto eChromaMode = AL_GET_CHROMA_MODE(tChParam.ePicFormat);
@@ -273,7 +279,7 @@ AL_TPicFormat GetSrcPicFormat(AL_TEncChanParam const& tChParam)
   return AL_EncGetSrcPicFormat(eChromaMode, tChParam.uSrcBitDepth, eSrcMode);
 }
 
-bool IsConversionNeeded(SrcConverterParams& tSrcConverterParams)
+static bool IsConversionNeeded(SrcConverterParams& tSrcConverterParams)
 {
 
   const TFourCC tSrcFourCC = AL_GetFourCC(tSrcConverterParams.tSrcPicFmt);
@@ -290,7 +296,7 @@ bool IsConversionNeeded(SrcConverterParams& tSrcConverterParams)
   return false;
 }
 
-unique_ptr<IConvSrc> AllocateSrcConverter(SrcConverterParams const& tSrcConverterParams, shared_ptr<AL_TBuffer>& pFileReaderYuv)
+static unique_ptr<IConvSrc> AllocateSrcConverter(SrcConverterParams const& tSrcConverterParams, shared_ptr<AL_TBuffer>& pFileReaderYuv)
 {
   // ********** Allocate the YUV buffer to read in the file **********
   pFileReaderYuv = AllocateConversionBuffer(tSrcConverterParams.tDim.iWidth, tSrcConverterParams.tDim.iHeight, tSrcConverterParams.tFileFourCC);
@@ -359,7 +365,7 @@ static shared_ptr<AL_TBuffer> GetSrcFrame(int& iReadCount, int32_t iPictCount, u
   return frame;
 }
 
-AL_ESrcMode SrcFormatToSrcMode(AL_ESrcFormat eSrcFormat)
+static AL_ESrcMode SrcFormatToSrcMode(AL_ESrcFormat eSrcFormat)
 {
   switch(eSrcFormat)
   {
@@ -767,7 +773,7 @@ void LayerResources::ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder
   }
 }
 
-unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerResources>>& pLayerResources,
+static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerResources>>& pLayerResources,
                 CIpDevice* pIpDevice, CIpDeviceParam& param, int32_t chanId)
 {
   (void)param;
@@ -776,7 +782,7 @@ unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerReso
   auto& RunInfo = cfg.RunInfo;
 
   /* null if not supported */
-  void* pTraceHook {};
+  //void* pTraceHook {};
   unique_ptr<EncoderSink> enc;
   unique_ptr<EncoderLookAheadSink> encFirstPassLA;
 

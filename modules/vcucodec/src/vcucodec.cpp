@@ -22,8 +22,6 @@
 
 #include <map>
 
-
-
 namespace cv {
 namespace vcucodec {
 

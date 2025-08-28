@@ -84,7 +84,7 @@ using namespace std;
 /*****************************************************************************/
 #include "lib_app/BuildInfo.h"
 
-#if !HAS_COMPIL_FLAGS
+#if !defined(HAS_COMPIL_FLAGS)
 #define AL_COMPIL_FLAGS ""
 #endif
 

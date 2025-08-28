@@ -117,7 +117,7 @@ static const string QPTablesMotif = "QP";
 static const string QPTablesLegacyMotif = "QPs"; // Use default file (motif + "s" for backward compatibility)
 static const string QPTablesExtension = ".hex";
 
-string createQPFileName(const string& folder, const string& motif)
+static string createQPFileName(const string& folder, const string& motif)
 {
   return combinePath(folder, motif + QPTablesExtension);
 }
@@ -140,7 +140,7 @@ static bool OpenFile(const string& sQPTablesFolder, int32_t iFrameID, string mot
 }
 
 /****************************************************************************/
-AL_ERR Load_QPTable_FromFile_AOM(uint8_t* pSegs, uint8_t* pQPs, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID, bool bRelative)
+static AL_ERR Load_QPTable_FromFile_AOM(uint8_t* pSegs, uint8_t* pQPs, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID, bool bRelative)
 {
   string sLine;
   ifstream file;
@@ -186,7 +186,7 @@ AL_ERR Load_QPTable_FromFile_AOM(uint8_t* pSegs, uint8_t* pQPs, int32_t iNumLCUs
 }
 
 /****************************************************************************/
-AL_ERR Load_QPTable_FromFile(uint8_t* pQPs, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID)
+static AL_ERR Load_QPTable_FromFile(uint8_t* pQPs, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID)
 {
   ifstream file;
 
@@ -386,7 +386,7 @@ static int32_t GetLcuQpOffset(int32_t iQPTableDepth)
 }
 
 /****************************************************************************/
-AL_ERR Load_QPTable_FromRoiFile(AL_TRoiMngrCtx* pCtx, string const& sRoiFileName, uint8_t* pQPs, int32_t iFrameID, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth)
+static AL_ERR Load_QPTable_FromRoiFile(AL_TRoiMngrCtx* pCtx, string const& sRoiFileName, uint8_t* pQPs, int32_t iFrameID, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth)
 {
   ifstream file(sRoiFileName);
 

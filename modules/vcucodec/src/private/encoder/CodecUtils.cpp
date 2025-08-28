@@ -31,7 +31,7 @@ using namespace std;
 void DisplayFrameStatus(int32_t iFrameNum)
 {
   (void)iFrameNum;
-#if VERBOSE_MODE
+#if defined(VERBOSE_MODE)
   LogVerbose("\n\n> % 3d", iFrameNum);
 #else
   LogVerbose("\r  Encoding picture #%-6d - ", iFrameNum);
@@ -90,7 +90,7 @@ uint32_t ReadNextFrameMV(ifstream& File, int& iX, int& iY)
 }
 
 /*****************************************************************************/
-void WriteOneSection(ofstream& File, AL_TBuffer* pStream, AL_TStreamSection* pCurSection, const AL_TEncChanParam* pChannelParam)
+static void WriteOneSection(ofstream& File, AL_TBuffer* pStream, AL_TStreamSection* pCurSection, const AL_TEncChanParam* pChannelParam)
 {
   (void)pChannelParam;
 

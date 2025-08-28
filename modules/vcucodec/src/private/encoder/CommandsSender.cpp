@@ -31,7 +31,8 @@ void CommandsSender::notifyIsSkip(void)
 
 #define CHECK(statement) \
   if(!statement) \
-    std::cerr << # statement << " failed with error : " << AL_Encoder_GetLastError(hEnc) << std::endl
+    std::cerr << # statement << " failed with error : " \
+    << static_cast<std::underlying_type_t<AL_ERR>>(AL_Encoder_GetLastError(hEnc)) << std::endl
 
 void CommandsSender::setSAO(bool bSAOEnabled)
 {
