@@ -78,10 +78,7 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 
     /// Constructor to initialize decoder parameters with default values.
     CV_WRAP DecoderInitParams(Codec codec = Codec::HEVC, int fourcc = VCU_FOURCC_AUTO,
-        int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC)
-        : codec(codec), fourcc(fourcc), fourccConvert(fourccConvert),
-          maxFrames(maxFrames), bitDepth(bitDepth), szReturnQueue(0)
-    {}
+        int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC);
 };
 
 /// @brief Class Decoder is the interface for decoding video streams.
@@ -162,11 +159,7 @@ struct CV_EXPORTS_W_SIMPLE RCSettings
     CV_WRAP RCSettings(RCMode mode = RCMode::VBR, Entropy entropy = Entropy::CABAC,
         int bitrate = 4000, int maxBitrate = 4000, int cbPSize = 3000, int initialDelay = 1000,
         bool fillerData = true, int maxQualityTarget = 14, int maxPictureSizeI = 0,
-        int maxPictureSizeP = 0, int maxPictureSizeB = 0, bool skipFrame = false,  int maxSkip = -1)
-    : mode(mode), entropy(entropy), bitrate(bitrate), maxBitrate(maxBitrate), cpbSize(cbPSize),
-      initialDelay(initialDelay), fillerData(fillerData), maxQualityTarget(maxQualityTarget),
-      maxPictureSizeI(maxPictureSizeI), maxPictureSizeP(maxPictureSizeP),
-      maxPictureSizeB(maxPictureSizeB), skipFrame(skipFrame), maxSkip(maxSkip) {}
+        int maxPictureSizeP = 0, int maxPictureSizeB = 0, bool skipFrame = false,  int maxSkip = -1);
 };
 
 /// Struct GOPSettings specifies the structure of the Group Of Pictures (GOP).
@@ -189,9 +182,7 @@ struct CV_EXPORTS_W_SIMPLE GOPSettings
                                   ///< -1 disables, 0 (default) first frame is IDR
     CV_WRAP GOPSettings(GOPMode mode = GOPMode::BASIC, GDRMode gdrMode = GDRMode::DISABLE,
         int gopLength = 30, int nrBFrames = 0, bool longTermRef = false,
-        int longTermFreq = 0, int periodIDR = 0)
-    : mode(mode), gdrMode(gdrMode), gopLength(gopLength), nrBFrames(nrBFrames),
-      longTermRef(longTermRef), longTermFreq(longTermFreq), periodIDR(periodIDR) {}
+        int longTermFreq = 0, int periodIDR = 0);
 };
 
 /// @brief Struct ProfileSettings specifies the encoder profile, level and tier.
@@ -201,18 +192,17 @@ struct CV_EXPORTS_W_SIMPLE ProfileSettings
     CV_PROP_RW String level;   ///< Encoder level (e.g., 4.1, 5.0)
     CV_PROP_RW Tier   tier;    ///< Encoder tier (e.g., Main, High)
 
-    CV_WRAP ProfileSettings(String profile = "MAIN", String level = "5.2", Tier tier = Tier::MAIN)
-    : profile(profile), level(level), tier(tier) {}
+    CV_WRAP ProfileSettings(String profile = "MAIN", String level = "5.2", Tier tier = Tier::MAIN);
 };
 
 /// Struct EncoderInitParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC, JPEG)
     CV_PROP_RW int fourcc;     ///< Format of the raw data as FOURCC code
-    CV_PROP_RW int pictWidth;  ///< Picture width
-    CV_PROP_RW int pictHeight; ///< Picture height
     CV_PROP_RW RCMode rcMode;  ///< Rate control mode (CONST_QP, CBR, VBR, LOW_LATENCY, CAPPED_VBR)
     CV_PROP_RW int bitrate;    ///< Target bitrate in kbits per second
+    CV_PROP_RW int pictWidth;  ///< Picture width
+    CV_PROP_RW int pictHeight; ///< Picture height
     CV_PROP_RW int frameRate;  ///< Frame rate
     CV_PROP_RW int gopLength;  ///< GOP (Group of Pictures) length
 
@@ -222,9 +212,7 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_WRAP EncoderInitParams(Codec codec = Codec::HEVC,
         int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'), RCMode rcMode = RCMode::CBR,
         int bitrate = 4000, int pictWidth = 1280, int pictHeight = 720, int frameRate = 30,
-        int gopLength = 60)
-    : codec(codec), fourcc(fourcc), pictWidth(pictWidth), pictHeight(pictHeight), rcMode(rcMode),
-        bitrate(bitrate), frameRate(frameRate), gopLength(gopLength) {}
+        int gopLength = 60);
 };
 
 /// @brief Class Encoder is the interface for encoding video frames to a stream.
@@ -268,6 +256,45 @@ CV_EXPORTS_W Ptr<Encoder> createEncoder(
 );
 
 //! @}
+
+////////////////////
+// IMPLEMENTATION //
+////////////////////
+
+//! @cond IGNORED
+
+// Putting the initializer implementation here with prefix _ to the parameters will allow the
+// interface to have the same parameter names as the struct member names; this maps nicely to python
+// wrapper. Not doing this there would lead to a lot of Wshadow warnings.
+inline DecoderInitParams::DecoderInitParams(Codec _codec, int _fourcc, int _fourccConvert,
+                                            int _maxFrames, BitDepth _bitDepth)
+    : codec(_codec), fourcc(_fourcc), fourccConvert(_fourccConvert), maxFrames(_maxFrames),
+      bitDepth(_bitDepth), szReturnQueue(0) {}
+
+inline RCSettings::RCSettings(RCMode _mode, Entropy _entropy, int _bitrate, int _maxBitrate,
+        int _cpbSize, int _initialDelay, bool _fillerData, int _maxQualityTarget,
+        int _maxPictureSizeI, int _maxPictureSizeP, int _maxPictureSizeB, bool _skipFrame, int _maxSkip)
+    : mode(_mode), entropy(_entropy), bitrate(_bitrate), maxBitrate(_maxBitrate), cpbSize(_cpbSize),
+      initialDelay(_initialDelay), fillerData(_fillerData), maxQualityTarget(_maxQualityTarget),
+      maxPictureSizeI(_maxPictureSizeI), maxPictureSizeP(_maxPictureSizeP),
+      maxPictureSizeB(_maxPictureSizeB), skipFrame(_skipFrame), maxSkip(_maxSkip) {}
+
+inline GOPSettings::GOPSettings(GOPMode _mode, GDRMode _gdrMode, int _gopLength, int _nrBFrames,
+                                bool _longTermRef, int _longTermFreq, int _periodIDR)
+    : mode(_mode), gdrMode(_gdrMode), gopLength(_gopLength), nrBFrames(_nrBFrames),
+      longTermRef(_longTermRef), longTermFreq(_longTermFreq), periodIDR(_periodIDR) {}
+
+inline ProfileSettings::ProfileSettings(String _profile, String _level, Tier _tier)
+    : profile(_profile), level(_level), tier(_tier) {}
+
+inline EncoderInitParams::EncoderInitParams(Codec _codec, int _fourcc, RCMode _rcMode, int _bitrate,
+    int _pictWidth, int _pictHeight, int _frameRate, int _gopLength)
+    : codec(_codec), fourcc(_fourcc), rcMode(_rcMode), bitrate(_bitrate), pictWidth(_pictWidth),
+      pictHeight(_pictHeight), frameRate(_frameRate), gopLength(_gopLength) {}
+
+
+//! @endcond
+
 }  // namespace vcucodec
 }  // namespace cv
 
