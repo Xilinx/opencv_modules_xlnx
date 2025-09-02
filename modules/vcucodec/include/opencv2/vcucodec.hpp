@@ -205,6 +205,7 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW int pictHeight; ///< Picture height
     CV_PROP_RW int frameRate;  ///< Frame rate
     CV_PROP_RW int gopLength;  ///< GOP (Group of Pictures) length
+    CV_PROP_RW int nrBFrames;  ///< GOP (Group of Pictures) Number of B-frames between two consecutive P-frames
 
     CV_PROP_RW ProfileSettings profileSettings; ///< Encoder profile, level and tier settings
 
@@ -212,7 +213,7 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_WRAP EncoderInitParams(Codec codec = Codec::HEVC,
         int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'), RCMode rcMode = RCMode::CBR,
         int bitrate = 4000, int pictWidth = 1280, int pictHeight = 720, int frameRate = 30,
-        int gopLength = 60);
+        int gopLength = 60, int nrBFrames = 0);
 };
 
 /// @brief Class Encoder is the interface for encoding video frames to a stream.
@@ -288,9 +289,9 @@ inline ProfileSettings::ProfileSettings(String _profile, String _level, Tier _ti
     : profile(_profile), level(_level), tier(_tier) {}
 
 inline EncoderInitParams::EncoderInitParams(Codec _codec, int _fourcc, RCMode _rcMode, int _bitrate,
-    int _pictWidth, int _pictHeight, int _frameRate, int _gopLength)
+    int _pictWidth, int _pictHeight, int _frameRate, int _gopLength, int _nrBFrames)
     : codec(_codec), fourcc(_fourcc), rcMode(_rcMode), bitrate(_bitrate), pictWidth(_pictWidth),
-      pictHeight(_pictHeight), frameRate(_frameRate), gopLength(_gopLength) {}
+      pictHeight(_pictHeight), frameRate(_frameRate), gopLength(_gopLength), nrBFrames(_nrBFrames) {}
 
 
 //! @endcond

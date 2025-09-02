@@ -168,6 +168,8 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params)
     cfg.MainInput.FileInfo.PictWidth = params.pictWidth;
     cfg.Settings.tChParam[0].tRCParam.eRCMode = (AL_ERateCtrlMode)params.rcMode;
     cfg.Settings.tChParam[0].tRCParam.uTargetBitRate = params.bitrate * 1000;
+    cfg.Settings.tChParam[0].tGopParam.uGopLength = params.gopLength;
+    cfg.Settings.tChParam[0].tGopParam.uNumB = params.nrBFrames;
     SetCodingResolution(cfg);
     pLayerResources.emplace_back(std::make_unique<LayerResources>());
     enc = CtrlswEncOpen(cfg, pLayerResources, pIpDevice);
