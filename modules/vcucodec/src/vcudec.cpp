@@ -297,8 +297,7 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
             {
                 planeYUV.create(Size(szY.width, szY.height + szUV.height), CV_8UC1);
                 srcY.copyTo(planeYUV(Rect(0, 0, szY.width, szY.height)));
-                srcUV.reshape(1, srcUV.rows).copyTo(planeYUV(Rect(0, szY.height, szUV.width*2,
-                    szUV.height)));
+                srcUV.copyTo(planeYUV(Rect(0, szY.height, szUV.width, szUV.height)));
             } else {
                 srcY.copyTo(planeY);
                 srcUV.copyTo(planeUV);
@@ -389,12 +388,12 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
     case (FOURCC(NV12)):
     {
         Size szY = Size(frame_info.width, frame_info.height);
-        Size szUV = Size(frame_info.width / 2, frame_info.height / 2);
+        Size szUV = Size(frame_info.width, frame_info.height / 2);
         size_t stepY = frame_info.stride;
         size_t stepUV = frame_info.stride;
         std::vector<Mat> src =
             { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
+              Mat(szUV, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
                           by_reference);
@@ -403,12 +402,12 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
     case (FOURCC(NV16)):
     {
         Size szY = Size(frame_info.width, frame_info.height);
-        Size szUV = Size(frame_info.width / 2, frame_info.height);
+        Size szUV = Size(frame_info.width, frame_info.height);
         size_t stepY = frame_info.stride;
         size_t stepUV = frame_info.stride;
         std::vector<Mat> src =
             { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
+              Mat(szUV, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
                           by_reference);
