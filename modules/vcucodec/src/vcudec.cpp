@@ -371,6 +371,10 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
 {
     AL_TBuffer* pFrame = frame->getBuffer();
     frame->rawInfo(frame_info);
+    //for 1080p HEVC decode, output height is 1080 with zero crop numbers
+    //for 1080p AVC decode, output height is 1088 with crop numbers, update width/height
+    frame_info.width -= frame_info.cropLeft + frame_info.cropRight;
+    frame_info.height -= frame_info.cropTop + frame_info.cropBottom;
     updateRawInfo(frame_info);
     switch(frame_info.fourcc)
     {
