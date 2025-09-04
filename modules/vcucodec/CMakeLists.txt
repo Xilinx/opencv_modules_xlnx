@@ -98,4 +98,3 @@ else()
     message(STATUS "  ALLEGRO_ENCODE_LIB: ${ALLEGRO_ENCODE_LIB}")
     message(STATUS "  VCU2_INCLUDE_DIR: ${VCU_INCLUDE_DIR}")
 endif()
-q
