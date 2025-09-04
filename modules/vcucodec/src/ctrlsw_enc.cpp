@@ -6,6 +6,9 @@
 
 #include "ctrlsw_enc.hpp"
 
+#include "../vcudevice.hpp"
+
+using Device = cv::vcucodec::Device;
 static int32_t g_numFrameToRepeat;
 static int32_t g_StrideHeight = -1;
 static int32_t g_Stride = -1;
@@ -531,7 +534,7 @@ static void InitSrcBufPool(PixMapBufPool& SrcBufPool, AL_TAllocator* pAllocator,
 }
 
 /*****************************************************************************/
-void LayerResources::Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID, CIpDevice* pDevices, int32_t chanId)
+void LayerResources::Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID, AL_TAllocator* pAllocator, int32_t chanId)
 {
   AL_TEncSettings& Settings = cfg.Settings;
   auto const eSrcMode = Settings.tChParam[iLayerID].eSrcMode;
@@ -543,8 +546,6 @@ void LayerResources::Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLa
     layerInputs.push_back(cfg.MainInput);
     layerInputs.insert(layerInputs.end(), cfg.DynamicInputs.begin(), cfg.DynamicInputs.end());
   }
-
-  AL_TAllocator* pAllocator = pDevices->GetAllocator();
 
   // --------------------------------------------------------------------------------
   // Stream Buffers
@@ -774,9 +775,8 @@ void LayerResources::ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder
 }
 
 static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerResources>>& pLayerResources,
-                CIpDevice* pIpDevice, CIpDeviceParam& param, int32_t chanId)
+    cv::Ptr<Device> device, int32_t chanId)
 {
-  (void)param;
   auto& Settings = cfg.Settings;
   auto& StreamFileName = cfg.BitstreamFileName;
   auto& RunInfo = cfg.RunInfo;
@@ -786,30 +786,32 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
   unique_ptr<EncoderSink> enc;
   unique_ptr<EncoderLookAheadSink> encFirstPassLA;
 
-  auto pAllocator = pIpDevice->GetAllocator();
-  auto pScheduler = pIpDevice->GetScheduler();
+  auto pAllocator = device->getAllocator();
+  auto pScheduler = (AL_IEncScheduler*)device->getScheduler();
 
 #ifdef HAVE_VCU2_CTRLSW
-  auto ctx = pIpDevice->GetCtx();
+  auto ctx = device->getCtx();
 #endif
 
   AL_EVENT hFinished = Rtos_CreateEvent(false);
   RCPlugin_Init(&cfg.Settings, &cfg.Settings.tChParam[0], pAllocator);
 
-  auto OnScopeExit = scopeExit([&]() {
-    Rtos_DeleteEvent(hFinished);
-    AL_Allocator_Free(pAllocator, cfg.Settings.hRcPluginDmaContext);
-  });
+  auto OnScopeExit = std::unique_ptr<void, std::function<void(void*)>>(
+      reinterpret_cast<void*>(1),
+      [&](void*) {
+          Rtos_DeleteEvent(hFinished);
+          AL_Allocator_Free(pAllocator, cfg.Settings.hRcPluginDmaContext);
+      });
+
 
   // --------------------------------------------------------------------------------
   // Create Encoder
 
 #ifdef HAVE_VCU2_CTRLSW
-  if(ctx)
     enc.reset(new EncoderSink(cfg, ctx, pAllocator));
-  else
+#else
+    enc.reset(new EncoderSink(cfg, pScheduler, pAllocator));
 #endif
-  enc.reset(new EncoderSink(cfg, pScheduler, pAllocator));
 
   IFrameSink* firstSink = enc.get();
 
@@ -835,7 +837,7 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
   for(size_t i = 0; i < pLayerResources.size(); i++)
   {
     auto multisinkRec = unique_ptr<MultiSink>(new MultiSink);
-    pLayerResources[i]->Init(cfg, tEncInfo, i, pIpDevice, chanId);
+    pLayerResources[i]->Init(cfg, tEncInfo, i, pAllocator, chanId);
     pLayerResources[i]->PushResources(cfg, enc.get()
                                     ,
                                     encFirstPassLA.get()
@@ -928,12 +930,13 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
   for(int32_t i = 0; i < Settings.NumLayer; ++i)
     pLayerResources[i]->OpenEncoderInput(cfg, enc->hEnc);
 #endif
-
+  OnScopeExit.release();
   return enc;
 }
 
 /*****************************************************************************/
-unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources, shared_ptr<CIpDevice>& pIpDevice)
+unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
+    cv::Ptr<cv::vcucodec::Device>& device)
 {
   unique_ptr<EncoderSink> enc;
   InitializePlateform();
@@ -978,27 +981,11 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
   if(!AL_IS_SUCCESS_CODE(AL_Lib_Encoder_Init(eArch)))
     throw runtime_error("Can't setup encode library");
 
-  CIpDeviceParam param;
-  param.eSchedulerType = RunInfo.eSchedulerType;
-  param.eDeviceType = RunInfo.eDeviceType;
-
-  param.pCfgFile = &cfg;
-#ifdef HAVE_VCU2_CTRLSW
-  param.bTrackDma = RunInfo.trackDma;
-#elif defined(HAVE_VCU_CTRLSW)
-  param.eTrackDmaMode = RunInfo.eTrackDmaMode;
-#endif
-
-  pIpDevice = shared_ptr<CIpDevice>(new CIpDevice);
-
-  if(!pIpDevice)
-    throw runtime_error("Can't create IpDevice");
-
-  pIpDevice->Configure(param);
-
-  enc = ChannelMain(cfg, pLayerResources, pIpDevice.get(), param, 0);
+//#ifdef HAVE_VCU2_CTRLSW
+  device = Device::create(Device::ENCODER);
+  enc = ChannelMain(cfg, pLayerResources, device, 0);
 
   return enc;
 }
 
-#endif // HAVE_VCU_CTRLSW || HAVE_VCU2_CTRLSW
+#endif // HAVE_VCU2_CTRLSW

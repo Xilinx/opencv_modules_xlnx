@@ -35,7 +35,9 @@ extern "C" {
 #include "config.h"
 #ifdef HAVE_VCU2_CTRLSW
 #include "lib_decode/LibDecoderRiscv.h"
+#include "lib_encode/LibEncoderRiscv.h"
 #endif
+
 #include "lib_common/Allocator.h"
 #ifdef HAVE_VCU2_CTRLSW
 #include "lib_common/Context.h"
@@ -47,11 +49,15 @@ extern "C" {
 #include "lib_common_dec/IpDecFourCC.h"
 #include "lib_decode/lib_decode.h"
 #include "lib_decode/DecSchedulerMcu.h"
+#include "lib_encode/lib_encoder.h"
+#include "lib_encode/EncSchedulerMcu.h"
+#include "lib_common/HardwareDriver.h"
 #endif
 }
 
 #include <memory>
 #include <sstream>
+#include <string_view>
 
 namespace cv {
 namespace vcucodec {
@@ -70,47 +76,80 @@ const std::string versionToStr(uint32_t const& version)
 
     return ss.str();
 }
+
+std::string_view deviceID(Device::ID id)
+{
+    static std::string emptyString = "";
+    std::string_view deviceString;
+    std::vector<std::string_view> decoder_devices = DECODER_DEVICES;
+    std::vector<std::string_view> encoder_devices = ENCODER_DEVICES;
+    switch (id)
+    {
+    case Device::DECODER0:
+        deviceString = decoder_devices[0];
+        break;
+    case Device::DECODER1:
+        if (decoder_devices.size() > 1)
+            deviceString = decoder_devices[1];
+        break;
+    case Device::ENCODER0:
+        deviceString = encoder_devices[0];
+        break;
+    case Device::ENCODER1:
+        if (encoder_devices.size() > 1)
+            deviceString = encoder_devices[1];
+        break;
+    default:
+        deviceString = emptyString;
+        break;
+    }
+    return deviceString;
+}
+
 } // namespace anonymous
 
 #ifdef HAVE_VCU2_CTRLSW
-class VCU2Device : public Device
+class VCU2DecDevice : public Device
 {
 public:
-    ~VCU2Device() override;
-    VCU2Device();
+    ~VCU2DecDevice() override;
+    VCU2DecDevice(Device::ID);
+
+    VCU2DecDevice(VCU2DecDevice const &) = delete;
+    VCU2DecDevice & operator = (VCU2DecDevice const &) = delete;
 
     void* getScheduler() override { return nullptr; }
     void* getCtx() override { return ctx_; }
-    AL_TAllocator* getAllocator() override { return allocator_; }
+    AL_TAllocator* getAllocator() override { return allocator_.get(); }
     AL_ITimer* getTimer() override { return nullptr; };
 
 private:
-    void configureRiscv();
-    AL_TAllocator* allocator_;
+    std::shared_ptr<AL_TAllocator> allocator_;
     AL_RiscV_Ctx ctx_;
 };
 
-VCU2Device::VCU2Device()
-{
-    configureRiscv();
-}
-
-VCU2Device::~VCU2Device()
-{
-    if (ctx_)
-        AL_Riscv_Decode_DestroyCtx(ctx_);
-    if (allocator_)
-        AL_Allocator_Destroy(allocator_);
-}
-
-void VCU2Device::configureRiscv(void)
+VCU2DecDevice::VCU2DecDevice(Device::ID id)
 {
     uint32_t const sw_version =
         (uint32_t)((AL_VERSION_MAJOR << 20) + (AL_VERSION_MINOR << 12) + (AL_VERSION_PATCH));
     uint32_t fw_version;
 
-    std::string defaultdev = DECODER_DEVICES;
-    ctx_ = AL_Riscv_Decode_CreateCtx(defaultdev.c_str());
+    if (id & Device::DECODER0)
+    {
+        std::string_view defaultdev = deviceID(DECODER0);
+        if (!defaultdev.empty())
+            ctx_ = AL_Riscv_Decode_CreateCtx(defaultdev.data());
+    }
+
+    if (!ctx_ && (id & Device::DECODER1))
+    {
+        std::string_view defaultdev = deviceID(DECODER1);
+        if (!defaultdev.empty())
+            ctx_ = AL_Riscv_Decode_CreateCtx(defaultdev.data());
+    }
+
+    if (!ctx_)
+        throw std::runtime_error("Device not found");
 
     if (!ctx_)
         throw std::runtime_error("Failed to create context");
@@ -120,18 +159,85 @@ void VCU2Device::configureRiscv(void)
         throw std::runtime_error("FW Version " + versionToStr(fw_version) + ", it should be "
                                  + versionToStr(sw_version));
 
-    allocator_ = AL_Riscv_Decode_DmaAlloc_Create(ctx_);
-    if (!allocator_)
+    AL_TAllocator* allocator = AL_Riscv_Decode_DmaAlloc_Create(ctx_);
+    if (!allocator)
         throw std::runtime_error("Can't find dma allocator");
+
+    allocator_.reset(allocator, &AL_Allocator_Destroy);
 }
+
+VCU2DecDevice::~VCU2DecDevice()
+{
+    if (ctx_)
+        AL_Riscv_Decode_DestroyCtx(ctx_);
+}
+
+class VCU2EncDevice : public Device
+{
+public:
+    ~VCU2EncDevice() override;
+    VCU2EncDevice(Device::ID);
+
+    VCU2EncDevice(VCU2EncDevice const &) = delete;
+    VCU2EncDevice & operator = (VCU2EncDevice const &) = delete;
+
+    void* getScheduler() override { return nullptr; }
+    void* getCtx() override { return ctx_; }
+    AL_TAllocator* getAllocator() override { return allocator_.get(); }
+    AL_ITimer* getTimer() override { return nullptr; };
+
+private:
+    std::shared_ptr<AL_TAllocator> allocator_;
+    AL_RiscV_Ctx ctx_;
+};
+
+VCU2EncDevice::VCU2EncDevice(Device::ID id)
+{
+    uint32_t const sw_version =
+        (uint32_t)((AL_VERSION_MAJOR << 20) + (AL_VERSION_MINOR << 12) + (AL_VERSION_PATCH));
+    uint32_t fw_version;
+
+    if (id & Device::ENCODER0)
+    {
+        std::string_view defaultdev = deviceID(ENCODER0);
+        if (!defaultdev.empty())
+            ctx_ = AL_Riscv_Encode_CreateCtx(defaultdev.data());
+    }
+    if (!ctx_ && (id & Device::ENCODER1))
+    {
+        std::string_view defaultdev = deviceID(ENCODER1);
+        if (!defaultdev.empty())
+            ctx_ = AL_Riscv_Encode_CreateCtx(defaultdev.data());
+    }
+
+    if (!ctx_)
+        throw std::runtime_error("Failed to create context");
+
+    fw_version = AL_Riscv_Encode_Get_FwVersion(ctx_);
+    if (!fw_version || (fw_version != sw_version))
+        throw std::runtime_error("FW Version " + versionToStr(fw_version) + ", it should be "
+                                 + versionToStr(sw_version));
+
+    AL_TAllocator* allocator = AL_Riscv_Encode_DmaAlloc_Create(ctx_);
+    if (!allocator)
+        throw std::runtime_error("Can't find dma allocator");
+    allocator_.reset(allocator, &AL_Allocator_Destroy);
+}
+
+VCU2EncDevice::~VCU2EncDevice()
+{
+    if (ctx_)
+        AL_Riscv_Encode_DestroyCtx(ctx_);
+}
+
 #endif // HAVE_VCU2_CTRLSW
 
 #ifdef HAVE_VCU_CTRLSW
-class VCUDevice : public Device
+class VCUDecDevice : public Device
 {
 public:
-    ~VCUDevice() override;
-    VCUDevice();
+    ~VCUDecDevice() override;
+    VCUDecDevice(Device::ID);
 
     void* getScheduler() override { return scheduler_; }
     AL_TAllocator* getAllocator() override { return allocator_.get(); }
@@ -144,18 +250,18 @@ private:
     std::shared_ptr<AL_TAllocator> allocator_ = nullptr;
 };
 
-VCUDevice::VCUDevice()
+VCUDecDevice::VCUDecDevice(Device::ID)
 {
     configureMcu(AL_GetHardwareDriver());
 }
 
-VCUDevice::~VCUDevice()
+VCUDecDevice::~VCUDecDevice()
 {
     if (scheduler_)
         AL_IDecScheduler_Destroy(scheduler_);
 }
 
-void VCUDevice::configureMcu(AL_TDriver* driver)
+void VCUDecDevice::configureMcu(AL_TDriver* driver)
 {
   std::string g_DecDevicePath = "/dev/allegroDecodeIP";
   allocator_ = CreateBoardAllocator(g_DecDevicePath.c_str(), AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE);
@@ -168,18 +274,82 @@ void VCUDevice::configureMcu(AL_TDriver* driver)
   if(!scheduler_)
     throw std::runtime_error("Failed to create MCU scheduler");
 }
+
+class VCUEncDevice : public Device
+{
+public:
+    ~VCUEncDevice() override;
+    VCUEncDevice(Device::ID);
+
+    void* getScheduler() override { return scheduler_; }
+    AL_TAllocator* getAllocator() override { return allocator_.get(); }
+	void* getCtx() override { return nullptr; }
+    AL_ITimer* getTimer() override { return nullptr; };
+
+private:
+    void configureMcu(AL_TDriver* driver);
+    AL_IEncScheduler* scheduler_ = nullptr;
+    std::shared_ptr<AL_TAllocator> allocator_ = nullptr;
+};
+
+VCUEncDevice::VCUEncDevice(Device::ID)
+{
+    configureMcu(AL_GetHardwareDriver());
+}
+
+VCUEncDevice::~VCUEncDevice()
+{
+    if (scheduler_)
+        AL_IEncScheduler_Destroy(scheduler_);
+}
+
+void VCUEncDevice::configureMcu(AL_TDriver* driver)
+{
+  std::string g_EncDevicePath = "/dev/allegroIP";
+  allocator_ = CreateBoardAllocator(g_EncDevicePath.c_str(), AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE);
+
+  if(!allocator_)
+    throw std::runtime_error("Can't open DMA allocator");
+
+  scheduler_ = AL_SchedulerMcu_Create(AL_GetHardwareDriver(),
+      (AL_TLinuxDmaAllocator*)allocator_.get(), g_EncDevicePath.c_str());
+
+  if(!scheduler_)
+    throw std::runtime_error("Failed to create MCU scheduler");
+}
 #endif // HAVE_VCU_CTRLSW
 
-/*static*/ Ptr<Device> Device::create() {
+/*static*/ Ptr<Device> Device::create(Device::ID id)
+{
 #ifdef HAVE_VCU2_CTRLSW
-    return Ptr<Device>(new VCU2Device());
+    switch (id)
+    {
+    case DECODER0:
+    case DECODER1:
+    case DECODER:
+        return Ptr<Device>(new VCU2DecDevice(id));
+    case ENCODER0:
+    case ENCODER1:
+    case ENCODER:
+        return Ptr<Device>(new VCU2EncDevice(id));
+    }
 #endif
 #ifdef HAVE_VCU_CTRLSW
-    return Ptr<Device>(new VCUDevice());
+    switch (id)
+    {
+    case DECODER0:
+    case DECODER1:
+    case DECODER:
+        return Ptr<Device>(new VCUDecDevice(id));
+    case ENCODER0:
+    case ENCODER1:
+    case ENCODER:
+        return Ptr<Device>(new VCUEncDevice(id));
+    }
 #endif
 #ifdef HAVE_VDU_CTRLSW
-    return Ptr<Device>(nullptr);
 #endif
+    return Ptr<Device>(nullptr);
 }
 
 

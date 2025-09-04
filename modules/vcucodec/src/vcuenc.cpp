@@ -17,6 +17,8 @@
 #include "ctrlsw_enc.hpp"
 
 #include "private/vcuutils.hpp"
+#include "../vcudevice.hpp"
+
 #include <array>
 namespace cv {
 namespace vcucodec {
@@ -138,7 +140,7 @@ uint8_t getLevel(Codec codec, String level)
 
 VCUEncoder::~VCUEncoder()
 {
-    auto pAllocator = pIpDevice->GetAllocator();
+    auto pAllocator = device_->getAllocator();
     AL_Allocator_Free(pAllocator, cfg.Settings.hRcPluginDmaContext);
     enc.reset();
     pLayerResources[0].reset();
@@ -172,7 +174,7 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params)
     cfg.Settings.tChParam[0].tGopParam.uNumB = params.nrBFrames;
     SetCodingResolution(cfg);
     pLayerResources.emplace_back(std::make_unique<LayerResources>());
-    enc = CtrlswEncOpen(cfg, pLayerResources, pIpDevice);
+    enc = CtrlswEncOpen(cfg, pLayerResources, device_);
 }
 
 void VCUEncoder::write(InputArray frame)

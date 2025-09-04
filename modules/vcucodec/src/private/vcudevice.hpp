@@ -31,13 +31,22 @@ namespace vcucodec {
 class Device
 {
 public:
+    enum ID {
+        DECODER0 = 1,
+        DECODER1 = 2,
+        DECODER  = DECODER0 | DECODER1,
+        ENCODER0 = 4,
+        ENCODER1 = 8,
+        ENCODER  = ENCODER0 | ENCODER1
+    };
+
     virtual ~Device() = default;
     virtual void* getScheduler() = 0;
     virtual void* getCtx() = 0;
     virtual AL_TAllocator* getAllocator() = 0;
     virtual AL_ITimer* getTimer() = 0;
 
-    static Ptr<Device> create();
+    static Ptr<Device> create(ID);
 };
 
 } // namespace vcucodec

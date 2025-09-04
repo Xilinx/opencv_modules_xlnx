@@ -18,12 +18,11 @@
 #include "CfgParser.h" // ConfigFile
 
 struct LayerResources;
-struct CIpDevice;
 struct EncoderSink;
 
 namespace cv {
 namespace vcucodec {
-
+class Device;
 class VCUEncoder : public Encoder
 {
 public:
@@ -39,7 +38,7 @@ private:
     EncoderInitParams params_;
     std::vector<std::unique_ptr<LayerResources>> pLayerResources;
     std::unique_ptr<EncoderSink> enc;
-    std::shared_ptr<CIpDevice> pIpDevice;
+    cv::Ptr<Device> device_;
     ConfigFile cfg;
 };
 

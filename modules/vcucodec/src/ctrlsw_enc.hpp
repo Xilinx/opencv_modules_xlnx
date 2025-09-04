@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include "opencv2/vcucodec.hpp"
 
 #include "lib_common/PicFormat.h"
 #include <climits>
@@ -48,7 +49,6 @@
 
 #include "CfgParser.h"
 #include "CodecUtils.h"
-#include "IpDevice.h"
 #include "resource.h"
 
 extern "C" {
@@ -88,6 +88,11 @@ using namespace std;
 #define AL_COMPIL_FLAGS ""
 #endif
 
+namespace cv{
+namespace vcucodec{
+class Device;
+}}
+
 /*****************************************************************************/
 
 struct SrcConverterParams
@@ -114,7 +119,7 @@ struct SrcBufDesc
 /*****************************************************************************/
 struct LayerResources
 {
-  void Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID, CIpDevice* pDevices, int32_t chanId);
+  void Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID, AL_TAllocator* pAllocator, int32_t chanId);
 
   void PushResources(ConfigFile& cfg, EncoderSink* enc
                      , EncoderLookAheadSink* encFirstPassLA
@@ -155,5 +160,6 @@ struct LayerResources
 /*****************************************************************************/
 void SetDefaults(ConfigFile& cfg);
 void SetCodingResolution(ConfigFile& cfg);
-unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources, shared_ptr<CIpDevice>& pIpDevice);
+unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
+    cv::Ptr<cv::vcucodec::Device>& device);
 

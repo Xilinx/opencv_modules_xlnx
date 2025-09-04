@@ -859,7 +859,7 @@ DecContext::create(std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput,
 
     try
     {
-        device = Device::create();
+        device = Device::create(Device::DECODER);
     }
     catch (const std::exception &e)
     {
