@@ -15,8 +15,10 @@ struct ICommandsSender
   virtual void notifySceneChange(int32_t lookAhead) = 0;
   virtual void notifyIsLongTerm() = 0;
   virtual void notifyUseLongTerm() = 0;
+#ifdef HAVE_VCU2_CTRLSW
   virtual void notifyIsSkip() = 0;
   virtual void setSAO(bool bSAOEnabled) = 0;
+#endif
   virtual void restartGop() = 0;
   virtual void restartGopRecoveryPoint() = 0;
   virtual void setGopLength(int32_t gopLength) = 0;
@@ -45,6 +47,8 @@ struct ICommandsSender
 
   virtual void setQPChromaOffsets(int32_t iQp1Offset, int32_t iQp2Offset) = 0;
   virtual void setAutoQP(bool bUseAutoQP) = 0;
+#ifdef HAVE_VCU2_CTRLSW
   virtual void setAutoQPThresholdQPAndDeltaQP(bool bEnableUserAutoQPValues, std::vector<int> thresholdQP, std::vector<int> deltaQP) = 0;
+#endif
   virtual void setHDRIndex(int32_t iHDRIdx) = 0;
 };

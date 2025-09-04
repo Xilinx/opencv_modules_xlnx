@@ -27,8 +27,10 @@ public:
   void notifySceneChange(int32_t lookAhead) override;
   void notifyIsLongTerm() override;
   void notifyUseLongTerm() override;
+#ifdef HAVE_VCU2_CTRLSW
   void notifyIsSkip() override;
   void setSAO(bool bSAOEnabled) override;
+#endif
   void restartGop() override;
   void restartGopRecoveryPoint() override;
   void setGopLength(int32_t gopLength) override;
@@ -56,8 +58,10 @@ public:
   void setMaxPictureSize_B(int32_t iMaxPictureSize_B) override;
   void setQPChromaOffsets(int32_t iQp1Offset, int32_t iQp2Offset) override;
   void setAutoQP(bool bUseAutoQP) override;
+#ifdef HAVE_VCU2_CTRLSW
   void transformValuesToTAutoQpCtrl(std::vector<int> thresholdQP, std::vector<int> deltaQP, AL_TAutoQPCtrl* tAutoQPCtrl);
   void setAutoQPThresholdQPAndDeltaQP(bool bEnableUserAutoQPValues, std::vector<int> thresholdQP, std::vector<int> deltaQP) override;
+#endif
   void setHDRIndex(int32_t iHDRIdx) override;
 
   void Reset();

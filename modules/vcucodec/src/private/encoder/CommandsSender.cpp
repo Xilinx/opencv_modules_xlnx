@@ -22,10 +22,12 @@ void CommandsSender::notifyUseLongTerm(void)
   AL_Encoder_NotifyUseLongTerm(hEnc);
 }
 
+#ifdef HAVE_VCU2_CTRLSW
 void CommandsSender::notifyIsSkip(void)
 {
   AL_Encoder_NotifyIsSkip(hEnc);
 }
+#endif
 
 #include <iostream>
 
@@ -33,11 +35,12 @@ void CommandsSender::notifyIsSkip(void)
   if(!statement) \
     std::cerr << # statement << " failed with error : " \
     << static_cast<std::underlying_type_t<AL_ERR>>(AL_Encoder_GetLastError(hEnc)) << std::endl
-
+#ifdef HAVE_VCU2_CTRLSW
 void CommandsSender::setSAO(bool bSAOEnabled)
 {
   CHECK(AL_Encoder_SetSAO(hEnc, bSAOEnabled));
 }
+#endif
 
 void CommandsSender::restartGop(void)
 {
@@ -175,6 +178,7 @@ void CommandsSender::setAutoQP(bool bUseAutoQP)
   CHECK(AL_Encoder_SetAutoQP(hEnc, bUseAutoQP));
 }
 
+#ifdef HAVE_VCU2_CTRLSW
 void CommandsSender::transformValuesToTAutoQpCtrl(std::vector<int> thresholdQP, std::vector<int> deltaQP, AL_TAutoQPCtrl* tAutoQPCtrl)
 {
   for(int32_t i = 0; i < AL_QP_CTRL_MAX_NUM_THRESHOLDS; i++)
@@ -194,6 +198,7 @@ void CommandsSender::setAutoQPThresholdQPAndDeltaQP(bool bEnableUserAutoQPValues
     transformValuesToTAutoQpCtrl(thresholdQP, deltaQP, &tAutoQPCtrl);
   CHECK(AL_Encoder_SetAutoQPThresholdAndDelta(hEnc, bEnableUserAutoQPValues, &tAutoQPCtrl));
 }
+#endif
 
 void CommandsSender::setHDRIndex(int32_t iHDRIdx)
 {

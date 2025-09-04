@@ -5,7 +5,9 @@
 
 #pragma once
 
+#ifdef HAVE_VCU2_CTRLSW
 #include "gmv.h"
+#endif
 #include <memory>
 #include <stdexcept>
 #include <cassert>
@@ -24,7 +26,7 @@
 
 struct EncoderLookAheadSink : IFrameSink
 {
-
+#ifdef HAVE_VCU2_CTRLSW
   explicit EncoderLookAheadSink(ConfigFile const& cfg
                                 , AL_RiscV_Ctx ctx
                                 , AL_TAllocator* pAllocator) :
@@ -64,13 +66,16 @@ struct EncoderLookAheadSink : IFrameSink
 
     m_maxpicCount = cfg.RunInfo.iMaxPict;
   }
+#endif
 
   explicit EncoderLookAheadSink(ConfigFile const& cfg
                                 , AL_IEncScheduler* pScheduler
                                 , AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName),
     EncCmd(CmdFile, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
+#ifdef HAVE_VCU2_CTRLSW
     Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
+#endif
     lookAheadMngr(cfg.Settings.LookAhead, cfg.Settings.bEnableFirstPassSceneChangeDetection)
   {
     BitstreamOutput.reset(new NullFrameSink);
@@ -127,8 +132,9 @@ struct EncoderLookAheadSink : IFrameSink
 
     if(Src)
     {
+#ifdef HAVE_VCU2_CTRLSW
       Gmv.notify(hEnc);
-
+#endif
       auto pPictureMetaLA = (AL_TLookAheadMetaData*)AL_Buffer_GetMetaData(Src, AL_META_TYPE_LOOKAHEAD);
 
       if(!pPictureMetaLA)
@@ -177,7 +183,9 @@ private:
   ConfigFile cfgLA;
   QPBuffers qpBuffers;
   std::unique_ptr<CommandsSender> commandsSender;
+#ifdef HAVE_VCU2_CTRLSW
   GMV Gmv;
+#endif
   LookAheadMngr lookAheadMngr;
   bool bEnableFirstPassSceneChangeDetection;
   AL_EVENT EOSFinished;

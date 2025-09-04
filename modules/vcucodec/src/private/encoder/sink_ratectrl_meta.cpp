@@ -44,7 +44,11 @@ public:
   {
     if(path.empty())
       throw std::runtime_error("Output directory for stat is not set");
+#ifdef HAVE_VCU2_CTRLSW
     else if(!checkFolder(path))
+#else
+    else if(!FolderExists(path))
+#endif
       throw std::runtime_error("Output directory for stat does not exist");
     else
       output_dir_path = path;

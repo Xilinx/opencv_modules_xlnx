@@ -114,7 +114,7 @@ bool CEncCmdMngr::ParseCmd(std::string sLine, TFrmCmd& Cmd, bool bSameFrame)
       Cmd.bIsLongTerm = true;
     else if(Tok == "UseLT")
       Cmd.bUseLongTerm = true;
-
+#ifdef HAVE_VCU2_CTRLSW
     else if(Tok == "Skip")
       Cmd.bIsSkip = true;
 
@@ -128,6 +128,7 @@ bool CEncCmdMngr::ParseCmd(std::string sLine, TFrmCmd& Cmd, bool bSameFrame)
       Cmd.bSAO = false;
       Cmd.bChangeSAO = true;
     }
+#endif
     else if(Tok == "KF")
       Cmd.bKeyFrame = true;
     else if(Tok == "RP")
@@ -280,6 +281,7 @@ bool CEncCmdMngr::ParseCmd(std::string sLine, TFrmCmd& Cmd, bool bSameFrame)
       Cmd.bSetAutoQP = true;
       Cmd.bUseAutoQP = Tok.GetValueList().front().compare("true") == 0;
     }
+#ifdef HAVE_VCU2_CTRLSW
     else if(Tok == "AutoQPValues")
     {
       Cmd.bAutoQPThresholdQPAndDeltaQPFlag = true;
@@ -321,6 +323,7 @@ bool CEncCmdMngr::ParseCmd(std::string sLine, TFrmCmd& Cmd, bool bSameFrame)
         Cmd.deltaQP.push_back(tmp_deltaQP);
       }
     }
+#endif
     else if(Tok == "HDRIndex")
     {
       Cmd.bChangeHDR = true;
@@ -360,13 +363,13 @@ void CEncCmdMngr::Process(ICommandsSender* sender, int32_t iFrame)
         sender->notifyIsLongTerm();
         m_bHasLT = true;
       }
-
+#ifdef HAVE_VCU2_CTRLSW
       if(m_Cmds.front().bIsSkip)
         sender->notifyIsSkip();
 
       if(m_Cmds.front().bChangeSAO)
         sender->setSAO(m_Cmds.front().bSAO);
-
+#endif
       if(m_Cmds.front().bKeyFrame)
         sender->restartGop();
 
@@ -448,8 +451,10 @@ void CEncCmdMngr::Process(ICommandsSender* sender, int32_t iFrame)
       if(m_Cmds.front().bSetAutoQP)
         sender->setAutoQP(m_Cmds.front().bUseAutoQP);
 
+#ifdef HAVE_VCU2_CTRLSW
       if(m_Cmds.front().bAutoQPThresholdQPAndDeltaQPFlag)
         sender->setAutoQPThresholdQPAndDeltaQP(m_Cmds.front().bEnableUserAutoQPValues, m_Cmds.front().thresholdQP, m_Cmds.front().deltaQP);
+#endif
 
       if(m_Cmds.front().bChangeHDR)
         sender->setHDRIndex(m_Cmds.front().iHDRIdx);

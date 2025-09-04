@@ -76,8 +76,10 @@ static void PushBack(AL_TRoiMngrCtx* pCtx, AL_TRoiNode* pNode)
 static uint16_t GetNewDeltaQP(AL_ERoiQuality eQuality)
 {
 
+#ifdef HAVE_VCU2_CTRLSW
   if(eQuality == AL_ROI_QUALITY_STATIC)
     return MASK_FORCE_MV0;
+#endif
 
   if(eQuality == AL_ROI_QUALITY_INTRA)
     return MASK_FORCE_INTRA;

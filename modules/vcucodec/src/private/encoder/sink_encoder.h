@@ -14,15 +14,19 @@
 #include "sink_ratectrl_meta.h"
 
 #include "HDRParser.h"
+#ifdef HAVE_VCU2_CTRLSW
 #include "gmv.h"
+#endif
 
 #include "TwoPassMngr.h"
 
+#ifdef HAVE_VCU2_CTRLSW
 extern "C"
 {
 #include "lib_common/FbcMapSize.h"
 #include "lib_common_enc/EncChanParam.h"
 }
+#endif
 
 #include <string>
 #include <memory>
@@ -55,10 +59,17 @@ static std::string PictTypeToString(AL_ESliceType type)
   return m.at(type);
 }
 
+#ifdef HAVE_VCU2_CTRLSW
 static AL_ERR PreprocessQP(uint8_t* pQPs, AL_EGenerateQpMode eMode, const AL_TEncChanParam& tChParam, const std::string& sQPTablesFolder, int32_t iFrameCountSent)
+#else
+static AL_ERR PreprocessQP(AL_TBuffer* pQpBuf, AL_EGenerateQpMode eMode, const AL_TEncChanParam& tChParam, const std::string& sQPTablesFolder, int32_t iFrameCountSent)
+
+#endif
 {
   auto iQPTableDepth = 0;
+#ifdef HAVE_VCU2_CTRLSW
   iQPTableDepth = tChParam.iQPTableDepth;
+#endif
 
   int32_t minMaxQPSize = (int)(sizeof(tChParam.tRCParam.iMaxQP) / sizeof(tChParam.tRCParam.iMaxQP[0]));
 
@@ -67,7 +78,12 @@ static AL_ERR PreprocessQP(uint8_t* pQPs, AL_EGenerateQpMode eMode, const AL_TEn
                           *std::min_element(tChParam.tRCParam.iMaxQP, tChParam.tRCParam.iMaxQP + minMaxQPSize),
                           AL_GetWidthInLCU(tChParam), AL_GetHeightInLCU(tChParam),
                           tChParam.eProfile, tChParam.uLog2MaxCuSize, iQPTableDepth, sQPTablesFolder,
-                          iFrameCountSent, pQPs + EP2_BUF_SEG_CTRL.Offset);
+                          iFrameCountSent, 
+#ifdef HAVE_VCU2_CTRLSW
+						  pQPs + EP2_BUF_SEG_CTRL.Offset);
+#else
+						  pQpBuf);
+#endif
 }
 
 class QPBuffers
@@ -140,7 +156,9 @@ private:
     if(AL_GENERATE_ROI_QP == (AL_EGenerateQpMode)(mode & AL_GENERATE_QP_TABLE_MASK))
     {
       auto iQPTableDepth = 0;
+#ifdef HAVE_VCU2_CTRLSW
       iQPTableDepth = tLayerChParam.iQPTableDepth;
+#endif
 
       AL_ERR bRetROI = GenerateROIBuffer(mQPLayerRoiCtxs[iLayerID], layerInfo.sRoiFileName,
                                          AL_GetWidthInLCU(tLayerChParam), AL_GetHeightInLCU(tLayerChParam),
@@ -162,8 +180,11 @@ private:
     }
     else
     {
+#ifdef HAVE_VCU2_CTRLSW
       AL_ERR bRetQP = PreprocessQP(AL_Buffer_GetData(pQpBuf), mode, tLayerChParam, layerInfo.sQPTablesFolder, frameNum);
-
+#else
+      AL_ERR bRetQP = PreprocessQP(pQpBuf, mode, tLayerChParam, layerInfo.sQPTablesFolder, frameNum);
+#endif
       auto releaseQPBuf = [&](std::string sErrorMsg, bool bThrow)
                           {
                             (void)sErrorMsg;
@@ -227,6 +248,7 @@ struct safe_ifstream
 
 struct EncoderSink : IFrameSink
 {
+#ifdef HAVE_VCU2_CTRLSW
   explicit EncoderSink(ConfigFile const& cfg, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName, false),
     EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
@@ -272,12 +294,15 @@ struct EncoderSink : IFrameSink
     iPendingStreamCnt = 1;
 
   }
+#endif
 
   explicit EncoderSink(ConfigFile const& cfg, AL_IEncScheduler* pScheduler, AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName, false),
     EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_cfg(cfg),
+#ifdef HAVE_VCU2_CTRLSW
     Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
+#endif
     twoPassMngr(cfg.sTwoPassFileName, cfg.Settings.TwoPass, cfg.Settings.bEnableFirstPassSceneChangeDetection, cfg.Settings.tChParam[0].tGopParam.uGopLength,
                 cfg.Settings.tChParam[0].tRCParam.uCPBSize / 90, cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay / 90, cfg.MainInput.FileInfo.FrameRate),
     pAllocator{pAllocator},
@@ -375,7 +400,9 @@ struct EncoderSink : IFrameSink
 
     DisplayFrameStatus(m_input_picCount[0]);
 
+#ifdef HAVE_VCU2_CTRLSW
     Gmv.notify(hEnc);
+#endif
 
     if(twoPassMngr.iPass)
     {
@@ -412,7 +439,9 @@ private:
   safe_ifstream CmdFile;
   CEncCmdMngr EncCmd;
   ConfigFile const& m_cfg;
+#ifdef HAVE_VCU2_CTRLSW
   GMV Gmv;
+#endif
   TwoPassMngr twoPassMngr;
   QPBuffers qpBuffers;
   std::unique_ptr<CommandsSender> commandsSender;

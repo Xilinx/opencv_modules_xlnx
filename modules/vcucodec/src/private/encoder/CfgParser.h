@@ -43,14 +43,20 @@ typedef AL_INTROSPECT (category = "debug") struct tCfgRunInfo
   AL_EIpCtrlMode ipCtrlMode;
   std::string logsFile = "";
   std::string apbFile = "";
+#ifdef HAVE_VCU2_CTRLSW
   bool trackDma = false;
+#else
+  AL_ETrackDmaMode eTrackDmaMode = AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE;
+#endif
   bool printPictureType = false;
   AL_ERateCtrlStatMode rateCtrlStat = AL_RATECTRL_STAT_MODE_NONE;
   std::string rateCtrlMetaPath = "";
   std::string bitrateFile = "";
   AL_64U uInputSleepInMilliseconds;
   AL_EGenerateQpMode eGenerateQpMode = AL_GENERATE_UNIFORM_QP;
+#ifdef HAVE_VCU2_CTRLSW
   bool bEmulateSrcSync = false;
+#endif
 }TCfgRunInfo;
 
 /*****************************************************************************
@@ -81,7 +87,9 @@ typedef AL_INTROSPECT (category = "debug") struct tConfigYUVInput
 typedef enum
 {
   AL_SRC_FORMAT_RASTER,
+#ifdef HAVE_VCU2_CTRLSW
   AL_SRC_FORMAT_RASTER_MSB,
+#endif
   AL_SRC_FORMAT_TILE_64x4,
   AL_SRC_FORMAT_TILE_32x4,
   AL_SRC_FORMAT_COMP_64x4,
@@ -113,9 +121,10 @@ AL_INTROSPECT(category = "debug") struct ConfigFile
   // happen
   std::string sCmdFileName;
 
+#ifdef HAVE_VCU2_CTRLSW
   // \brief Name of the file specifying Global Motion Vector for each frame
   std::string sGMVFileName;
-
+#endif
   // \brief Name of the file that reads/writes video statistics for TwoPassMode
   std::string sTwoPassFileName;
 
@@ -133,10 +142,10 @@ AL_INTROSPECT(category = "debug") struct ConfigFile
 
   // \brief Section RUN
   TCfgRunInfo RunInfo;
-
+#ifdef HAVE_VCU2_CTRLSW
   // \brief maximum burst size
   int32_t iEncMaxAxiBurstSize = 0;
-
+#endif
   // \brief control the strictness when parsing the configuration file
   bool strict_mode;
 
@@ -165,6 +174,7 @@ struct CfgParser final
   void ParseConfig(std::string const& toParse, ConfigFile& cfg, std::ostream& warnStream = std::cerr, bool debug = false);
   void PrintConfigFileUsage(ConfigFile cfg = {});
   void PrintConfigFileUsageJson(ConfigFile cfg = {});
+  void PrintConfig(ConfigFile cfg);
   void PostParsingConfiguration(ConfigFile& cfg, std::ostream& warnStream = std::cerr);
 
 private:

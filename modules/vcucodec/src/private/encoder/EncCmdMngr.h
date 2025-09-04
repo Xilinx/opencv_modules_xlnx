@@ -32,9 +32,11 @@ private:
     bool bSceneChange = false;
     bool bIsLongTerm = false;
     bool bUseLongTerm = false;
+#ifdef HAVE_VCU2_CTRLSW
     bool bIsSkip = false;
     bool bSAO = true;
     bool bChangeSAO = false;
+#endif
     bool bKeyFrame = false;
     bool bRecoveryPoint = false;
     bool bChangeGopLength = false;
@@ -94,10 +96,12 @@ private:
     int32_t iQp2Offset = 0;
     bool bSetAutoQP = false;
     bool bUseAutoQP = false;
+#ifdef HAVE_VCU2_CTRLSW
     bool bAutoQPThresholdQPAndDeltaQPFlag = false;
     bool bEnableUserAutoQPValues = false;
     std::vector<int> thresholdQP;
     std::vector<int> deltaQP;
+#endif
     bool bChangeHDR = false;
     int32_t iHDRIdx = 0;
   };

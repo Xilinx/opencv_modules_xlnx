@@ -73,7 +73,7 @@ if(VCU_INCLUDE_DIR AND VCU_LIBS_FOUND)
     if(HAVE_VCU_CTRLSW)
         target_compile_definitions(${the_module} PRIVATE HAVE_VCU_CTRLSW)
         target_include_directories(${the_module} PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/private/encoder_vcu1
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/private/encoder
         )
     elseif(HAVE_VDU_CTRLSW)
         target_compile_definitions(${the_mod+ule} PRIVATE HAVE_VDU_CTRLSW)
@@ -98,3 +98,4 @@ else()
     message(STATUS "  ALLEGRO_ENCODE_LIB: ${ALLEGRO_ENCODE_LIB}")
     message(STATUS "  VCU2_INCLUDE_DIR: ${VCU_INCLUDE_DIR}")
 endif()
+q
