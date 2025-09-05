@@ -9,7 +9,6 @@
 #include "../vcudevice.hpp"
 
 using Device = cv::vcucodec::Device;
-static int32_t g_numFrameToRepeat;
 static int32_t g_StrideHeight = -1;
 static int32_t g_Stride = -1;
 static int32_t constexpr g_defaultMinBuffers = 2;
@@ -628,7 +627,7 @@ void LayerResources::Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLa
   // --------------------------------------------------------------------------------
   // Source Buffers
   // --------------------------------------------------------------------------------
-  int32_t srcBuffersCount = max(frameBuffersCount, g_numFrameToRepeat);
+  int32_t srcBuffersCount = frameBuffersCount;
 
   InitSrcBufPool(SrcBufPool, pAllocator, tSrcFrameInfo, eSrcMode, srcBuffersCount, static_cast<AL_ECodec>(AL_GET_CODEC(Settings.tChParam[0].eProfile)));
 
@@ -914,16 +913,6 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
       layer_multisink->addSink(md5Calculator);
       enc->RecOutput[iLayerID] = std::move(layer_multisink);
     }
-  }
-
-  unique_ptr<RepeaterSink> prefetch;
-
-  if(g_numFrameToRepeat > 0)
-  {
-    prefetch.reset(new RepeaterSink(g_numFrameToRepeat, RunInfo.iMaxPict));
-    prefetch->next = firstSink;
-    firstSink = prefetch.get();
-    RunInfo.iMaxPict = g_numFrameToRepeat;
   }
 
 #if 0 // encoder input file is not needed for opencv case

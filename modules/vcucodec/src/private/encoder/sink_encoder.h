@@ -78,7 +78,7 @@ static AL_ERR PreprocessQP(AL_TBuffer* pQpBuf, AL_EGenerateQpMode eMode, const A
                           *std::min_element(tChParam.tRCParam.iMaxQP, tChParam.tRCParam.iMaxQP + minMaxQPSize),
                           AL_GetWidthInLCU(tChParam), AL_GetHeightInLCU(tChParam),
                           tChParam.eProfile, tChParam.uLog2MaxCuSize, iQPTableDepth, sQPTablesFolder,
-                          iFrameCountSent, 
+                          iFrameCountSent,
 #ifdef HAVE_VCU2_CTRLSW
 						  pQPs + EP2_BUF_SEG_CTRL.Offset);
 #else

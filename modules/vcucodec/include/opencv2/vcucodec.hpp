@@ -195,6 +195,15 @@ struct CV_EXPORTS_W_SIMPLE ProfileSettings
     CV_WRAP ProfileSettings(String profile = "MAIN", String level = "5.2", Tier tier = Tier::MAIN);
 };
 
+struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
+{
+    CV_PROP_RW int frameIndex;   ///< Frame index
+    CV_PROP_RW int gmVectorX;    ///< Global motion vector in X direction
+    CV_PROP_RW int gmVectorY;    ///< Global motion vector in Y direction
+
+    CV_WRAP GlobalMotionVector(int frameIndex = -1, int gmVectorX = 0, int gmVectorY = 0);
+};
+
 /// Struct EncoderInitParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
     CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC, JPEG)
@@ -239,6 +248,32 @@ public:
         int propId ///< Property identifier
     ) const = 0;
 
+
+    /// Set rate control settings
+    CV_WRAP virtual void set(const RCSettings& rcSettings) = 0;
+
+    /// Get rate control settings
+    CV_WRAP virtual void get(RCSettings& rcSettings) const = 0;
+
+    /// Set GOP (Group Of Pictures) settings
+    CV_WRAP virtual void set(const GOPSettings& gopSettings) = 0;
+
+    /// Get GOP (Group Of Pictures) settings
+    CV_WRAP virtual void get(GOPSettings& gopSettings) const = 0;
+
+    /// Set global motion vector
+    CV_WRAP virtual void set(const GlobalMotionVector& gmVector) = 0;
+
+    /// Get global motion vector
+    CV_WRAP virtual void get(GlobalMotionVector& gmVector) const = 0;
+
+    /// Set profile, level and tier settings
+    CV_WRAP virtual void set(const ProfileSettings& profileSettings) = 0;
+
+    /// Get profile, level and tier settings
+    CV_WRAP virtual void get(ProfileSettings& profileSettings) const = 0;
+
+
     /// Get supported profiles
     static CV_WRAP String getProfiles(Codec codec);
     static CV_WRAP String getLevels(Codec codec);
@@ -273,8 +308,8 @@ inline DecoderInitParams::DecoderInitParams(Codec _codec, int _fourcc, int _four
       bitDepth(_bitDepth), szReturnQueue(0) {}
 
 inline RCSettings::RCSettings(RCMode _mode, Entropy _entropy, int _bitrate, int _maxBitrate,
-        int _cpbSize, int _initialDelay, bool _fillerData, int _maxQualityTarget,
-        int _maxPictureSizeI, int _maxPictureSizeP, int _maxPictureSizeB, bool _skipFrame, int _maxSkip)
+    int _cpbSize, int _initialDelay, bool _fillerData, int _maxQualityTarget,
+    int _maxPictureSizeI, int _maxPictureSizeP, int _maxPictureSizeB, bool _skipFrame, int _maxSkip)
     : mode(_mode), entropy(_entropy), bitrate(_bitrate), maxBitrate(_maxBitrate), cpbSize(_cpbSize),
       initialDelay(_initialDelay), fillerData(_fillerData), maxQualityTarget(_maxQualityTarget),
       maxPictureSizeI(_maxPictureSizeI), maxPictureSizeP(_maxPictureSizeP),
@@ -287,6 +322,9 @@ inline GOPSettings::GOPSettings(GOPMode _mode, GDRMode _gdrMode, int _gopLength,
 
 inline ProfileSettings::ProfileSettings(String _profile, String _level, Tier _tier)
     : profile(_profile), level(_level), tier(_tier) {}
+
+inline GlobalMotionVector::GlobalMotionVector(int _frameIndex, int _gmVectorX, int _gmVectorY)
+    : frameIndex(_frameIndex), gmVectorX(_gmVectorX), gmVectorY(_gmVectorY) {}
 
 inline EncoderInitParams::EncoderInitParams(Codec _codec, int _fourcc, RCMode _rcMode, int _bitrate,
     int _pictWidth, int _pictHeight, int _frameRate, int _gopLength, int _nrBFrames)

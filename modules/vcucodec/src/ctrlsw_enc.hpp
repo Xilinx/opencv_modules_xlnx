@@ -75,7 +75,6 @@ extern "C" {
 #include "lib_app/SinkStreamMd5.h"
 #include "sink_bitrate.h"
 #include "sink_bitstream_writer.h"
-#include "sink_repeater.h"
 
 //#include "RCPlugin.h"
 

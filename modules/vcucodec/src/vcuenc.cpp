@@ -214,6 +214,7 @@ void VCUEncoder::write(InputArray frame)
 
 bool VCUEncoder::set(int propId, double value)
 {
+    std::lock_guard lock(settingsMutex_);
     (void)propId;
     (void)value;
     return false;
@@ -221,10 +222,61 @@ bool VCUEncoder::set(int propId, double value)
 
 double VCUEncoder::get(int propId) const
 {
+    std::lock_guard lock(settingsMutex_);
     (void)propId;
     double result = 0.0;
     return result; // Placeholder implementation
 }
+
+void VCUEncoder::set(const RCSettings& rcSettings)
+{
+    std::lock_guard lock(settingsMutex_);
+    currentSettings_.rc_ = rcSettings;
+}
+
+void VCUEncoder::get(RCSettings& rcSettings) const
+{
+    std::lock_guard lock(settingsMutex_);
+    rcSettings = currentSettings_.rc_;
+}
+
+void VCUEncoder::set(const GOPSettings& gopSettings)
+{
+    std::lock_guard lock(settingsMutex_);
+    currentSettings_.gop_ = gopSettings;
+}
+
+void VCUEncoder::get(GOPSettings& gopSettings) const
+{
+    std::lock_guard lock(settingsMutex_);
+    gopSettings = currentSettings_.gop_;
+}
+
+void VCUEncoder::set(const GlobalMotionVector& gmVector)
+{
+    std::lock_guard lock(settingsMutex_);
+    currentSettings_.gmv_ = gmVector;
+    AL_Encoder_NotifyGMV(enc->hEnc, gmVector.frameIndex, gmVector.gmVectorX, gmVector.gmVectorY);
+}
+
+void VCUEncoder::get(GlobalMotionVector& gmVector) const
+{
+    std::lock_guard lock(settingsMutex_);
+    gmVector = currentSettings_.gmv_;
+}
+
+void VCUEncoder::set(const ProfileSettings& profileSettings)
+{
+    std::lock_guard lock(settingsMutex_);
+    currentSettings_.profile_ = profileSettings;
+}
+
+void VCUEncoder::get(ProfileSettings& profileSettings) const
+{
+    std::lock_guard lock(settingsMutex_);
+    profileSettings = currentSettings_.profile_;
+}
+
 
 // Static functions
 

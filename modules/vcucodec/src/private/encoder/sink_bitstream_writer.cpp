@@ -14,7 +14,13 @@ extern "C"
 }
 using namespace std;
 
-void WriteContainerHeader(ofstream& fp, AL_TEncSettings const& Settings, AL_TYUVFileInfo const& FileInfo, int32_t numFrames);
+static void WriteContainerHeader(ofstream& fp, AL_TEncSettings const& Settings, AL_TYUVFileInfo const& FileInfo, int32_t numFrames)
+{
+  (void)fp;
+  (void)Settings;
+  (void)FileInfo;
+  (void)numFrames;
+}
 
 struct BitstreamWriter : IFrameSink
 {

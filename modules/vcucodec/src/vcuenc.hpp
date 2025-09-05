@@ -26,12 +26,28 @@ class Device;
 class VCUEncoder : public Encoder
 {
 public:
+    struct Settings {
+        RCSettings rc_;
+        GOPSettings gop_;
+        GlobalMotionVector gmv_;
+        ProfileSettings profile_;
+    };
+
     virtual ~VCUEncoder();
     VCUEncoder(const String& filename, const EncoderInitParams& params);
 
     virtual void write(InputArray frame) override;
     virtual bool set(int propId, double value) override;
     virtual double get(int propId) const override;
+
+    virtual void set(const RCSettings& rcSettings) override;
+    virtual void get(RCSettings& rcSettings) const override;
+    virtual void set(const GOPSettings& gopSettings) override;
+    virtual void get(GOPSettings& gopSettings) const override;
+    virtual void set(const GlobalMotionVector& gmVector) override;
+    virtual void get(GlobalMotionVector& gmVector) const override;
+    virtual void set(const ProfileSettings& profileSettings) override;
+    virtual void get(ProfileSettings& profileSettings) const override;
 
 private:
     String filename_;
@@ -40,6 +56,8 @@ private:
     std::unique_ptr<EncoderSink> enc;
     cv::Ptr<Device> device_;
     ConfigFile cfg;
+    mutable std::mutex settingsMutex_;
+    Settings currentSettings_;
 };
 
 }  // namespace vcucodec
