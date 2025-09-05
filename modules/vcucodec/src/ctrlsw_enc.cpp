@@ -884,12 +884,6 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
     multisink->addSink(bitrateOutput);
   }
 
-  if(RunInfo.rateCtrlStat != AL_RATECTRL_STAT_MODE_NONE && !RunInfo.rateCtrlMetaPath.empty())
-  {
-    std::unique_ptr<IFrameSink> rateCtrlMetaSink(createRateCtrlMetaSink(RunInfo.rateCtrlMetaPath));
-    multisink->addSink(rateCtrlMetaSink);
-  }
-
   enc->BitstreamOutput[0] = std::move(multisink);
 
   // --------------------------------------------------------------------------------

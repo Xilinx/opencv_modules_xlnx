@@ -69,7 +69,6 @@ extern "C" {
 
 #include "sink_encoder.h"
 #include "sink_yuv_md5.h"
-//#include "sink_ratectrl_meta.h"
 #include "sink_lookahead.h"
 //#include "QPGenerator.h"
 #include "lib_app/SinkStreamMd5.h"

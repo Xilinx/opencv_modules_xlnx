@@ -11,7 +11,6 @@
 #include "QPGenerator.h"
 #include "EncCmdMngr.h"
 #include "CommandsSender.h"
-#include "sink_ratectrl_meta.h"
 
 #include "HDRParser.h"
 #ifdef HAVE_VCU2_CTRLSW
