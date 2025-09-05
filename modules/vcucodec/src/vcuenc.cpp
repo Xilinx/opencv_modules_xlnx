@@ -256,7 +256,9 @@ void VCUEncoder::set(const GlobalMotionVector& gmVector)
 {
     std::lock_guard lock(settingsMutex_);
     currentSettings_.gmv_ = gmVector;
+#ifdef HAVE_VCU2_CTRLSW
     AL_Encoder_NotifyGMV(enc->hEnc, gmVector.frameIndex, gmVector.gmVectorX, gmVector.gmVectorY);
+#endif
 }
 
 void VCUEncoder::get(GlobalMotionVector& gmVector) const
