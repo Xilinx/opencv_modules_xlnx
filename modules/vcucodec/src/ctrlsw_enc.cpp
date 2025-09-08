@@ -7,6 +7,8 @@
 #include "ctrlsw_enc.hpp"
 
 #include "../vcudevice.hpp"
+#include "TwoPassMngr.h"
+
 
 using Device = cv::vcucodec::Device;
 static int32_t g_StrideHeight = -1;
@@ -896,19 +898,6 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
     Rtos_SetEvent(hFinished);
   });
 
-  if(!RunInfo.sRecMd5Path.empty())
-  {
-    for(int32_t iLayerID = 0; iLayerID < Settings.NumLayer; ++iLayerID)
-    {
-      auto layer_multisink = unique_ptr<MultiSink>(new MultiSink);
-      layer_multisink->addSink(enc->RecOutput[iLayerID]);
-      string LayerMd5FileName = RunInfo.sRecMd5Path;
-      std::unique_ptr<IFrameSink> md5Calculator(createYuvMd5Calculator(LayerMd5FileName, cfg));
-      layer_multisink->addSink(md5Calculator);
-      enc->RecOutput[iLayerID] = std::move(layer_multisink);
-    }
-  }
-
 #if 0 // encoder input file is not needed for opencv case
   for(int32_t i = 0; i < Settings.NumLayer; ++i)
     pLayerResources[i]->OpenEncoderInput(cfg, enc->hEnc);
@@ -927,12 +916,11 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
   {
     auto& Settings = cfg.Settings;
     auto& RecFileName = cfg.RecFileName;
-    auto& RunInfo = cfg.RunInfo;
 
     AL_Settings_SetDefaultParam(&Settings);
     SetMoreDefaults(cfg);
 
-    if(!RecFileName.empty() || !RunInfo.sRecMd5Path.empty())
+    if(!RecFileName.empty())
     {
       Settings.tChParam[0].eEncOptions = (AL_EChEncOption)(Settings.tChParam[0].eEncOptions | AL_OPT_FORCE_REC);
     }

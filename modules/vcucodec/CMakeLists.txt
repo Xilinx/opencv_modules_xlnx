@@ -76,7 +76,7 @@ if(VCU_INCLUDE_DIR AND VCU_LIBS_FOUND)
             ${CMAKE_CURRENT_SOURCE_DIR}/src/private/encoder
         )
     elseif(HAVE_VDU_CTRLSW)
-        target_compile_definitions(${the_mod+ule} PRIVATE HAVE_VDU_CTRLSW)
+        target_compile_definitions(${the_module} PRIVATE HAVE_VDU_CTRLSW)
     elseif(HAVE_VCU2_CTRLSW)
         target_compile_definitions(${the_module} PRIVATE HAVE_VCU2_CTRLSW)
         target_include_directories(${the_module} PRIVATE
