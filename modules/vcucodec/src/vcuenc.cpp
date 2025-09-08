@@ -212,6 +212,13 @@ void VCUEncoder::write(InputArray frame)
     sink->ProcessFrame(sourceBuffer.get());
 }
 
+void VCUEncoder::eos()
+{
+    //IFrameSink* sink = enc.get();
+    //sink->ProcessFrame(nullptr);
+    //enc->m_wait();
+}
+
 bool VCUEncoder::set(int propId, double value)
 {
     std::lock_guard lock(settingsMutex_);

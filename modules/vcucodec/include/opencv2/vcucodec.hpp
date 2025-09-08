@@ -236,6 +236,9 @@ public:
     /// Encode a video frame.
     CV_WRAP virtual void write(InputArray frame) = 0;
 
+    /// Signal the end of the stream to the encoder and wait until final frame is encoded.
+    CV_WRAP virtual void eos() = 0;
+
     /// Set a property for the encoder.
     /// @return true if the property was set successfully, false otherwise
     CV_WRAP virtual bool set(

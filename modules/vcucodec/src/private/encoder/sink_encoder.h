@@ -368,6 +368,8 @@ struct EncoderSink : IFrameSink
   std::function<void(int, int)> m_InputChanged;
 
   std::function<void(void)> m_done;
+  std::function<void(void)> m_wait;
+
 
   void PreprocessFrame() override
   {

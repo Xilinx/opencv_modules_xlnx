@@ -898,6 +898,10 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
     Rtos_SetEvent(hFinished);
   });
 
+  enc->m_wait = ([&]() {
+    Rtos_WaitEvent(hFinished, AL_WAIT_FOREVER);
+  });
+
 #if 0 // encoder input file is not needed for opencv case
   for(int32_t i = 0; i < Settings.NumLayer; ++i)
     pLayerResources[i]->OpenEncoderInput(cfg, enc->hEnc);
