@@ -34,6 +34,9 @@ extern "C"
 #include <map>
 #include <functional>
 #include <algorithm>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 #include "RCPlugin.h"
 #include "lib_common_enc/RateCtrlMeta.h"
@@ -365,10 +368,18 @@ struct EncoderSink : IFrameSink
     qpBuffers.AddBufPool(qpInf, iLayerID);
   }
 
+  bool waitForCompletion(void)
+  {
+    std::unique_lock<std::mutex> lock(encoding_complete_mutex);
+    return encoding_complete_cv.wait_for(lock, std::chrono::seconds(1), [this] { return encoding_finished; });
+  }
+
   std::function<void(int, int)> m_InputChanged;
 
-  std::function<void(void)> m_done;
-  std::function<void(void)> m_wait;
+  // Synchronization for blocking eos()
+  std::mutex encoding_complete_mutex;
+  std::condition_variable encoding_complete_cv;
+  bool encoding_finished = false;
 
 
   void PreprocessFrame() override
@@ -555,10 +566,14 @@ private:
   void CloseOutputs(void)
   {
     m_EndTime = GetPerfTime();
-    m_done();
-  }
 
-  void CheckAndAllocateConversionBuffer(TFourCC tConvFourCC, AL_TDimension const& tConvDim, std::shared_ptr<AL_TBuffer>& pConvYUV)
+    // Signal that encoding is complete
+    {
+      std::lock_guard<std::mutex> lock(encoding_complete_mutex);
+      encoding_finished = true;
+    }
+    encoding_complete_cv.notify_all();
+  }  void CheckAndAllocateConversionBuffer(TFourCC tConvFourCC, AL_TDimension const& tConvDim, std::shared_ptr<AL_TBuffer>& pConvYUV)
   {
     if(pConvYUV != nullptr)
     {

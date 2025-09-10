@@ -37,7 +37,7 @@ public:
     VCUEncoder(const String& filename, const EncoderInitParams& params);
 
     virtual void write(InputArray frame) override;
-    virtual void eos() override;
+    virtual bool eos() override;
 
     virtual bool set(int propId, double value) override;
     virtual double get(int propId) const override;

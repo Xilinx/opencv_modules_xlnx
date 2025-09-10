@@ -212,11 +212,14 @@ void VCUEncoder::write(InputArray frame)
     sink->ProcessFrame(sourceBuffer.get());
 }
 
-void VCUEncoder::eos()
+bool VCUEncoder::eos()
 {
-    //IFrameSink* sink = enc.get();
-    //sink->ProcessFrame(nullptr);
-    //enc->m_wait();
+    // Trigger end of stream by sending nullptr (flush signal)
+    IFrameSink* sink = enc.get();
+    sink->ProcessFrame(nullptr);
+
+    // Wait for encoding to complete (max 1 second)
+    return enc->waitForCompletion();
 }
 
 bool VCUEncoder::set(int propId, double value)
