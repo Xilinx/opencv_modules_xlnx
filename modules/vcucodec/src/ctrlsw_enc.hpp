@@ -158,5 +158,5 @@ struct LayerResources
 void SetDefaults(ConfigFile& cfg);
 void SetCodingResolution(ConfigFile& cfg);
 unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
-    cv::Ptr<cv::vcucodec::Device>& device);
+    cv::Ptr<cv::vcucodec::Device>& device, DataCallback dataCallback);
 

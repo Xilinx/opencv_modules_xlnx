@@ -6,7 +6,10 @@
 #pragma once
 
 #include <string>
+#include <functional>
+
 #include "lib_app/Sink.h"
 #include "CfgParser.h"
 
-IFrameSink* createBitstreamWriter(std::string path, ConfigFile const& cfg);
+using DataCallback = std::function<void (std::vector<std::string_view>&)>;
+IFrameSink* createBitstreamWriter(std::string path, ConfigFile const& cfg, DataCallback dataCallback);

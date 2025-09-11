@@ -34,7 +34,7 @@ public:
     };
 
     virtual ~VCUEncoder();
-    VCUEncoder(const String& filename, const EncoderInitParams& params);
+    VCUEncoder(const String& filename, const EncoderInitParams& params, Ptr<EncoderCallback> callback);
 
     virtual void write(InputArray frame) override;
     virtual bool eos() override;
@@ -54,6 +54,7 @@ public:
 private:
     String filename_;
     EncoderInitParams params_;
+    Ptr<EncoderCallback> callback_;
     std::vector<std::unique_ptr<LayerResources>> pLayerResources;
     std::unique_ptr<EncoderSink> enc;
     cv::Ptr<Device> device_;

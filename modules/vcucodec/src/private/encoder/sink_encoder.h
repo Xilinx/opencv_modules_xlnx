@@ -40,10 +40,12 @@ extern "C"
 
 #include "RCPlugin.h"
 #include "lib_common_enc/RateCtrlMeta.h"
+
 #define NUM_PASS_OUTPUT 1
 
 #define MAX_NUM_REC_OUTPUT (MAX_NUM_LAYER > NUM_PASS_OUTPUT ? MAX_NUM_LAYER : NUM_PASS_OUTPUT)
 #define MAX_NUM_BITSTREAM_OUTPUT NUM_PASS_OUTPUT
+
 
 static std::string PictTypeToString(AL_ESliceType type)
 {

@@ -8,6 +8,8 @@
 #include "lib_app/InputFiles.h"
 #include "CodecUtils.h" // WriteStream
 #include <fstream>
+#include <string_view>
+#include <vector>
 
 extern "C"
 {
@@ -24,7 +26,8 @@ static void WriteContainerHeader(ofstream& fp, AL_TEncSettings const& Settings, 
 
 struct BitstreamWriter : IFrameSink
 {
-  BitstreamWriter(string path, ConfigFile const& cfg_) : cfg(cfg_)
+  BitstreamWriter(string path, ConfigFile const& cfg_, DataCallback dataCallback)
+    : cfg(cfg_), dataCallback_(dataCallback)
   {
     OpenOutput(m_file, path);
     WriteContainerHeader(m_file, cfg.Settings, cfg.MainInput.FileInfo, -1);
@@ -44,7 +47,16 @@ struct BitstreamWriter : IFrameSink
     if(pStream == nullptr)
       return;
 
-    m_frameCount += WriteStream(m_file, pStream, &cfg.Settings, hdr_pos, m_iFrameSize);
+    std::vector<std::string_view> vec;
+
+    m_frameCount += WriteStream(
+      [&](size_t size, uint8_t* data)
+      {
+        vec.emplace_back((char*)data, size);
+      },
+      pStream, &cfg.Settings, hdr_pos, m_iFrameSize);
+
+    dataCallback_(vec);
   }
 
   void printBitrate(void)
@@ -61,13 +73,14 @@ struct BitstreamWriter : IFrameSink
   streampos hdr_pos;
   int32_t m_iFrameSize = 0;
   ConfigFile const cfg;
+  DataCallback dataCallback_;
 };
 
-IFrameSink* createBitstreamWriter(string path, ConfigFile const& cfg)
+IFrameSink* createBitstreamWriter(string path, ConfigFile const& cfg, DataCallback dataCallback)
 {
 
   if(cfg.Settings.TwoPass == 1)
     return new NullFrameSink;
 
-  return new BitstreamWriter(path, cfg);
+  return new BitstreamWriter(path, cfg, dataCallback);
 }

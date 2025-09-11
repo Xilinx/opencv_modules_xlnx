@@ -50,5 +50,20 @@ bool operator!=(const RawInfo& lhs, const RawInfo& rhs)
     return !(lhs == rhs);
 }
 
+OutputStream::OutputStream(const String& filename, bool binary)
+{
+    file_.open(filename, binary ? std::ios::out | std::ios::binary : std::ios::out);
+    file_.exceptions(std::ofstream::badbit);
+    if (!file_.is_open())
+    {
+        CV_Error(cv::Error::StsBadArg, "Failed to set output file path '" + filename + "'");
+    }
+}
+
+OutputStream::~OutputStream()
+{
+    file_.close();
+}
+
 } // namespace vcucodec
 } // namespace cv

@@ -776,7 +776,7 @@ void LayerResources::ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder
 }
 
 static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerResources>>& pLayerResources,
-    cv::Ptr<Device> device, int32_t chanId)
+    cv::Ptr<Device> device, int32_t chanId, DataCallback dataCallback)
 {
   auto& Settings = cfg.Settings;
   auto& StreamFileName = cfg.BitstreamFileName;
@@ -871,7 +871,7 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
 
   auto multisink = unique_ptr<MultiSink>(new MultiSink);
 
-  std::unique_ptr<IFrameSink> bitstreamOutput(createBitstreamWriter(StreamFileName, cfg));
+  std::unique_ptr<IFrameSink> bitstreamOutput(createBitstreamWriter(StreamFileName, cfg, dataCallback));
   multisink->addSink(bitstreamOutput);
 
   if(!RunInfo.sStreamMd5Path.empty())
@@ -904,7 +904,7 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
 
 /*****************************************************************************/
 unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
-    cv::Ptr<cv::vcucodec::Device>& device)
+    cv::Ptr<cv::vcucodec::Device>& device, DataCallback dataCallback)
 {
   unique_ptr<EncoderSink> enc;
   InitializePlateform();
@@ -950,7 +950,7 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
 
 //#ifdef HAVE_VCU2_CTRLSW
   device = Device::create(Device::ENCODER);
-  enc = ChannelMain(cfg, pLayerResources, device, 0);
+  enc = ChannelMain(cfg, pLayerResources, device, 0, dataCallback);
 
   return enc;
 }

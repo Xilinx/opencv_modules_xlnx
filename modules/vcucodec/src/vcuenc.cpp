@@ -135,6 +135,32 @@ uint8_t getLevel(Codec codec, String level)
 }
 
 
+class DefaultEncoderCallback : public EncoderCallback
+{
+public:
+    DefaultEncoderCallback(const String& filename) : output_(filename, true)
+    {
+    }
+
+    virtual ~DefaultEncoderCallback() override {}
+
+    virtual void onEncoded(std::vector<std::string_view>& encodedData) override
+    {
+        for (const auto& str : encodedData)
+        {
+            output_().write(str.data(), str.size());
+        }
+    }
+
+    virtual void onFinished() override
+    {
+        output_().close();
+    }
+
+private:
+    OutputStream output_;
+
+};
 
 } // anonymous namespace
 
@@ -147,8 +173,8 @@ VCUEncoder::~VCUEncoder()
     AL_Lib_Encoder_DeInit();
 }
 
-VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params)
-: filename_(filename), params_(params)
+VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params, Ptr<EncoderCallback> callback)
+: filename_(filename), params_(params), callback_(callback)
 {
     AL_EProfile profile = getProfile(params.codec, params.profileSettings.profile);
     (void) profile; // TODO
@@ -174,7 +200,16 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params)
     cfg.Settings.tChParam[0].tGopParam.uNumB = params.nrBFrames;
     SetCodingResolution(cfg);
     pLayerResources.emplace_back(std::make_unique<LayerResources>());
-    enc = CtrlswEncOpen(cfg, pLayerResources, device_);
+    if (!callback_)
+    {
+        callback_.reset(new DefaultEncoderCallback(filename_));
+    }
+    enc = CtrlswEncOpen(cfg, pLayerResources, device_,
+        [this](std::vector<std::string_view>& data)
+        {
+            callback_->onEncoded(data);
+        }
+    );
 }
 
 void VCUEncoder::write(InputArray frame)
@@ -288,7 +323,6 @@ void VCUEncoder::get(ProfileSettings& profileSettings) const
     std::lock_guard lock(settingsMutex_);
     profileSettings = currentSettings_.profile_;
 }
-
 
 // Static functions
 

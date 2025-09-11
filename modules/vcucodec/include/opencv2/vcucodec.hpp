@@ -225,6 +225,15 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
         int gopLength = 60, int nrBFrames = 0);
 };
 
+/// @brief Class EncoderCallback reports encoder progress (not supported in Python).
+class CV_EXPORTS_W EncoderCallback
+{
+public:
+    virtual ~EncoderCallback() {}
+    virtual void onEncoded(std::vector<std::string_view>& encodedData) = 0;
+    virtual void onFinished() = 0;
+};
+
 /// @brief Class Encoder is the interface for encoding video frames to a stream.
 /// This interface provides methods to encode video frames and manage encoding parameters.
 class CV_EXPORTS_W Encoder
@@ -291,8 +300,9 @@ CV_EXPORTS_W Ptr<Decoder> createDecoder(
 
 /// Factory function to create a decoder instance.
 CV_EXPORTS_W Ptr<Encoder> createEncoder(
-    const String& filename,         ///< Output video file name or stream URL
-    const EncoderInitParams& params ///< %Encoder initialization parameters
+    const String& filename,           ///< Output video file name or stream URL
+    const EncoderInitParams& params,  ///< %Encoder initialization parameters
+    Ptr<EncoderCallback> callback = 0 ///< Callback (not supported for Python API)
 );
 
 //! @}

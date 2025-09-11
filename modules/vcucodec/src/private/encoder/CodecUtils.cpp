@@ -90,7 +90,8 @@ uint32_t ReadNextFrameMV(ifstream& File, int& iX, int& iY)
 }
 
 /*****************************************************************************/
-static void WriteOneSection(ofstream& File, AL_TBuffer* pStream, AL_TStreamSection* pCurSection, const AL_TEncChanParam* pChannelParam)
+static void WriteOneSection(std::function<void (size_t, uint8_t*)> callback, AL_TBuffer* pStream,
+   AL_TStreamSection* pCurSection, const AL_TEncChanParam* pChannelParam)
 {
   (void)pChannelParam;
 
@@ -102,12 +103,12 @@ static void WriteOneSection(ofstream& File, AL_TBuffer* pStream, AL_TStreamSecti
 
     if(uRemSize < pCurSection->uLength)
     {
-      File.write((char*)(pData + pCurSection->uOffset), uRemSize);
-      File.write((char*)pData, pCurSection->uLength - uRemSize);
+      callback(uRemSize, pData + pCurSection->uOffset);
+      callback(pCurSection->uLength - uRemSize, pData);
     }
     else
     {
-      File.write((char*)(pData + pCurSection->uOffset), pCurSection->uLength);
+      callback(pCurSection->uLength, pData + pCurSection->uOffset);
     }
   }
 }
@@ -143,7 +144,8 @@ static void FillSectionFillerData(AL_TBuffer* pStream, int32_t iSection, const A
 }
 
 /*****************************************************************************/
-int32_t WriteStream(ofstream& File, AL_TBuffer* pStream, const AL_TEncSettings* pSettings, std::streampos& iHdrPos, int& iFrameSize)
+int32_t WriteStream(std::function<void (size_t, uint8_t*)> callback, AL_TBuffer* pStream,
+  const AL_TEncSettings* pSettings, std::streampos& iHdrPos, int& iFrameSize)
 {
   (void)iHdrPos, (void)iFrameSize;
   AL_TStreamMetaData* pStreamMeta = (AL_TStreamMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_STREAM);
@@ -161,9 +163,8 @@ int32_t WriteStream(ofstream& File, AL_TBuffer* pStream, const AL_TEncSettings* 
     if(pCurSection->eFlags & AL_SECTION_APP_FILLER_FLAG)
       FillSectionFillerData(pStream, curSection, &tChParam);
 
-    WriteOneSection(File, pStream, pCurSection, &tChParam);
+    WriteOneSection(callback, pStream, pCurSection, &tChParam);
   }
-
   return iNumFrame;
 }
 

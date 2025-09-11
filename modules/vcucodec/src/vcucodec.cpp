@@ -36,10 +36,11 @@ Ptr<Decoder> createDecoder(const String& filename, const DecoderInitParams& para
     }
 }
 
-Ptr<Encoder> createEncoder(const String& filename, const EncoderInitParams& params)
+Ptr<Encoder> createEncoder(const String& filename, const EncoderInitParams& params,
+    Ptr<EncoderCallback> callback)
 {
     try {
-        Ptr<Encoder> encoder = makePtr<VCUEncoder>(filename, params);
+        Ptr<Encoder> encoder = makePtr<VCUEncoder>(filename, params, callback);
         return encoder;
     } catch (const std::exception& e) {
         CV_LOG_ERROR(NULL, "Error creating VCUEncoder: ");

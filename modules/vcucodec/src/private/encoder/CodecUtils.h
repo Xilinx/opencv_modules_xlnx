@@ -6,6 +6,7 @@
 #pragma once
 
 #include <fstream>
+#include <functional>
 #include <string>
 #include <stdexcept>
 #include <deque>
@@ -48,7 +49,8 @@ protected:
 };
 
 /*****************************************************************************/
-int32_t WriteStream(std::ofstream& File, AL_TBuffer* pStream, const AL_TEncSettings* pSettings, std::streampos& iHdrPos, int& iFrameSize);
+int32_t WriteStream(std::function<void (size_t, uint8_t*)> callback, AL_TBuffer* pStream,
+    const AL_TEncSettings* pSettings, std::streampos& iHdrPos, int& iFrameSize);
 
 /*****************************************************************************/
 struct ImageSize

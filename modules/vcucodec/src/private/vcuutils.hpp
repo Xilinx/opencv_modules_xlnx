@@ -18,11 +18,25 @@
 
 #include "opencv2/core.hpp"
 #include "opencv2/vcucodec.hpp"
+
+#include <fstream>
 namespace cv {
 namespace vcucodec {
 
 bool operator==(const RawInfo& lhs, const RawInfo& rhs);
 bool operator!=(const RawInfo& lhs, const RawInfo& rhs);
+
+class OutputStream
+{
+public:
+    OutputStream(const String& filename, bool binary);
+    ~OutputStream();
+
+    std::ofstream& operator()() { return file_; }
+
+private:
+    std::ofstream file_;
+};
 
 } // namespace vcucodec
 } // namespace cv
