@@ -41,6 +41,10 @@ extern "C"
 #include "RCPlugin.h"
 #include "lib_common_enc/RateCtrlMeta.h"
 
+#include "../vcudata.hpp"
+
+#include "sink_bitstream_writer.h"
+
 #define NUM_PASS_OUTPUT 1
 
 #define MAX_NUM_REC_OUTPUT (MAX_NUM_LAYER > NUM_PASS_OUTPUT ? MAX_NUM_LAYER : NUM_PASS_OUTPUT)
@@ -441,6 +445,7 @@ struct EncoderSink : IFrameSink
 
   std::unique_ptr<IFrameSink> RecOutput[MAX_NUM_REC_OUTPUT];
   std::unique_ptr<IFrameSink> BitstreamOutput[MAX_NUM_BITSTREAM_OUTPUT];
+  DataCallback dataCallback_;
   AL_HEncoder hEnc;
   bool shouldAddDummySei = false;
 
@@ -498,7 +503,8 @@ private:
       }
     }
 
-    pThis->processOutput(pStream);
+    cv::Ptr<cv::vcucodec::Data> data = cv::vcucodec::Data::create(pStream, pThis->hEnc);
+    pThis->processOutput(data);
   }
 
   void ComputeQualityMeasure(AL_TRateCtrlMetaData* pMeta)
@@ -515,7 +521,7 @@ private:
       LogWarning("Failed to add dummy SEI (id:%d) \n", seiSection);
   }
 
-  AL_ERR PreprocessOutput(AL_TBuffer* pStream)
+  AL_ERR PreprocessOutput(cv::Ptr<cv::vcucodec::Data> pStream)
   {
     AL_ERR eErr = AL_Encoder_GetLastError(hEnc);
 
@@ -528,7 +534,7 @@ private:
     if(AL_IS_WARNING_CODE(eErr))
       LogWarning("%s\n", AL_Codec_ErrorToString(eErr));
 
-    if(pStream && shouldAddDummySei)
+    if(pStream->buf() && shouldAddDummySei)
     {
       constexpr int32_t payloadSize = 8 * 10;
       uint8_t payload[payloadSize];
@@ -536,12 +542,12 @@ private:
       for(int32_t i = 0; i < payloadSize; ++i)
         payload[i] = i;
 
-      AL_TStreamMetaData* pStreamMeta = (AL_TStreamMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_STREAM);
-      AddSei(pStream, false, 15, payload, payloadSize, pStreamMeta->uTemporalID);
-      AddSei(pStream, true, 18, payload, payloadSize, pStreamMeta->uTemporalID);
+      AL_TStreamMetaData* pStreamMeta = (AL_TStreamMetaData*)AL_Buffer_GetMetaData(pStream->buf(), AL_META_TYPE_STREAM);
+      AddSei(pStream->buf(), false, 15, payload, payloadSize, pStreamMeta->uTemporalID);
+      AddSei(pStream->buf(), true, 18, payload, payloadSize, pStreamMeta->uTemporalID);
     }
 
-    if(pStream == EndOfStream)
+    if(pStream->buf() == EndOfStream)
       iPendingStreamCnt--;
     else
     {
@@ -549,17 +555,23 @@ private:
 
       if(m_pictureType != -1)
       {
-        auto const pMeta = (AL_TPictureMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_PICTURE);
+        auto const pMeta = (AL_TPictureMetaData*)AL_Buffer_GetMetaData(pStream->buf(), AL_META_TYPE_PICTURE);
         m_pictureType = pMeta->eType;
         LogInfo("Picture Type %s (%i) %s\n", PictTypeToString(pMeta->eType).c_str(), m_pictureType, pMeta->bSkipped ? "is skipped" : "");
       }
 
-      AL_TRateCtrlMetaData* pMeta = (AL_TRateCtrlMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_RATECTRL);
+      AL_TRateCtrlMetaData* pMeta = (AL_TRateCtrlMetaData*)AL_Buffer_GetMetaData(pStream->buf(), AL_META_TYPE_RATECTRL);
 
       if(pMeta && pMeta->bFilled)
       {
       }
-      BitstreamOutput[iStreamId]->ProcessFrame(pStream);
+#if 1
+      BitstreamOutput[iStreamId]->ProcessFrame(pStream->buf());
+      std::vector<std::string_view> vec;
+#else
+      pStream->walkBuffers([&vec](size_t size, uint8_t* data) { vec.push_back({(char*)data, size}); });
+      dataCallback_(vec);
+#endif
     }
 
     return AL_SUCCESS;
@@ -575,7 +587,9 @@ private:
       encoding_finished = true;
     }
     encoding_complete_cv.notify_all();
-  }  void CheckAndAllocateConversionBuffer(TFourCC tConvFourCC, AL_TDimension const& tConvDim, std::shared_ptr<AL_TBuffer>& pConvYUV)
+  }
+
+  void CheckAndAllocateConversionBuffer(TFourCC tConvFourCC, AL_TDimension const& tConvDim, std::shared_ptr<AL_TBuffer>& pConvYUV)
   {
     if(pConvYUV != nullptr)
     {
@@ -609,7 +623,7 @@ private:
     return pFunc(pRec, pYuv);
   }
 
-  void processOutput(AL_TBuffer* pStream)
+  void processOutput(cv::Ptr<cv::vcucodec::Data> pStream)
   {
     AL_ERR eErr;
     {
@@ -625,15 +639,6 @@ private:
     if(AL_IS_WARNING_CODE(eErr))
       LogWarning("%s\n", AL_Codec_ErrorToString(eErr));
 
-    bool bPushBufferBack = pStream != NULL;
-
-    if(bPushBufferBack)
-    {
-      auto const bRet = AL_Encoder_PutStreamBuffer(hEnc, pStream);
-
-      if(!bRet)
-        throw std::runtime_error("AL_Encoder_PutStreamBuffer must always succeed");
-    }
 
     AL_TRecPic RecPic;
 

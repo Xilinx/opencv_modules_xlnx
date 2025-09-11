@@ -778,6 +778,7 @@ void LayerResources::ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder
 static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerResources>>& pLayerResources,
     cv::Ptr<Device> device, int32_t chanId, DataCallback dataCallback)
 {
+
   auto& Settings = cfg.Settings;
   auto& StreamFileName = cfg.BitstreamFileName;
   auto& RunInfo = cfg.RunInfo;
@@ -887,6 +888,7 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
   }
 
   enc->BitstreamOutput[0] = std::move(multisink);
+  enc->dataCallback_ = dataCallback;
 
   // --------------------------------------------------------------------------------
   // Set Callbacks

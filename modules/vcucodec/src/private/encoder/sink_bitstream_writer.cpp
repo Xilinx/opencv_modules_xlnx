@@ -46,7 +46,6 @@ struct BitstreamWriter : IFrameSink
   {
     if(pStream == nullptr)
       return;
-
     std::vector<std::string_view> vec;
 
     m_frameCount += WriteStream(
