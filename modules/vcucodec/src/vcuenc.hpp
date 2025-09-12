@@ -17,8 +17,7 @@
 
 #include "CfgParser.h" // ConfigFile
 
-struct LayerResources;
-struct EncoderSink;
+#include "private/vcuenccontext.hpp"
 
 namespace cv {
 namespace vcucodec {
@@ -55,8 +54,7 @@ private:
     String filename_;
     EncoderInitParams params_;
     Ptr<EncoderCallback> callback_;
-    std::vector<std::unique_ptr<LayerResources>> pLayerResources;
-    std::unique_ptr<EncoderSink> enc;
+    Ptr<EncContext> enc_;
     cv::Ptr<Device> device_;
     ConfigFile cfg;
     mutable std::mutex settingsMutex_;

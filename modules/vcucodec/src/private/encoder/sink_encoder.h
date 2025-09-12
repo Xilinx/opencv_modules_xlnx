@@ -532,8 +532,6 @@ private:
       iPendingStreamCnt--;
     else
     {
-      int32_t iStreamId = 0;
-
       if(m_pictureType != -1)
       {
         auto const pMeta = (AL_TPictureMetaData*)AL_Buffer_GetMetaData(pStream->buf(), AL_META_TYPE_PICTURE);

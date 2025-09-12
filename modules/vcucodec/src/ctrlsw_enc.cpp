@@ -7,6 +7,7 @@
 #include "ctrlsw_enc.hpp"
 
 #include "../vcudevice.hpp"
+#include "../vcuenccontext.hpp"
 #include "TwoPassMngr.h"
 
 
@@ -16,42 +17,6 @@ static int32_t g_Stride = -1;
 static int32_t constexpr g_defaultMinBuffers = 2;
 static bool g_MultiChunk = false;
 
-#if 0
-/*****************************************************************************/
-static AL_HANDLE alignedAlloc(AL_TAllocator* pAllocator, char const* pBufName, uint32_t uSize, uint32_t uAlign, uint32_t* uAllocatedSize, uint32_t* uAlignmentOffset)
-{
-  *uAllocatedSize = 0;
-  *uAlignmentOffset = 0;
-
-  uSize += uAlign;
-
-  auto pBuf = AL_Allocator_AllocNamed(pAllocator, uSize, pBufName);
-
-  if(pBuf == nullptr)
-    return nullptr;
-
-  *uAllocatedSize = uSize;
-  AL_PADDR pAddr = AL_Allocator_GetPhysicalAddr(pAllocator, pBuf);
-  *uAlignmentOffset = AL_PhysAddrRoundUp(pAddr, uAlign) - pAddr;
-
-  return pBuf;
-}
-#endif
-
-#if 0
-/*****************************************************************************/
-static void DisplayBuildInfo(void)
-{
-  BuildInfoDisplay displayBuildInfo {
-    SCM_REV_SW, SCM_BRANCH, AL_CONFIGURE_COMMANDLINE, AL_COMPIL_FLAGS, DELIVERY_BUILD_NUMBER, DELIVERY_SCM_REV, DELIVERY_DATE
-  };
-  displayBuildInfo.displayFeatures = [=](void)
-                                     {
-                                     };
-
-  displayBuildInfo();
-}
-#endif
 
 static void DisplayVersionInfo(void)
 {
@@ -780,8 +745,6 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
 {
 
   auto& Settings = cfg.Settings;
-  auto& StreamFileName = cfg.BitstreamFileName;
-  auto& RunInfo = cfg.RunInfo;
 
   /* null if not supported */
   //void* pTraceHook {};
@@ -922,21 +885,90 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
 
   AL_ELibEncoderArch eArch = AL_LIB_ENCODER_ARCH_HOST;
 
-  auto& RunInfo = cfg.RunInfo;
 
 #ifdef HAVE_VCU2_CTRLSW
-  if(RunInfo.eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED)
     eArch = AL_LIB_ENCODER_ARCH_RISCV;
 #endif
 
   if(!AL_IS_SUCCESS_CODE(AL_Lib_Encoder_Init(eArch)))
     throw runtime_error("Can't setup encode library");
 
-//#ifdef HAVE_VCU2_CTRLSW
   device = Device::create(Device::ENCODER);
   enc = ChannelMain(cfg, pLayerResources, device, 0, dataCallback);
 
   return enc;
 }
 
-#endif // HAVE_VCU2_CTRLSW
+
+namespace cv {
+namespace vcucodec {
+
+class EncoderContext : public EncContext
+{
+public:
+    EncoderContext(ConfigFile& cfg, Ptr<Device>& device, DataCallback dataCallback);
+    virtual ~EncoderContext();
+
+    virtual void writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer) override;
+    virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
+    virtual bool waitForCompletion() override;
+    virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) override;
+
+private:
+    std::unique_ptr<EncoderSink> enc_;
+    std::vector<std::unique_ptr<LayerResources>> layerResources_;
+};
+
+
+EncoderContext::EncoderContext(ConfigFile& cfg, Ptr<Device>& device, DataCallback dataCallback)
+{
+    layerResources_.emplace_back(std::make_unique<LayerResources>());
+    enc_ = CtrlswEncOpen(cfg, layerResources_, device, dataCallback);
+}
+
+EncoderContext::~EncoderContext()
+{
+    enc_.reset();
+    layerResources_[0].reset();
+    AL_Lib_Encoder_DeInit();
+}
+
+void EncoderContext::writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer)
+{
+    enc_->ProcessFrame(sourceBuffer.get());
+}
+
+
+std::shared_ptr<AL_TBuffer> EncoderContext::getSharedBuffer()
+{
+    return layerResources_[0]->SrcBufPool.GetSharedBuffer();
+}
+
+bool EncoderContext::waitForCompletion()
+{
+    return enc_->waitForCompletion();
+}
+
+void EncoderContext::notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY)
+{
+#ifdef HAVE_VCU2_CTRLSW
+    AL_Encoder_NotifyGMV(enc_->hEnc, frameIndex, gmVectorX, gmVectorY);
+#else
+    (void)frameIndex;
+    (void)gmVectorX;
+    (void)gmVectorY;
+#endif
+}
+
+
+/*static*/
+Ptr<EncContext> EncContext::create(ConfigFile& cfg, Ptr<Device>& device, DataCallback dataCallback)
+{
+    Ptr<EncoderContext> ctx(new EncoderContext(cfg, device, dataCallback));
+    return ctx;
+}
+
+} // namespace vcucodec
+} // namespace cv
+
+#endif // defined(HAVE_VCU_CTRLSW) || defined(HAVE_VCU2_CTRLSW)

@@ -168,9 +168,7 @@ VCUEncoder::~VCUEncoder()
 {
     auto pAllocator = device_->getAllocator();
     AL_Allocator_Free(pAllocator, cfg.Settings.hRcPluginDmaContext);
-    enc.reset();
-    pLayerResources[0].reset();
-    AL_Lib_Encoder_DeInit();
+    enc_.reset();
 }
 
 VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params, Ptr<EncoderCallback> callback)
@@ -199,17 +197,16 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params, 
     cfg.Settings.tChParam[0].tGopParam.uGopLength = params.gopLength;
     cfg.Settings.tChParam[0].tGopParam.uNumB = params.nrBFrames;
     SetCodingResolution(cfg);
-    pLayerResources.emplace_back(std::make_unique<LayerResources>());
     if (!callback_)
     {
         callback_.reset(new DefaultEncoderCallback(filename_));
     }
-    enc = CtrlswEncOpen(cfg, pLayerResources, device_,
+
+    enc_ = EncContext::create(cfg, device_,
         [this](std::vector<std::string_view>& data)
         {
             callback_->onEncoded(data);
-        }
-    );
+        });
 }
 
 void VCUEncoder::write(InputArray frame)
@@ -219,10 +216,9 @@ void VCUEncoder::write(InputArray frame)
     }
 
     cv::Size size = frame.size();
-    IFrameSink* sink = enc.get();
     AL_TDimension tUpdatedDim = AL_TDimension { AL_GetSrcWidth(cfg.Settings.tChParam[0]),
                                                 AL_GetSrcHeight(cfg.Settings.tChParam[0])};
-    shared_ptr<AL_TBuffer> sourceBuffer = pLayerResources[0]->SrcBufPool.GetSharedBuffer();
+    std::shared_ptr<AL_TBuffer> sourceBuffer = enc_->getSharedBuffer();
     AL_PixMapBuffer_SetDimension(sourceBuffer.get(), tUpdatedDim);
     if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(NV12))
     {
@@ -244,17 +240,17 @@ void VCUEncoder::write(InputArray frame)
                                                                             AL_PLANE_UV));
         memcpy(pUV, (char*)frame.getMat().data + ySize, ySize);
     }
-    sink->ProcessFrame(sourceBuffer.get());
+    enc_->writeFrame(sourceBuffer);
+
 }
 
 bool VCUEncoder::eos()
 {
     // Trigger end of stream by sending nullptr (flush signal)
-    IFrameSink* sink = enc.get();
-    sink->ProcessFrame(nullptr);
+    enc_->writeFrame(nullptr);
 
     // Wait for encoding to complete (max 1 second)
-    return enc->waitForCompletion();
+    return enc_->waitForCompletion();
 }
 
 bool VCUEncoder::set(int propId, double value)
@@ -301,9 +297,7 @@ void VCUEncoder::set(const GlobalMotionVector& gmVector)
 {
     std::lock_guard lock(settingsMutex_);
     currentSettings_.gmv_ = gmVector;
-#ifdef HAVE_VCU2_CTRLSW
-    AL_Encoder_NotifyGMV(enc->hEnc, gmVector.frameIndex, gmVector.gmVectorX, gmVector.gmVectorY);
-#endif
+    enc_->notifyGMV(gmVector.frameIndex, gmVector.gmVectorX, gmVector.gmVectorY);
 }
 
 void VCUEncoder::get(GlobalMotionVector& gmVector) const
