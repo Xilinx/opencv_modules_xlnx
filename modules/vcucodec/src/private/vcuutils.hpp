@@ -19,6 +19,10 @@
 #include "opencv2/core.hpp"
 #include "opencv2/vcucodec.hpp"
 
+extern "C" {
+#include "lib_common/Error.h"
+}
+
 #include <fstream>
 namespace cv {
 namespace vcucodec {
@@ -37,6 +41,22 @@ public:
 private:
     std::ofstream file_;
 };
+
+class en_codec_error : public std::runtime_error
+{
+public:
+    explicit en_codec_error(const std::string& _Message, AL_ERR errCode)
+        : std::runtime_error(_Message), errorCode_(errCode) {}
+
+    explicit en_codec_error(const char* _Message, AL_ERR errCode)
+        : std::runtime_error(_Message), errorCode_(errCode) {}
+
+    AL_ERR getCode() const { return errorCode_; }
+
+protected:
+    AL_ERR errorCode_;
+};
+
 
 } // namespace vcucodec
 } // namespace cv

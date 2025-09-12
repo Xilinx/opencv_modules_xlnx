@@ -870,24 +870,6 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
     enc->RecOutput[i] = std::move(multisinkRec);
   }
 
-  auto multisink = unique_ptr<MultiSink>(new MultiSink);
-
-  std::unique_ptr<IFrameSink> bitstreamOutput(createBitstreamWriter(StreamFileName, cfg, dataCallback));
-  multisink->addSink(bitstreamOutput);
-
-  if(!RunInfo.sStreamMd5Path.empty())
-  {
-    std::unique_ptr<IFrameSink> md5Calculator(createStreamMd5Calculator(RunInfo.sStreamMd5Path));
-    multisink->addSink(md5Calculator);
-  }
-
-  if(!RunInfo.bitrateFile.empty())
-  {
-    std::unique_ptr<IFrameSink> bitrateOutput(createBitrateWriter(RunInfo.bitrateFile, cfg));
-    multisink->addSink(bitrateOutput);
-  }
-
-  enc->BitstreamOutput[0] = std::move(multisink);
   enc->dataCallback_ = dataCallback;
 
   // --------------------------------------------------------------------------------

@@ -5,15 +5,15 @@
 
 #pragma once
 
-#ifdef HAVE_VCU2_CTRLSW
-#include "gmv.h"
-#endif
 #include <memory>
 #include <stdexcept>
 #include <cassert>
 #include "CfgParser.h"
 #include "lib_app/Sink.h"
 #include "TwoPassMngr.h"
+
+#include "../vcuutils.hpp"
+using en_codec_error = cv::vcucodec::en_codec_error;
 
 /*
 ** Special EncoderSink structure, used for encoding the first pass
@@ -32,11 +32,9 @@ struct EncoderLookAheadSink : IFrameSink
                                 , AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName),
     EncCmd(CmdFile, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
-    Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
     lookAheadMngr(cfg.Settings.LookAhead, cfg.Settings.bEnableFirstPassSceneChangeDetection)
   {
     assert(ctx);
-    BitstreamOutput.reset(new NullFrameSink);
     RecOutput.reset(new NullFrameSink);
 
     AL_CB_EndEncoding onEndEncoding = { &EncoderLookAheadSink::EndEncoding, this };
@@ -73,12 +71,8 @@ struct EncoderLookAheadSink : IFrameSink
                                 , AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName),
     EncCmd(CmdFile, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
-#ifdef HAVE_VCU2_CTRLSW
-    Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
-#endif
     lookAheadMngr(cfg.Settings.LookAhead, cfg.Settings.bEnableFirstPassSceneChangeDetection)
   {
-    BitstreamOutput.reset(new NullFrameSink);
     RecOutput.reset(new NullFrameSink);
 
     AL_CB_EndEncoding onEndEncoding = { &EncoderLookAheadSink::EndEncoding, this };
@@ -132,9 +126,6 @@ struct EncoderLookAheadSink : IFrameSink
 
     if(Src)
     {
-#ifdef HAVE_VCU2_CTRLSW
-      Gmv.notify(hEnc);
-#endif
       auto pPictureMetaLA = (AL_TLookAheadMetaData*)AL_Buffer_GetMetaData(Src, AL_META_TYPE_LOOKAHEAD);
 
       if(!pPictureMetaLA)
@@ -171,7 +162,6 @@ struct EncoderLookAheadSink : IFrameSink
 
   AL_HEncoder hEnc;
   IFrameSink* next;
-  std::unique_ptr<IFrameSink> BitstreamOutput;
   std::unique_ptr<IFrameSink> RecOutput;
 
 private:
@@ -183,9 +173,6 @@ private:
   ConfigFile cfgLA;
   QPBuffers qpBuffers;
   std::unique_ptr<CommandsSender> commandsSender;
-#ifdef HAVE_VCU2_CTRLSW
-  GMV Gmv;
-#endif
   LookAheadMngr lookAheadMngr;
   bool bEnableFirstPassSceneChangeDetection;
   AL_EVENT EOSFinished;
@@ -217,7 +204,6 @@ private:
 
   void processOutputLookAhead(AL_TBuffer* pStream)
   {
-    BitstreamOutput->ProcessFrame(pStream);
     AL_ERR eErr = AL_Encoder_GetLastError(hEnc);
 
     if(AL_IS_ERROR_CODE(eErr))

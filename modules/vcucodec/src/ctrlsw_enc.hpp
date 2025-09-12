@@ -48,7 +48,6 @@
 #include "lib_app/SinkFrame.h"
 
 #include "CfgParser.h"
-#include "CodecUtils.h"
 #include "resource.h"
 
 extern "C" {
@@ -71,8 +70,6 @@ extern "C" {
 #include "sink_lookahead.h"
 //#include "QPGenerator.h"
 #include "lib_app/SinkStreamMd5.h"
-#include "sink_bitrate.h"
-#include "sink_bitstream_writer.h"
 
 //#include "RCPlugin.h"
 

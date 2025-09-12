@@ -13,9 +13,6 @@
 #include "CommandsSender.h"
 
 #include "HDRParser.h"
-#ifdef HAVE_VCU2_CTRLSW
-#include "gmv.h"
-#endif
 
 #include "TwoPassMngr.h"
 
@@ -42,14 +39,15 @@ extern "C"
 #include "lib_common_enc/RateCtrlMeta.h"
 
 #include "../vcudata.hpp"
-
-#include "sink_bitstream_writer.h"
+#include "../vcuutils.hpp"
 
 #define NUM_PASS_OUTPUT 1
 
 #define MAX_NUM_REC_OUTPUT (MAX_NUM_LAYER > NUM_PASS_OUTPUT ? MAX_NUM_LAYER : NUM_PASS_OUTPUT)
 #define MAX_NUM_BITSTREAM_OUTPUT NUM_PASS_OUTPUT
 
+using DataCallback = std::function<void (std::vector<std::string_view>&)>;
+using en_codec_error = cv::vcucodec::en_codec_error;
 
 static std::string PictTypeToString(AL_ESliceType type)
 {
@@ -261,7 +259,6 @@ struct EncoderSink : IFrameSink
     CmdFile(cfg.sCmdFileName, false),
     EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_cfg(cfg),
-    Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
     twoPassMngr(cfg.sTwoPassFileName, cfg.Settings.TwoPass, cfg.Settings.bEnableFirstPassSceneChangeDetection, cfg.Settings.tChParam[0].tGopParam.uGopLength,
                 cfg.Settings.tChParam[0].tRCParam.uCPBSize / 90, cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay / 90, cfg.MainInput.FileInfo.FrameRate),
     pAllocator{pAllocator},
@@ -285,9 +282,6 @@ struct EncoderSink : IFrameSink
     for(int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
       RecOutput[i].reset(new NullFrameSink);
 
-    for(int32_t i = 0; i < MAX_NUM_BITSTREAM_OUTPUT; i++)
-      BitstreamOutput[i].reset(new NullFrameSink);
-
     for(int32_t i = 0; i < MAX_NUM_LAYER; i++)
       m_input_picCount[i] = 0;
 
@@ -308,9 +302,6 @@ struct EncoderSink : IFrameSink
     CmdFile(cfg.sCmdFileName, false),
     EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_cfg(cfg),
-#ifdef HAVE_VCU2_CTRLSW
-    Gmv(cfg.sGMVFileName, cfg.RunInfo.iFirstPict),
-#endif
     twoPassMngr(cfg.sTwoPassFileName, cfg.Settings.TwoPass, cfg.Settings.bEnableFirstPassSceneChangeDetection, cfg.Settings.tChParam[0].tGopParam.uGopLength,
                 cfg.Settings.tChParam[0].tRCParam.uCPBSize / 90, cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay / 90, cfg.MainInput.FileInfo.FrameRate),
     pAllocator{pAllocator},
@@ -332,9 +323,6 @@ struct EncoderSink : IFrameSink
 
     for(int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
       RecOutput[i].reset(new NullFrameSink);
-
-    for(int32_t i = 0; i < MAX_NUM_BITSTREAM_OUTPUT; i++)
-      BitstreamOutput[i].reset(new NullFrameSink);
 
     for(int32_t i = 0; i < MAX_NUM_LAYER; i++)
       m_input_picCount[i] = 0;
@@ -416,11 +404,8 @@ struct EncoderSink : IFrameSink
       return;
     }
 
-    DisplayFrameStatus(m_input_picCount[0]);
-
-#ifdef HAVE_VCU2_CTRLSW
-    Gmv.notify(hEnc);
-#endif
+    LogVerbose("\r  Encoding picture #%-6d - ", m_input_picCount[0]);
+    fflush(stdout);
 
     if(twoPassMngr.iPass)
     {
@@ -444,7 +429,6 @@ struct EncoderSink : IFrameSink
   }
 
   std::unique_ptr<IFrameSink> RecOutput[MAX_NUM_REC_OUTPUT];
-  std::unique_ptr<IFrameSink> BitstreamOutput[MAX_NUM_BITSTREAM_OUTPUT];
   DataCallback dataCallback_;
   AL_HEncoder hEnc;
   bool shouldAddDummySei = false;
@@ -458,9 +442,6 @@ private:
   safe_ifstream CmdFile;
   CEncCmdMngr EncCmd;
   ConfigFile const& m_cfg;
-#ifdef HAVE_VCU2_CTRLSW
-  GMV Gmv;
-#endif
   TwoPassMngr twoPassMngr;
   QPBuffers qpBuffers;
   std::unique_ptr<CommandsSender> commandsSender;
@@ -565,13 +546,9 @@ private:
       if(pMeta && pMeta->bFilled)
       {
       }
-#if 1
-      BitstreamOutput[iStreamId]->ProcessFrame(pStream->buf());
       std::vector<std::string_view> vec;
-#else
       pStream->walkBuffers([&vec](size_t size, uint8_t* data) { vec.push_back({(char*)data, size}); });
       dataCallback_(vec);
-#endif
     }
 
     return AL_SUCCESS;
