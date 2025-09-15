@@ -40,8 +40,8 @@ extern "C" {
 #include "lib_encode/lib_encoder.h"
 }
 
-#include "../vcudevice.hpp"
-#include "../vcuenccontext.hpp"
+#include "vcudevice.hpp"
+#include "vcuenccontext.hpp"
 #include "TwoPassMngr.h"
 
 #if !defined(HAS_COMPIL_FLAGS)
