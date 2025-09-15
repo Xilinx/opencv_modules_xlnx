@@ -5,9 +5,13 @@
 
 #pragma once
 #include <cassert>
+
+#include "lib_app/BufPool.h"
 #include "lib_app/timing.h"
 #include "lib_app/Sink.h"
 #include "lib_app/convert.h"
+#include "lib_app/YuvIO.h"
+
 #include "QPGenerator.h"
 #include "EncCmdMngr.h"
 #include "CommandsSender.h"
@@ -15,6 +19,12 @@
 #include "HDRParser.h"
 
 #include "TwoPassMngr.h"
+
+extern "C"
+{
+#include "lib_common/BufferPictureMeta.h"
+#include "lib_common/BufferStreamMeta.h"
+}
 
 #ifdef HAVE_VCU2_CTRLSW
 extern "C"

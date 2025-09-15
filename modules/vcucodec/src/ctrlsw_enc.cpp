@@ -4,12 +4,120 @@
 // SPDX-License-Identifier: MIT
 #if defined(HAVE_VCU_CTRLSW) || defined(HAVE_VCU2_CTRLSW)
 
-#include "ctrlsw_enc.hpp"
+//#include "ctrlsw_enc.hpp"
+#if defined(__linux__)
+#include <dirent.h>
+#endif
+
+#if defined(_WIN32)
+#include "extra/dirent/include/dirent.h"
+#endif
+
+
+#include "CfgParser.h"
+#include "resource.h"
+
+#include "sink_encoder.h"
+#include "sink_lookahead.h"
+
+#include "lib_app/AL_RasterConvert.h"
+#include "lib_app/BuildInfo.h"
+#include "lib_app/FileUtils.h"
+#include "lib_app/PixMapBufPool.h"
+
+#ifdef HAVE_VCU2_CTRLSW
+#include "lib_app/CompFrameReader.h"
+#include "lib_app/CompFrameCommon.h"
+#endif
+#include "lib_app/UnCompFrameReader.h"
+#include "lib_app/SinkFrame.h"
+#include "lib_app/plateform.h"
+
+extern "C" {
+#include "lib_common/RoundUp.h"
+#include "lib_common/StreamBuffer.h"
+#include "lib_common_enc/IpEncFourCC.h"
+#include "lib_encode/lib_encoder.h"
+}
 
 #include "../vcudevice.hpp"
 #include "../vcuenccontext.hpp"
 #include "TwoPassMngr.h"
 
+#if !defined(HAS_COMPIL_FLAGS)
+#define AL_COMPIL_FLAGS ""
+#endif
+
+#include <regex>
+
+namespace cv{
+namespace vcucodec{
+class Device;
+}}
+
+/*****************************************************************************/
+
+struct SrcConverterParams
+{
+  AL_TDimension tDim;
+  TFourCC tFileFourCC;
+  AL_TPicFormat tSrcPicFmt;
+  AL_ESrcFormat eSrcFormat;
+};
+
+/*****************************************************************************/
+struct SrcBufChunk
+{
+  int32_t iChunkSize;
+  std::vector<AL_TPlaneDescription> vPlaneDesc;
+};
+
+struct SrcBufDesc
+{
+  TFourCC tFourCC;
+  std::vector<SrcBufChunk> vChunks;
+};
+
+/*****************************************************************************/
+struct LayerResources
+{
+  void Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID, AL_TAllocator* pAllocator, int32_t chanId);
+
+  void PushResources(ConfigFile& cfg, EncoderSink* enc
+                     , EncoderLookAheadSink* encFirstPassLA
+                     );
+
+  void OpenEncoderInput(ConfigFile& cfg, AL_HEncoder hEnc);
+
+  bool SendInput(ConfigFile& cfg, IFrameSink* firstSink, void* pTraceHook);
+
+  bool sendInputFileTo(std::unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount);
+
+  std::unique_ptr<FrameReader> InitializeFrameReader(ConfigFile& cfg, std::ifstream& YuvFile, std::string sYuvFileName, std::ifstream& MapFile, std::string sMapFileName, AL_TYUVFileInfo& FileInfo);
+
+  void ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder hEnc);
+
+  BufPool StreamBufPool;
+  BufPool QpBufPool;
+  PixMapBufPool SrcBufPool;
+
+  // Input/Output Format conversion
+  std::ifstream YuvFile;
+  std::ifstream MapFile;
+  std::unique_ptr<FrameReader> frameReader;
+  std::unique_ptr<IConvSrc> pSrcConv;
+  std::shared_ptr<AL_TBuffer> SrcYuv;
+
+  std::vector<uint8_t> RecYuvBuffer;
+  std::unique_ptr<IFrameSink> frameWriter;
+
+  int32_t iPictCount = 0;
+  int32_t iReadCount = 0;
+
+  int32_t iLayerID = 0;
+  int32_t iInputIdx = 0;
+  std::vector<TConfigYUVInput> layerInputs;
+};
 
 using Device = cv::vcucodec::Device;
 static int32_t g_StrideHeight = -1;
@@ -27,66 +135,9 @@ static void DisplayVersionInfo(void)
                      AL_ENCODER_COMMENTS);
 }
 
-/*****************************************************************************/
-void SetDefaults(ConfigFile& cfg)
-{
-  cfg.BitstreamFileName = "Stream.bin";
-  cfg.RecFourCC = FOURCC(NULL);
-  AL_Settings_SetDefaults(&cfg.Settings);
-  cfg.MainInput.FileInfo.FourCC = FOURCC(I420);
-  cfg.MainInput.FileInfo.FrameRate = 0;
-  cfg.MainInput.FileInfo.PictHeight = 0;
-  cfg.MainInput.FileInfo.PictWidth = 0;
-  cfg.RunInfo.encDevicePaths = {};
-#ifdef HAVE_VCU2_CTRLSW
-  cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
-  cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
-#elif defined(HAVE_VCU_CTRLSW)
-  cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
-  cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU;
-#endif
-  cfg.RunInfo.bLoop = false;
-  cfg.RunInfo.iMaxPict = INT32_MAX; // ALL
-  cfg.RunInfo.iFirstPict = 0;
-  cfg.RunInfo.iScnChgLookAhead = 3;
-  cfg.RunInfo.ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
-  cfg.RunInfo.uInputSleepInMilliseconds = 0;
-  cfg.strict_mode = false;
-  cfg.iForceStreamBufSize = 0;
-}
+std::unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
+    cv::Ptr<cv::vcucodec::Device>& device, DataCallback dataCallback);
 
-#if 0
-static void introspect(ConfigFile& cfg)
-{
-  (void)cfg;
-  throw runtime_error("introspection is not compiled in");
-}
-#endif
-
-void SetCodingResolution(ConfigFile& cfg)
-{
-  int32_t iMaxSrcWidth = cfg.MainInput.FileInfo.PictWidth;
-  int32_t iMaxSrcHeight = cfg.MainInput.FileInfo.PictHeight;
-
-  for(auto const& input: cfg.DynamicInputs)
-  {
-    iMaxSrcWidth = max(input.FileInfo.PictWidth, iMaxSrcWidth);
-    iMaxSrcHeight = max(input.FileInfo.PictHeight, iMaxSrcHeight);
-  }
-
-  cfg.Settings.tChParam[0].uSrcWidth = iMaxSrcWidth;
-  cfg.Settings.tChParam[0].uSrcHeight = iMaxSrcHeight;
-
-  cfg.Settings.tChParam[0].uEncWidth = cfg.Settings.tChParam[0].uSrcWidth;
-  cfg.Settings.tChParam[0].uEncHeight = cfg.Settings.tChParam[0].uSrcHeight;
-
-  if(cfg.Settings.tChParam[0].bEnableSrcCrop)
-  {
-    cfg.Settings.tChParam[0].uEncWidth = cfg.Settings.tChParam[0].uSrcCropWidth;
-    cfg.Settings.tChParam[0].uEncHeight = cfg.Settings.tChParam[0].uSrcCropHeight;
-  }
-
-}
 
 /*****************************************************************************/
 static bool checkQPTableFolder(ConfigFile& cfg)
@@ -109,13 +160,13 @@ static bool checkQPTableFolder(ConfigFile& cfg)
 
 static void ValidateConfig(ConfigFile& cfg)
 {
-  string const invalid_settings("Invalid settings, check the [SETTINGS] section of your configuration file or check your commandline (use -h to get help)");
+  std::string const invalid_settings("Invalid settings, check the [SETTINGS] section of your configuration file or check your commandline (use -h to get help)");
 
   if(cfg.MainInput.YUVFileName.empty())
-    throw runtime_error("No YUV input was given, specify it in the [INPUT] section of your configuration file or in your commandline (use -h to get help)");
+    throw std::runtime_error("No YUV input was given, specify it in the [INPUT] section of your configuration file or in your commandline (use -h to get help)");
 
   if(!cfg.MainInput.sQPTablesFolder.empty() && ((cfg.RunInfo.eGenerateQpMode & AL_GENERATE_QP_TABLE_MASK) != AL_GENERATE_LOAD_QP))
-    throw runtime_error("QPTablesFolder can only be specified with Load QP control mode");
+    throw std::runtime_error("QPTablesFolder can only be specified with Load QP control mode");
 
   SetConsoleColor(CC_RED);
 
@@ -132,21 +183,21 @@ static void ValidateConfig(ConfigFile& cfg)
 
     if(err != 0)
     {
-      stringstream ss;
+      std::stringstream ss;
       ss << "Found: " << err << " errors(s). " << invalid_settings;
-      throw runtime_error(ss.str());
+      throw std::runtime_error(ss.str());
     }
 
     if((cfg.RunInfo.eGenerateQpMode & AL_GENERATE_QP_TABLE_MASK) == AL_GENERATE_LOAD_QP)
     {
       if(!checkQPTableFolder(cfg))
-        throw runtime_error("No QP File found");
+        throw std::runtime_error("No QP File found");
     }
 
     auto const incoherencies = AL_Settings_CheckCoherency(&cfg.Settings, &cfg.Settings.tChParam[i], cfg.MainInput.FileInfo.FourCC, out);
 
     if(incoherencies < 0)
-      throw runtime_error("Fatal coherency error in settings (layer[" + to_string(i) + "/" + to_string(MaxLayer) + "])");
+      throw std::runtime_error("Fatal coherency error in settings (layer[" + std::to_string(i) + "/" + std::to_string(MaxLayer) + "])");
 
   }
 
@@ -195,21 +246,21 @@ static void SetMoreDefaults(ConfigFile& cfg)
 
     if(!RecFileName.empty())
       if(tRecPicFormat.eStorageMode != AL_FB_RASTER && !tRecPicFormat.bCompressed)
-        throw runtime_error("Reconstructed storage format can only be tiled if compressed.");
+        throw std::runtime_error("Reconstructed storage format can only be tiled if compressed.");
   }
 }
 
 /*****************************************************************************/
-static shared_ptr<AL_TBuffer> AllocateConversionBuffer(int32_t iWidth, int32_t iHeight, TFourCC tFourCC)
+static std::shared_ptr<AL_TBuffer> AllocateConversionBuffer(int32_t iWidth, int32_t iHeight, TFourCC tFourCC)
 {
   AL_TBuffer* pYuv = AllocateDefaultYuvIOBuffer(AL_TDimension { iWidth, iHeight }, tFourCC);
 
   if(pYuv == nullptr)
     return nullptr;
-  return shared_ptr<AL_TBuffer>(pYuv, &AL_Buffer_Destroy);
+  return std::shared_ptr<AL_TBuffer>(pYuv, &AL_Buffer_Destroy);
 }
 
-static bool ReadSourceFrameBuffer(AL_TBuffer* pBuffer, AL_TBuffer* conversionBuffer, unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, IConvSrc* hConv)
+static bool ReadSourceFrameBuffer(AL_TBuffer* pBuffer, AL_TBuffer* conversionBuffer, std::unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, IConvSrc* hConv)
 {
 
   AL_PixMapBuffer_SetDimension(pBuffer, tUpdatedDim);
@@ -228,12 +279,12 @@ static bool ReadSourceFrameBuffer(AL_TBuffer* pBuffer, AL_TBuffer* conversionBuf
   return true;
 }
 
-static shared_ptr<AL_TBuffer> ReadSourceFrame(BaseBufPool* pBufPool, AL_TBuffer* conversionBuffer, unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, IConvSrc* hConv)
+static std::shared_ptr<AL_TBuffer> ReadSourceFrame(BaseBufPool* pBufPool, AL_TBuffer* conversionBuffer, std::unique_ptr<FrameReader> const& frameReader, AL_TDimension tUpdatedDim, IConvSrc* hConv)
 {
-  shared_ptr<AL_TBuffer> sourceBuffer = pBufPool->GetSharedBuffer();
+  std::shared_ptr<AL_TBuffer> sourceBuffer = pBufPool->GetSharedBuffer();
 
   if(sourceBuffer == nullptr)
-    throw runtime_error("sourceBuffer must exist");
+    throw std::runtime_error("sourceBuffer must exist");
 
   if(!ReadSourceFrameBuffer(sourceBuffer.get(), conversionBuffer, frameReader, tUpdatedDim, hConv))
     return nullptr;
@@ -265,13 +316,13 @@ static bool IsConversionNeeded(SrcConverterParams& tSrcConverterParams)
   return false;
 }
 
-static unique_ptr<IConvSrc> AllocateSrcConverter(SrcConverterParams const& tSrcConverterParams, shared_ptr<AL_TBuffer>& pFileReaderYuv)
+static std::unique_ptr<IConvSrc> AllocateSrcConverter(SrcConverterParams const& tSrcConverterParams, std::shared_ptr<AL_TBuffer>& pFileReaderYuv)
 {
   // ********** Allocate the YUV buffer to read in the file **********
   pFileReaderYuv = AllocateConversionBuffer(tSrcConverterParams.tDim.iWidth, tSrcConverterParams.tDim.iHeight, tSrcConverterParams.tFileFourCC);
 
   if(pFileReaderYuv == nullptr)
-    throw runtime_error("Couldn't allocate source conversion buffer");
+    throw std::runtime_error("Couldn't allocate source conversion buffer");
 
   // ************* Allocate the YUV converter *************
   TFrameInfo tSrcFrameInfo = { tSrcConverterParams.tDim, tSrcConverterParams.tSrcPicFmt.uBitDepth, tSrcConverterParams.tSrcPicFmt.eChromaMode };
@@ -280,16 +331,16 @@ static unique_ptr<IConvSrc> AllocateSrcConverter(SrcConverterParams const& tSrcC
   switch(tSrcConverterParams.eSrcFormat)
   {
   case AL_SRC_FORMAT_RASTER:
-    return make_unique<CYuvSrcConv>(tSrcFrameInfo);
+    return std::make_unique<CYuvSrcConv>(tSrcFrameInfo);
 #ifdef HAVE_VCU2_CTRLSW
   case AL_SRC_FORMAT_RASTER_MSB:
-    return make_unique<CYuvSrcConv>(tSrcFrameInfo);
+    return std::make_unique<CYuvSrcConv>(tSrcFrameInfo);
   case AL_SRC_FORMAT_TILE_64x4:
   case AL_SRC_FORMAT_TILE_32x4:
-    return make_unique<CYuvSrcConv>(tSrcFrameInfo);
+    return std::make_unique<CYuvSrcConv>(tSrcFrameInfo);
 #endif
   default:
-    throw runtime_error("Unsupported source conversion.");
+    throw std::runtime_error("Unsupported source conversion.");
   }
 
   return nullptr;
@@ -302,7 +353,7 @@ static int32_t ComputeYPitch(int32_t iWidth, const AL_TPicFormat& tPicFormat)
   if(g_Stride != -1)
   {
     if(g_Stride < iPitch)
-      throw runtime_error("g_Stride(" + to_string(g_Stride) + ") must be higher or equal than iPitch(" + to_string(iPitch) + ")");
+      throw std::runtime_error("g_Stride(" + std::to_string(g_Stride) + ") must be higher or equal than iPitch(" + std::to_string(iPitch) + ")");
     iPitch = g_Stride;
   }
   return iPitch;
@@ -313,9 +364,9 @@ static bool isLastPict(int32_t iPictCount, int32_t iMaxPict)
   return (iPictCount >= iMaxPict) && (iMaxPict != -1);
 }
 
-static shared_ptr<AL_TBuffer> GetSrcFrame(int& iReadCount, int32_t iPictCount, unique_ptr<FrameReader> const& frameReader, AL_TYUVFileInfo const& FileInfo, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, AL_TEncChanParam const& tChParam, ConfigFile const& cfg, IConvSrc* pSrcConv)
+static std::shared_ptr<AL_TBuffer> GetSrcFrame(int& iReadCount, int32_t iPictCount, std::unique_ptr<FrameReader> const& frameReader, AL_TYUVFileInfo const& FileInfo, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, AL_TEncChanParam const& tChParam, ConfigFile const& cfg, IConvSrc* pSrcConv)
 {
-  shared_ptr<AL_TBuffer> frame;
+  std::shared_ptr<AL_TBuffer> frame;
 
   if(!isLastPict(iPictCount, cfg.RunInfo.iMaxPict))
   {
@@ -349,7 +400,7 @@ static AL_ESrcMode SrcFormatToSrcMode(AL_ESrcFormat eSrcFormat)
     return AL_SRC_TILE_32x4;
 #endif
   default:
-    throw runtime_error("Unsupported source format.");
+    throw std::runtime_error("Unsupported source format.");
   }
 }
 
@@ -474,7 +525,7 @@ static bool InitStreamBufPool(BufPool& pool, AL_TEncSettings& Settings, int32_t 
   }
 
   if(streamSize > INT32_MAX)
-    throw runtime_error("streamSize(" + to_string(streamSize) + ") must be lower or equal than INT32_MAX(" + to_string(INT32_MAX) + ")");
+    throw std::runtime_error("streamSize(" + std::to_string(streamSize) + ") must be lower or equal than INT32_MAX(" + std::to_string(INT32_MAX) + ")");
 
   auto pMetaData = (AL_TMetaData*)AL_StreamMetaData_Create(AL_MAX_SECTION);
   bool bSucceed = pool.Init(pAllocator, numStreams, streamSize, pMetaData, "stream");
@@ -629,7 +680,7 @@ void LayerResources::PushResources(ConfigFile& cfg, EncoderSink* enc
     std::shared_ptr<AL_TBuffer> pStream = StreamBufPool.GetSharedBuffer(AL_EBufMode::AL_BUF_MODE_NONBLOCK);
 
     if(pStream == nullptr)
-      throw runtime_error("pStream must exist");
+      throw std::runtime_error("pStream must exist");
 
     AL_HEncoder hEnc = enc->hEnc;
 
@@ -667,7 +718,7 @@ bool LayerResources::SendInput(ConfigFile& cfg, IFrameSink* firstSink, void* pTr
   return sendInputFileTo(frameReader, SrcBufPool, SrcYuv.get(), cfg, layerInputs[iInputIdx].FileInfo, pSrcConv.get(), firstSink, iPictCount, iReadCount);
 }
 
-bool LayerResources::sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount)
+bool LayerResources::sendInputFileTo(std::unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo, IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount)
 {
   if(AL_IS_ERROR_CODE(GetEncoderLastError()))
   {
@@ -675,7 +726,7 @@ bool LayerResources::sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMa
     return false;
   }
 
-  shared_ptr<AL_TBuffer> frame = GetSrcFrame(iReadCount, iPictCount, frameReader, FileInfo, SrcBufPool, Yuv, cfg.Settings.tChParam[0], cfg, pSrcConv);
+  std::shared_ptr<AL_TBuffer> frame = GetSrcFrame(iReadCount, iPictCount, frameReader, FileInfo, SrcBufPool, Yuv, cfg.Settings.tChParam[0], cfg, pSrcConv);
 
   sink->ProcessFrame(frame.get());
 
@@ -686,23 +737,23 @@ bool LayerResources::sendInputFileTo(unique_ptr<FrameReader>& frameReader, PixMa
   return true;
 }
 
-unique_ptr<FrameReader> LayerResources::InitializeFrameReader(ConfigFile& cfg, ifstream& YuvFile, string sYuvFileName, ifstream& MapFile, string sMapFileName, AL_TYUVFileInfo& FileInfo)
+std::unique_ptr<FrameReader> LayerResources::InitializeFrameReader(ConfigFile& cfg, std::ifstream& YuvFile, std::string sYuvFileName, std::ifstream& MapFile, std::string sMapFileName, AL_TYUVFileInfo& FileInfo)
 {
   (void)(MapFile);
 
-  unique_ptr<FrameReader> pFrameReader;
+  std::unique_ptr<FrameReader> pFrameReader;
   bool bUseCompressedFormat = AL_IsCompressed(FileInfo.FourCC);
   bool bHasCompressionMapFile = !sMapFileName.empty();
 
   if(bUseCompressedFormat != bHasCompressionMapFile)
-    throw runtime_error(std::string("Providing a map file is ") + std::string(bUseCompressedFormat ? "mandatory" : "forbidden") +
+    throw std::runtime_error(std::string("Providing a map file is ") + std::string(bUseCompressedFormat ? "mandatory" : "forbidden") +
                         " when using " + std::string(bUseCompressedFormat ? "compressed" : "uncompressed") + " input.");
 
   YuvFile.close();
   OpenInput(YuvFile, sYuvFileName);
 
   if(!bUseCompressedFormat)
-    pFrameReader = unique_ptr<FrameReader>(new UnCompFrameReader(YuvFile, FileInfo, cfg.RunInfo.bLoop));
+    pFrameReader = std::unique_ptr<FrameReader>(new UnCompFrameReader(YuvFile, FileInfo, cfg.RunInfo.bLoop));
 #ifdef HAVE_VCU2_CTRLSW
   pFrameReader->SeekA(cfg.RunInfo.iFirstPict + iReadCount);
 #elif defined(HAVE_VCU_CTRLSW)
@@ -740,7 +791,7 @@ void LayerResources::ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder
   }
 }
 
-static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<LayerResources>>& pLayerResources,
+static std::unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
     cv::Ptr<Device> device, int32_t chanId, DataCallback dataCallback)
 {
 
@@ -748,8 +799,8 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
 
   /* null if not supported */
   //void* pTraceHook {};
-  unique_ptr<EncoderSink> enc;
-  unique_ptr<EncoderLookAheadSink> encFirstPassLA;
+  std::unique_ptr<EncoderSink> enc;
+  std::unique_ptr<EncoderLookAheadSink> encFirstPassLA;
 
   auto pAllocator = device->getAllocator();
   auto pScheduler = (AL_IEncScheduler*)device->getScheduler();
@@ -801,7 +852,7 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
 
   for(size_t i = 0; i < pLayerResources.size(); i++)
   {
-    auto multisinkRec = unique_ptr<MultiSink>(new MultiSink);
+    auto multisinkRec = std::unique_ptr<MultiSink>(new MultiSink);
     pLayerResources[i]->Init(cfg, tEncInfo, i, pAllocator, chanId);
     pLayerResources[i]->PushResources(cfg, enc.get()
                                     ,
@@ -809,7 +860,7 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
                                     );
 
     // Rec file creation
-    string LayerRecFileName = cfg.RecFileName;
+    std::string LayerRecFileName = cfg.RecFileName;
 
     if(!LayerRecFileName.empty())
     {
@@ -850,10 +901,10 @@ static unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg, vector<unique_ptr<La
 }
 
 /*****************************************************************************/
-unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
+std::unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
     cv::Ptr<cv::vcucodec::Device>& device, DataCallback dataCallback)
 {
-  unique_ptr<EncoderSink> enc;
+  std::unique_ptr<EncoderSink> enc;
   InitializePlateform();
 
   {
@@ -891,14 +942,13 @@ unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg, std::vector<std::unique_p
 #endif
 
   if(!AL_IS_SUCCESS_CODE(AL_Lib_Encoder_Init(eArch)))
-    throw runtime_error("Can't setup encode library");
+    throw std::runtime_error("Can't setup encode library");
 
   device = Device::create(Device::ENCODER);
   enc = ChannelMain(cfg, pLayerResources, device, 0, dataCallback);
 
   return enc;
 }
-
 
 namespace cv {
 namespace vcucodec {

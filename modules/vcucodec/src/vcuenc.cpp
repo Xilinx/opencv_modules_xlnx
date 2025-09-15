@@ -14,12 +14,17 @@
    limitations under the License.
 */
 #include "vcuenc.hpp"
-#include "ctrlsw_enc.hpp"
 
 #include "private/vcuutils.hpp"
 #include "../vcudevice.hpp"
 
+extern "C" {
+#include "lib_common/PixMapBuffer.h"
+}
+
 #include <array>
+#include <map>
+
 namespace cv {
 namespace vcucodec {
 namespace { // anonymous
@@ -134,6 +139,56 @@ uint8_t getLevel(Codec codec, String level)
     return codecVal;
 }
 
+void setDefaults(ConfigFile& cfg)
+{
+    cfg.BitstreamFileName = "Stream.bin";
+    cfg.RecFourCC = FOURCC(NULL);
+    AL_Settings_SetDefaults(&cfg.Settings);
+    cfg.MainInput.FileInfo.FourCC = FOURCC(I420);
+    cfg.MainInput.FileInfo.FrameRate = 0;
+    cfg.MainInput.FileInfo.PictHeight = 0;
+    cfg.MainInput.FileInfo.PictWidth = 0;
+    cfg.RunInfo.encDevicePaths = {};
+#ifdef HAVE_VCU2_CTRLSW
+    cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
+    cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
+#elif defined(HAVE_VCU_CTRLSW)
+    cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
+    cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU;
+#endif
+    cfg.RunInfo.bLoop = false;
+    cfg.RunInfo.iMaxPict = INT32_MAX; // ALL
+    cfg.RunInfo.iFirstPict = 0;
+    cfg.RunInfo.iScnChgLookAhead = 3;
+    cfg.RunInfo.ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
+    cfg.RunInfo.uInputSleepInMilliseconds = 0;
+    cfg.strict_mode = false;
+    cfg.iForceStreamBufSize = 0;
+}
+
+void setCodingResolution(ConfigFile& cfg)
+{
+    int32_t iMaxSrcWidth = cfg.MainInput.FileInfo.PictWidth;
+    int32_t iMaxSrcHeight = cfg.MainInput.FileInfo.PictHeight;
+
+    for(auto const& input: cfg.DynamicInputs)
+    {
+        iMaxSrcWidth = max(input.FileInfo.PictWidth, iMaxSrcWidth);
+        iMaxSrcHeight = max(input.FileInfo.PictHeight, iMaxSrcHeight);
+    }
+
+    cfg.Settings.tChParam[0].uSrcWidth = iMaxSrcWidth;
+    cfg.Settings.tChParam[0].uSrcHeight = iMaxSrcHeight;
+
+    cfg.Settings.tChParam[0].uEncWidth = cfg.Settings.tChParam[0].uSrcWidth;
+    cfg.Settings.tChParam[0].uEncHeight = cfg.Settings.tChParam[0].uSrcHeight;
+
+    if(cfg.Settings.tChParam[0].bEnableSrcCrop)
+    {
+        cfg.Settings.tChParam[0].uEncWidth = cfg.Settings.tChParam[0].uSrcCropWidth;
+        cfg.Settings.tChParam[0].uEncHeight = cfg.Settings.tChParam[0].uSrcCropHeight;
+    }
+}
 
 class DefaultEncoderCallback : public EncoderCallback
 {
@@ -178,7 +233,7 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params, 
     (void) profile; // TODO
     uint8_t level = getLevel(params.codec, params.profileSettings.level);
     (void) level; // TODO
-    SetDefaults(cfg);
+    setDefaults(cfg);
     cfg.BitstreamFileName = filename;
     cfg.eSrcFormat = AL_SRC_FORMAT_RASTER;
     cfg.MainInput.YUVFileName = "../video/Crowd_Run_1280_720_Y800.yuv";
@@ -196,7 +251,7 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params, 
     cfg.Settings.tChParam[0].tRCParam.uTargetBitRate = params.bitrate * 1000;
     cfg.Settings.tChParam[0].tGopParam.uGopLength = params.gopLength;
     cfg.Settings.tChParam[0].tGopParam.uNumB = params.nrBFrames;
-    SetCodingResolution(cfg);
+    setCodingResolution(cfg);
     if (!callback_)
     {
         callback_.reset(new DefaultEncoderCallback(filename_));
