@@ -19,6 +19,18 @@
 
 #include <opencv2/core.hpp>
 
+#include "lib_app/InputFiles.h"
+#include "lib_app/utils.h"
+#include "QPGenerator.h"
+
+#include "config.h"
+
+extern "C"
+{
+#include "lib_common_enc/Settings.h"
+#include "lib_common_enc/RateCtrlMeta.h"
+}
+
 #include <memory>
 #include <vector>
 

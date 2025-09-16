@@ -31,6 +31,7 @@ extern "C" {
 #include "lib_common/RoundUp.h"
 #include "lib_common/StreamBuffer.h"
 #include "lib_common_enc/IpEncFourCC.h"
+#include "lib_common_enc/RateCtrlMeta.h"
 #include "lib_encode/lib_encoder.h"
 }
 

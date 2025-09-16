@@ -46,7 +46,9 @@ extern "C"
 #include <chrono>
 
 #include "RCPlugin.h"
+extern "C" {
 #include "lib_common_enc/RateCtrlMeta.h"
+}
 
 #include "../vcudata.hpp"
 #include "../vcuutils.hpp"
