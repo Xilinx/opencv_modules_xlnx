@@ -8,7 +8,6 @@
 #include <dirent.h>
 
 
-#include "CfgParser.h"
 #include "resource.h"
 
 #include "sink_encoder.h"
@@ -51,6 +50,7 @@ class Device;
 
 namespace { // anonymous
 
+using Config = cv::vcucodec::EncContext::Config;
 /*****************************************************************************/
 
 struct SrcConverterParams
@@ -77,24 +77,24 @@ struct SrcBufDesc
 /*****************************************************************************/
 struct LayerResources
 {
-    void Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID,
+    void Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID,
               AL_TAllocator* pAllocator, int32_t chanId);
 
-    void PushResources(ConfigFile& cfg, EncoderSink* enc , EncoderLookAheadSink* encFirstPassLA);
+    void PushResources(Config& cfg, EncoderSink* enc , EncoderLookAheadSink* encFirstPassLA);
 
-    void OpenEncoderInput(ConfigFile& cfg, AL_HEncoder hEnc);
+    void OpenEncoderInput(Config& cfg, AL_HEncoder hEnc);
 
-    bool SendInput(ConfigFile& cfg, IFrameSink* firstSink, void* pTraceHook);
+    bool SendInput(Config& cfg, IFrameSink* firstSink, void* pTraceHook);
 
     bool sendInputFileTo(std::unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool,
-                         AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo,
+                         AL_TBuffer* Yuv, Config const& cfg, AL_TYUVFileInfo& FileInfo,
                          IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount);
 
-    std::unique_ptr<FrameReader> InitializeFrameReader(ConfigFile& cfg, std::ifstream& YuvFile,
+    std::unique_ptr<FrameReader> InitializeFrameReader(Config& cfg, std::ifstream& YuvFile,
          std::string sYuvFileName, std::ifstream& MapFile, std::string sMapFileName,
          AL_TYUVFileInfo& FileInfo);
 
-    void ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder hEnc);
+    void ChangeInput(Config& cfg, int32_t iInputIdx, AL_HEncoder hEnc);
 
     BufPool StreamBufPool;
     BufPool QpBufPool;
@@ -115,7 +115,7 @@ struct LayerResources
 
     int32_t iLayerID = 0;
     int32_t iInputIdx = 0;
-    std::vector<TConfigYUVInput> layerInputs;
+    std::vector<ConfigYUVInput> layerInputs;
 };
 
 static int32_t g_StrideHeight = -1;
@@ -134,7 +134,7 @@ void DisplayVersionInfo(void)
 
 
 /*****************************************************************************/
-bool checkQPTableFolder(ConfigFile& cfg)
+bool checkQPTableFolder(Config& cfg)
 {
     std::regex qp_file_per_frame_regex("QP(^|)(s|_[0-9]+)\\.hex");
 
@@ -152,7 +152,7 @@ bool checkQPTableFolder(ConfigFile& cfg)
 #endif
 }
 
-void ValidateConfig(ConfigFile& cfg)
+void ValidateConfig(Config& cfg)
 {
     std::string const invalid_settings("Invalid settings, check the [SETTINGS] section of your "
             "configuration file or check your commandline (use -h to get help)");
@@ -205,7 +205,7 @@ void ValidateConfig(ConfigFile& cfg)
     SetConsoleColor(CC_DEFAULT);
 }
 
-void SetMoreDefaults(ConfigFile& cfg)
+void SetMoreDefaults(Config& cfg)
 {
     auto& FileInfo = cfg.MainInput.FileInfo;
     auto& Settings = cfg.Settings;
@@ -376,7 +376,7 @@ bool isLastPict(int32_t iPictCount, int32_t iMaxPict)
 std::shared_ptr<AL_TBuffer> GetSrcFrame(int& iReadCount, int32_t iPictCount,
     std::unique_ptr<FrameReader> const& frameReader, AL_TYUVFileInfo const& FileInfo,
     PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, AL_TEncChanParam const& tChParam,
-    ConfigFile const& cfg, IConvSrc* pSrcConv)
+    Config const& cfg, IConvSrc* pSrcConv)
 {
     std::shared_ptr<AL_TBuffer> frame;
 
@@ -579,7 +579,7 @@ void InitSrcBufPool(PixMapBufPool& SrcBufPool, AL_TAllocator* pAllocator,
 }
 
 /*****************************************************************************/
-void LayerResources::Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID,
+void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID,
                           AL_TAllocator* pAllocator, int32_t chanId)
 {
     AL_TEncSettings& Settings = cfg.Settings;
@@ -688,7 +688,7 @@ void LayerResources::Init(ConfigFile& cfg, AL_TEncoderInfo tEncInfo, int32_t iLa
     iReadCount = 0;
 }
 
-void LayerResources::PushResources(ConfigFile& cfg, EncoderSink* enc ,
+void LayerResources::PushResources(Config& cfg, EncoderSink* enc ,
                                    EncoderLookAheadSink* encFirstPassLA)
 {
     (void)cfg;
@@ -740,12 +740,12 @@ void LayerResources::PushResources(ConfigFile& cfg, EncoderSink* enc ,
     }
 }
 
-[[maybe_unused]] void LayerResources::OpenEncoderInput(ConfigFile& cfg, AL_HEncoder hEnc)
+[[maybe_unused]] void LayerResources::OpenEncoderInput(Config& cfg, AL_HEncoder hEnc)
 {
     ChangeInput(cfg, iInputIdx, hEnc);
 }
 
-[[maybe_unused]] bool LayerResources::SendInput(ConfigFile& cfg, IFrameSink* firstSink,
+[[maybe_unused]] bool LayerResources::SendInput(Config& cfg, IFrameSink* firstSink,
                                                 void* pTraceHooker)
 {
     (void)pTraceHooker;
@@ -756,7 +756,7 @@ void LayerResources::PushResources(ConfigFile& cfg, EncoderSink* enc ,
 }
 
 bool LayerResources::sendInputFileTo(std::unique_ptr<FrameReader>& frameReader,
-    PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, ConfigFile const& cfg, AL_TYUVFileInfo& FileInfo,
+    PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, Config const& cfg, AL_TYUVFileInfo& FileInfo,
     IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount)
 {
     if (AL_IS_ERROR_CODE(GetEncoderLastError()))
@@ -777,7 +777,7 @@ bool LayerResources::sendInputFileTo(std::unique_ptr<FrameReader>& frameReader,
     return true;
 }
 
-std::unique_ptr<FrameReader> LayerResources::InitializeFrameReader(ConfigFile& cfg,
+std::unique_ptr<FrameReader> LayerResources::InitializeFrameReader(Config& cfg,
         std::ifstream& YuvFile, std::string sYuvFileName, std::ifstream& MapFile,
         std::string sMapFileName, AL_TYUVFileInfo& FileInfo)
 {
@@ -807,7 +807,7 @@ std::unique_ptr<FrameReader> LayerResources::InitializeFrameReader(ConfigFile& c
     return pFrameReader;
 }
 
-void LayerResources::ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder hEnc)
+void LayerResources::ChangeInput(Config& cfg, int32_t iInputIdx, AL_HEncoder hEnc)
 {
     (void)hEnc;
 
@@ -838,7 +838,7 @@ void LayerResources::ChangeInput(ConfigFile& cfg, int32_t iInputIdx, AL_HEncoder
     }
 }
 
-std::unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg,
+std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
         std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
         Ptr<Device> device, int32_t chanId, DataCallback dataCallback)
 {
@@ -949,7 +949,7 @@ std::unique_ptr<EncoderSink> ChannelMain(ConfigFile& cfg,
 }
 
 /*****************************************************************************/
-std::unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg,
+std::unique_ptr<EncoderSink> CtrlswEncOpen(Config& cfg,
         std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
         Ptr<Device>& device, DataCallback dataCallback)
 {
@@ -1003,7 +1003,7 @@ std::unique_ptr<EncoderSink> CtrlswEncOpen(ConfigFile& cfg,
 class EncoderContext : public EncContext
 {
 public:
-    EncoderContext(ConfigFile& cfg, Ptr<Device>& device, DataCallback dataCallback);
+    EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback);
     virtual ~EncoderContext();
 
     virtual void writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer) override;
@@ -1017,10 +1017,10 @@ private:
 };
 
 
-EncoderContext::EncoderContext(ConfigFile& cfg, Ptr<Device>& device, DataCallback dataCallback)
+EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback)
 {
     layerResources_.emplace_back(std::make_unique<LayerResources>());
-    enc_ = CtrlswEncOpen(cfg, layerResources_, device, dataCallback);
+    enc_ = CtrlswEncOpen(*cfg, layerResources_, device, dataCallback);
 }
 
 EncoderContext::~EncoderContext()
@@ -1059,7 +1059,7 @@ void EncoderContext::notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gm
 
 
 /*static*/
-Ptr<EncContext> EncContext::create(ConfigFile& cfg, Ptr<Device>& device, DataCallback dataCallback)
+Ptr<EncContext> EncContext::create(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback)
 {
     Ptr<EncoderContext> ctx(new EncoderContext(cfg, device, dataCallback));
     return ctx;

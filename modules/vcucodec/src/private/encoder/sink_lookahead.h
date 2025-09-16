@@ -8,11 +8,12 @@
 #include <memory>
 #include <stdexcept>
 #include <cassert>
-#include "CfgParser.h"
 #include "lib_app/Sink.h"
 #include "TwoPassMngr.h"
 
 #include "../vcuutils.hpp"
+#include "../vcuenccontext.hpp"
+
 using en_codec_error = cv::vcucodec::en_codec_error;
 
 /*
@@ -27,7 +28,7 @@ using en_codec_error = cv::vcucodec::en_codec_error;
 struct EncoderLookAheadSink : IFrameSink
 {
 #ifdef HAVE_VCU2_CTRLSW
-  explicit EncoderLookAheadSink(ConfigFile const& cfg
+  explicit EncoderLookAheadSink(cv::vcucodec::EncContext::Config const& cfg
                                 , AL_RiscV_Ctx ctx
                                 , AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName),
@@ -66,7 +67,7 @@ struct EncoderLookAheadSink : IFrameSink
   }
 #endif
 
-  explicit EncoderLookAheadSink(ConfigFile const& cfg
+  explicit EncoderLookAheadSink(cv::vcucodec::EncContext::Config const& cfg
                                 , AL_IEncScheduler* pScheduler
                                 , AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName),
@@ -170,7 +171,7 @@ private:
   int32_t m_pictureType = -1;
   std::ifstream CmdFile;
   CEncCmdMngr EncCmd;
-  ConfigFile cfgLA;
+  cv::vcucodec::EncContext::Config cfgLA;
   QPBuffers qpBuffers;
   std::unique_ptr<CommandsSender> commandsSender;
   LookAheadMngr lookAheadMngr;

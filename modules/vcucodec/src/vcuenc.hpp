@@ -15,8 +15,6 @@
 */
 #include "opencv2/vcucodec.hpp"
 
-#include "CfgParser.h" // ConfigFile
-
 #include "private/vcuenccontext.hpp"
 
 namespace cv {
@@ -55,8 +53,8 @@ private:
     EncoderInitParams params_;
     Ptr<EncoderCallback> callback_;
     Ptr<EncContext> enc_;
-    cv::Ptr<Device> device_;
-    ConfigFile cfg;
+    Ptr<Device> device_;
+    Ptr<EncContext::Config> cfg_;
     mutable std::mutex settingsMutex_;
     Settings currentSettings_;
 };

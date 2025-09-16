@@ -67,10 +67,8 @@ class DecContext
     // Return statistics on the decoding process, available once decoding has finished.
     virtual String statistics() const = 0;
 
-    static std::shared_ptr<DecContext> create(std::shared_ptr<Config> pDecConfig,
-        Ptr<RawOutput> rawOutput, WorkerConfig& wCfg);
+    static Ptr<DecContext> create(Ptr<Config>, Ptr<RawOutput> rawOutput, WorkerConfig& wCfg);
 };
-
 
 enum EDecErrorLevel
 {
@@ -86,57 +84,56 @@ enum OutputBitDepth {
 
 struct DecContext::Config
 {
-  Config();
-  static int32_t const zDefaultInputBufferSize = 32 * 1024;
-  bool help = false;
+    Config();
+    static int32_t const zDefaultInputBufferSize = 32 * 1024;
+    bool help = false;
 
-  std::string sIn;
-  std::string sMainOut = "default.yuv"; // Output rec file
-  std::string sCrc;
+    std::string sIn;
+    std::string sMainOut = "default.yuv"; // Output rec file
+    std::string sCrc;
 
-  AL_TDecSettings tDecSettings {};
-  AL_TDecOutputSettings tUserOutputSettings {};
-  bool bEnableCrop = false;
-  int32_t iDecMaxAxiBurstSize = 0;
+    AL_TDecSettings tDecSettings {};
+    AL_TDecOutputSettings tUserOutputSettings {};
+    bool bEnableCrop = false;
+    int32_t iDecMaxAxiBurstSize = 0;
 
-  #ifdef HAVE_VCU2_CTRLSW
-  AL_EDeviceType eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
-  #elif defined(HAVE_VCU_CTRLSW)
-  AL_EDeviceType eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
-  #endif
-  AL_ESchedulerType eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
-  int32_t iOutputBitDepth = OUTPUT_BD_ALLOC;
-  TFourCC tOutputFourCC = FOURCC(NULL);
-  int32_t iTraceIdx = -1;
-  int32_t iTraceNumber = 0;
-  bool bForceCleanBuffers = false;
-  bool bEnableYUVOutput = true;
-  uint32_t uInputBufferNum = 2;
-  size_t zInputBufferSize = zDefaultInputBufferSize;
-  AL_EIpCtrlMode ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
-  std::string md5File = "";
-  std::string apbFile = "";
-  std::string sSplitSizesFile = "";
-  bool trackDma = false;
-  int32_t hangers = 0;
-  int32_t iLoop = 1;
-  bool bCertCRC = false;
-  std::set<std::string> sDecDevicePath;
-  int32_t iTimeoutInSeconds = -1;
-  int32_t iMaxFrames = INT32_MAX;
-  bool bUsePreAlloc = false;
-  bool enableByRef = false;
-  EDecErrorLevel eExitCondition = DEC_ERROR;
-  uint32_t uNumBuffersHeldByNextComponent = 1;
+#ifdef HAVE_VCU2_CTRLSW
+    AL_EDeviceType eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
+#elif defined(HAVE_VCU_CTRLSW)
+    AL_EDeviceType eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
+#endif
+    AL_ESchedulerType eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
+    int32_t iOutputBitDepth = OUTPUT_BD_ALLOC;
+    TFourCC tOutputFourCC = FOURCC(NULL);
+    int32_t iTraceIdx = -1;
+    int32_t iTraceNumber = 0;
+    bool bForceCleanBuffers = false;
+    bool bEnableYUVOutput = true;
+    uint32_t uInputBufferNum = 2;
+    size_t zInputBufferSize = zDefaultInputBufferSize;
+    AL_EIpCtrlMode ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
+    std::string md5File = "";
+    std::string apbFile = "";
+    std::string sSplitSizesFile = "";
+    bool trackDma = false;
+    int32_t hangers = 0;
+    int32_t iLoop = 1;
+    bool bCertCRC = false;
+    std::set<std::string> sDecDevicePath;
+    int32_t iTimeoutInSeconds = -1;
+    int32_t iMaxFrames = INT32_MAX;
+    bool bUsePreAlloc = false;
+    bool enableByRef = false;
+    EDecErrorLevel eExitCondition = DEC_ERROR;
+    uint32_t uNumBuffersHeldByNextComponent = 1;
 };
 
 struct DecContext::WorkerConfig
 {
-  std::shared_ptr<Config> pConfig;
-  Ptr<Device> device;
+    Ptr<Config> pConfig;
+    Ptr<Device> device;
 };
 
-using Config = DecContext::Config;
 using WorkerConfig = DecContext::WorkerConfig;
 
 

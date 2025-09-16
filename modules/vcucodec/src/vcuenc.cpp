@@ -17,6 +17,7 @@
 
 #include "private/vcuutils.hpp"
 #include "../vcudevice.hpp"
+#include "../vcuenccontext.hpp"
 
 extern "C" {
 #include "lib_common/PixMapBuffer.h"
@@ -139,7 +140,7 @@ uint8_t getLevel(Codec codec, String level)
     return codecVal;
 }
 
-void setDefaults(ConfigFile& cfg)
+void setDefaults(EncContext::Config& cfg)
 {
     cfg.BitstreamFileName = "Stream.bin";
     cfg.RecFourCC = FOURCC(NULL);
@@ -166,7 +167,7 @@ void setDefaults(ConfigFile& cfg)
     cfg.iForceStreamBufSize = 0;
 }
 
-void setCodingResolution(ConfigFile& cfg)
+void setCodingResolution(EncContext::Config& cfg)
 {
     int32_t iMaxSrcWidth = cfg.MainInput.FileInfo.PictWidth;
     int32_t iMaxSrcHeight = cfg.MainInput.FileInfo.PictHeight;
@@ -222,7 +223,7 @@ private:
 VCUEncoder::~VCUEncoder()
 {
     auto pAllocator = device_->getAllocator();
-    AL_Allocator_Free(pAllocator, cfg.Settings.hRcPluginDmaContext);
+    AL_Allocator_Free(pAllocator, cfg_->Settings.hRcPluginDmaContext);
     enc_.reset();
 }
 
@@ -233,6 +234,8 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params, 
     (void) profile; // TODO
     uint8_t level = getLevel(params.codec, params.profileSettings.level);
     (void) level; // TODO
+    cfg_.reset(new EncContext::Config);
+    EncContext::Config& cfg = *cfg_;
     setDefaults(cfg);
     cfg.BitstreamFileName = filename;
     cfg.eSrcFormat = AL_SRC_FORMAT_RASTER;
@@ -257,7 +260,7 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params, 
         callback_.reset(new DefaultEncoderCallback(filename_));
     }
 
-    enc_ = EncContext::create(cfg, device_,
+    enc_ = EncContext::create(cfg_, device_,
         [this](std::vector<std::string_view>& data)
         {
             callback_->onEncoded(data);
@@ -271,8 +274,8 @@ void VCUEncoder::write(InputArray frame)
     }
 
     cv::Size size = frame.size();
-    AL_TDimension tUpdatedDim = AL_TDimension { AL_GetSrcWidth(cfg.Settings.tChParam[0]),
-                                                AL_GetSrcHeight(cfg.Settings.tChParam[0])};
+    AL_TDimension tUpdatedDim = AL_TDimension { AL_GetSrcWidth(cfg_->Settings.tChParam[0]),
+                                                AL_GetSrcHeight(cfg_->Settings.tChParam[0])};
     std::shared_ptr<AL_TBuffer> sourceBuffer = enc_->getSharedBuffer();
     AL_PixMapBuffer_SetDimension(sourceBuffer.get(), tUpdatedDim);
     if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(NV12))

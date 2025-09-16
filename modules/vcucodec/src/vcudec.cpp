@@ -45,7 +45,8 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     CV_LOG_INFO(NULL, "VCU2 Decoder initialized");
     vcu2_available_ = true;
 
-    std::shared_ptr<Config> pDecConfig = std::shared_ptr<Config>(new Config());
+    std::shared_ptr<DecContext::Config> pDecConfig
+            = std::shared_ptr<DecContext::Config>(new DecContext::Config());
     pDecConfig->sIn = (std::string)filename;
     if (params_.szReturnQueue > 0) {
         pDecConfig->uNumBuffersHeldByNextComponent = params_.szReturnQueue;

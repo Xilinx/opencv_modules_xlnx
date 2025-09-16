@@ -52,6 +52,7 @@ extern "C" {
 
 #include "../vcudata.hpp"
 #include "../vcuutils.hpp"
+#include "../vcuenccontext.hpp"
 
 #define NUM_PASS_OUTPUT 1
 
@@ -267,7 +268,7 @@ struct safe_ifstream
 struct EncoderSink : IFrameSink
 {
 #ifdef HAVE_VCU2_CTRLSW
-  explicit EncoderSink(ConfigFile const& cfg, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator) :
+  explicit EncoderSink(cv::vcucodec::EncContext::Config const& cfg, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName, false),
     EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_cfg(cfg),
@@ -310,7 +311,7 @@ struct EncoderSink : IFrameSink
   }
 #endif
 
-  explicit EncoderSink(ConfigFile const& cfg, AL_IEncScheduler* pScheduler, AL_TAllocator* pAllocator) :
+  explicit EncoderSink(cv::vcucodec::EncContext::Config const& cfg, AL_IEncScheduler* pScheduler, AL_TAllocator* pAllocator) :
     CmdFile(cfg.sCmdFileName, false),
     EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_cfg(cfg),
@@ -453,7 +454,7 @@ private:
   uint64_t m_EndTime = 0;
   safe_ifstream CmdFile;
   CEncCmdMngr EncCmd;
-  ConfigFile const& m_cfg;
+  cv::vcucodec::EncContext::Config const& m_cfg;
   TwoPassMngr twoPassMngr;
   QPBuffers qpBuffers;
   std::unique_ptr<CommandsSender> commandsSender;

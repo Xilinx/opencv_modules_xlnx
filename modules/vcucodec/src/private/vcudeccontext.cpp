@@ -410,14 +410,14 @@ std::string getStatistics(double durationInSeconds, int32_t iNumFrameConceal,
      return ss.str();
 }
 
-void adjustStreamBufferSettings(Config &config)
+void adjustStreamBufferSettings(DecContext::Config &config)
 {
     uint32_t uMinStreamBuf = config.tDecSettings.iStackSize;
     config.uInputBufferNum = max(uMinStreamBuf, config.uInputBufferNum);
     config.zInputBufferSize = max(size_t(1), config.zInputBufferSize);
 }
 
-void checkAndAdjustChannelConfiguration(Config &config)
+void checkAndAdjustChannelConfiguration(DecContext::Config &config)
 {
     FILE *out = g_Verbosity ? stdout : nullptr;
 
@@ -447,7 +447,8 @@ void checkAndAdjustChannelConfiguration(Config &config)
     adjustStreamBufferSettings(config);
 }
 
-void configureInputPool(Config const &config, AL_TAllocator *pAllocator, BufPool &tInputPool)
+void configureInputPool(DecContext::Config const &config, AL_TAllocator *pAllocator,
+                        BufPool &tInputPool)
 {
     std::string sDebugName = "input_pool";
     uint32_t uNumBuf = config.uInputBufferNum;
@@ -466,12 +467,13 @@ void configureInputPool(Config const &config, AL_TAllocator *pAllocator, BufPool
 
 } // namespace anonymous
 
-Config::Config()
+DecContext::Config::Config()
 {
     AL_DecSettings_SetDefaults(&tDecSettings);
 }
 
-DecoderContext::DecoderContext(Config &config, AL_TAllocator *pAlloc, Ptr<RawOutput> rawOutput)
+DecoderContext::DecoderContext(DecContext::Config &config, AL_TAllocator *pAlloc,
+                            Ptr<RawOutput> rawOutput)
     : rawOutput_(rawOutput)
 {
     pAllocator_ = pAlloc;
@@ -835,10 +837,10 @@ void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
 }
 
 
-/*static*/ std::shared_ptr<DecContext>
-DecContext::create(std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput, WorkerConfig &wCfg)
+/*static*/ Ptr<DecContext>
+DecContext::create(Ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput, WorkerConfig &wCfg)
 {
-    std::shared_ptr<DecoderContext> pDecodeCtx;
+    Ptr<DecoderContext> pDecodeCtx;
     std::set<std::string> const sDecDefaultDevicePath(DECODER_DEVICES);
     SetDefaultDecOutputSettings(&pDecConfig->tUserOutputSettings);
     pDecConfig->sDecDevicePath = sDecDefaultDevicePath;
@@ -877,7 +879,7 @@ DecContext::create(std::shared_ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput,
 
     // Configure the decoders
     // ----------------------
-    pDecodeCtx = std::shared_ptr<DecoderContext>(new DecoderContext(config, pAllocator, rawOutput));
+    pDecodeCtx = Ptr<DecoderContext>(new DecoderContext(config, pAllocator, rawOutput));
 
     wCfg.pConfig = pDecConfig;
     wCfg.device = device;
