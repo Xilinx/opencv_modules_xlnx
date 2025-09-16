@@ -13,21 +13,21 @@
 #include "sink_encoder.h"
 #include "sink_lookahead.h"
 
-#include "lib_app/AL_RasterConvert.h"
-#include "lib_app/BuildInfo.h"
-#include "lib_app/FileUtils.h"
-#include "lib_app/PixMapBufPool.h"
+#include "lib_app/AL_RasterConvert.hpp"
+#include "lib_app/BuildInfo.hpp"
+#include "lib_app/FileUtils.hpp"
+#include "lib_app/PixMapBufPool.hpp"
 
 #ifdef HAVE_VCU2_CTRLSW
-#include "lib_app/CompFrameReader.h"
-#include "lib_app/CompFrameCommon.h"
+#include "lib_app/CompFrameReader.hpp"
+#include "lib_app/CompFrameCommon.hpp"
 #endif
-#include "lib_app/UnCompFrameReader.h"
-#include "lib_app/SinkFrame.h"
-#include "lib_app/plateform.h"
+#include "lib_app/UnCompFrameReader.hpp"
+#include "lib_app/SinkFrame.hpp"
+#include "lib_app/plateform.hpp"
 
 extern "C" {
-#include "lib_common/RoundUp.h"
+#include "lib_common/Round.h"
 #include "lib_common/StreamBuffer.h"
 #include "lib_common_enc/IpEncFourCC.h"
 #include "lib_common_enc/RateCtrlMeta.h"
@@ -84,11 +84,12 @@ struct LayerResources
 
     void OpenEncoderInput(Config& cfg, AL_HEncoder hEnc);
 
-    bool SendInput(Config& cfg, IFrameSink* firstSink, void* pTraceHook);
+    bool SendInput(Config& cfg, IEncoderSink* firstSink, void* pTraceHook);
 
     bool sendInputFileTo(std::unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool,
                          AL_TBuffer* Yuv, Config const& cfg, AL_TYUVFileInfo& FileInfo,
-                         IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount);
+                         IConvSrc* pSrcConv, IEncoderSink* pEncoderSink, int& iPictCount,
+                         int& iReadCount);
 
     std::unique_ptr<FrameReader> InitializeFrameReader(Config& cfg, std::ifstream& YuvFile,
          std::string sYuvFileName, std::ifstream& MapFile, std::string sMapFileName,
@@ -138,18 +139,10 @@ bool checkQPTableFolder(Config& cfg)
 {
     std::regex qp_file_per_frame_regex("QP(^|)(s|_[0-9]+)\\.hex");
 
-#ifdef HAVE_VCU2_CTRLSW
-    if (!checkFolder(cfg.MainInput.sQPTablesFolder))
-#elif defined(HAVE_VCU_CTRLSW)
     if (!FolderExists(cfg.MainInput.sQPTablesFolder))
-#endif
         return false;
 
-#ifdef HAVE_VCU2_CTRLSW
-    return checkFileAvailability(cfg.MainInput.sQPTablesFolder, qp_file_per_frame_regex);
-#elif defined(HAVE_VCU_CTRLSW)
     return FileExists(cfg.MainInput.sQPTablesFolder, qp_file_per_frame_regex);
-#endif
 }
 
 void ValidateConfig(Config& cfg)
@@ -745,7 +738,7 @@ void LayerResources::PushResources(Config& cfg, EncoderSink* enc ,
     ChangeInput(cfg, iInputIdx, hEnc);
 }
 
-[[maybe_unused]] bool LayerResources::SendInput(Config& cfg, IFrameSink* firstSink,
+[[maybe_unused]] bool LayerResources::SendInput(Config& cfg, IEncoderSink* firstSink,
                                                 void* pTraceHooker)
 {
     (void)pTraceHooker;
@@ -757,18 +750,18 @@ void LayerResources::PushResources(Config& cfg, EncoderSink* enc ,
 
 bool LayerResources::sendInputFileTo(std::unique_ptr<FrameReader>& frameReader,
     PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, Config const& cfg, AL_TYUVFileInfo& FileInfo,
-    IConvSrc* pSrcConv, IFrameSink* sink, int& iPictCount, int& iReadCount)
+    IConvSrc* pSrcConv, IEncoderSink* pEncoderSink, int& iPictCount, int& iReadCount)
 {
-    if (AL_IS_ERROR_CODE(GetEncoderLastError()))
+    if (AL_IS_ERROR_CODE(pEncoderSink->GetLastError()))
     {
-        sink->ProcessFrame(nullptr);
+        pEncoderSink->ProcessFrame(nullptr);
         return false;
     }
 
     std::shared_ptr<AL_TBuffer> frame = GetSrcFrame(iReadCount, iPictCount, frameReader, FileInfo,
             SrcBufPool, Yuv, cfg.Settings.tChParam[0], cfg, pSrcConv);
 
-    sink->ProcessFrame(frame.get());
+    pEncoderSink->ProcessFrame(frame.get());
 
     if (!frame)
         return false;
@@ -798,11 +791,8 @@ std::unique_ptr<FrameReader> LayerResources::InitializeFrameReader(Config& cfg,
     if (!bUseCompressedFormat)
         pFrameReader = std::unique_ptr<FrameReader>(
                 new UnCompFrameReader(YuvFile, FileInfo, cfg.RunInfo.bLoop));
-#ifdef HAVE_VCU2_CTRLSW
-    pFrameReader->SeekA(cfg.RunInfo.iFirstPict + iReadCount);
-#elif defined(HAVE_VCU_CTRLSW)
+
     pFrameReader->SeekAbsolute(cfg.RunInfo.iFirstPict + iReadCount);
-#endif
 
     return pFrameReader;
 }
@@ -876,20 +866,19 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
     enc.reset(new EncoderSink(cfg, pScheduler, pAllocator));
 #endif
 
-    IFrameSink* firstSink = enc.get();
+    IEncoderSink* pFirstEncoderSink = enc.get();
 
     if (AL_TwoPassMngr_HasLookAhead(cfg.Settings))
     {
 
 #ifdef HAVE_VCU2_CTRLSW
         if (ctx)
-            encFirstPassLA.reset(new EncoderLookAheadSink(cfg, ctx, pAllocator));
+            encFirstPassLA.reset(new EncoderLookAheadSink(pFirstEncoderSink, cfg, ctx, pAllocator));
         else
 #endif
-            encFirstPassLA.reset(new EncoderLookAheadSink(cfg, pScheduler, pAllocator));
+            encFirstPassLA.reset(new EncoderLookAheadSink(pFirstEncoderSink, cfg, pScheduler, pAllocator));
 
-        encFirstPassLA->next = firstSink;
-        firstSink = encFirstPassLA.get();
+        pFirstEncoderSink = encFirstPassLA.get();
     }
 
     // --------------------------------------------------------------------------------
@@ -935,7 +924,7 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
 
     // --------------------------------------------------------------------------------
     // Set Callbacks
-    enc->m_InputChanged = ([&](int32_t iInputIdx, int32_t iLayerID)
+    pFirstEncoderSink->SetChangeSourceCallback([&](int32_t iInputIdx, int32_t iLayerID)
                            {
                                 pLayerResources[iLayerID]->ChangeInput(cfg, iInputIdx, enc->hEnc);
                            });

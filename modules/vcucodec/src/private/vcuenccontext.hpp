@@ -19,8 +19,8 @@
 
 #include <opencv2/core.hpp>
 
-#include "lib_app/InputFiles.h"
-#include "lib_app/utils.h"
+#include "lib_app/InputFiles.hpp"
+#include "lib_app/utils.hpp"
 #include "QPGenerator.h"
 
 #include "config.h"

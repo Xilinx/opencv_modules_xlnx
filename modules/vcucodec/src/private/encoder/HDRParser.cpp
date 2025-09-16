@@ -5,7 +5,7 @@
 
 #include "HDRParser.h"
 
-#include "lib_app/JsonFile.h"
+#include "lib_app/JsonFile.hpp"
 
 using namespace std;
 

@@ -52,9 +52,9 @@ extern "C" {
 #include "lib_log/LoggerDefault.h"
 }
 
-#include "lib_app/BufPool.h"
-#include "lib_app/PixMapBufPool.h"
-#include "lib_app/timing.h"
+#include "lib_app/BufPool.hpp"
+#include "lib_app/PixMapBufPool.hpp"
+#include "lib_app/timing.hpp"
 
 #include <condition_variable>
 #include <functional>

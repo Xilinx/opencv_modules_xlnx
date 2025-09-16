@@ -21,8 +21,8 @@
 extern "C" {
 #include "config.h"
 #include "lib_decode/lib_decode.h"
-#include "lib_app/BufPool.h"
 }
+#include "lib_app/BufPool.hpp"
 
 #include <memory>
 #include <string_view>

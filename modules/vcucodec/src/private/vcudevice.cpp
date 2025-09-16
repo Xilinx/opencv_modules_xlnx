@@ -28,7 +28,7 @@ static_assert(false, err);
 #endif
 
 #ifdef HAVE_VCU_CTRLSW
-#include "lib_app/AllocatorHelper.h"
+#include "lib_app/AllocatorHelper.hpp"
 #endif
 
 extern "C" {

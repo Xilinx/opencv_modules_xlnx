@@ -10,7 +10,7 @@
 extern "C"
 {
 #include "lib_rtos/lib_rtos.h"
-#include "lib_common/RoundUp.h"
+#include "lib_common/Round.h"
 }
 
 using namespace std;

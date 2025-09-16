@@ -31,10 +31,8 @@ typedef enum
   AL_GENERATE_RANDOM_QP = 0x04, /*!< used for test purpose */
   AL_GENERATE_RANDOM_I_ONLY = 0x80, /*!< used for test purpose */
   AL_GENERATE_RANDOM_SKIP = 0x10, /*!< used for test purpose */
-#ifdef HAVE_VCU2_CTRLSW
   AL_GENERATE_RANDOM_LAMBDA_FACT = 0x20, /*!< used for test purpose */
   AL_GENERATE_RANDOM_BLK_SIZE = 0x40, /*!< used for test purpose */
-#endif
   AL_GENERATE_QP_TABLE_RANDOM_MASK = 0xFC,
 
   AL_GENERATE_QP_TABLE_MASK_EXT = AL_GENERATE_QP_TABLE_MASK | AL_GENERATE_QP_TABLE_RANDOM_MASK,
@@ -82,11 +80,9 @@ static inline bool AL_HasQpTable(AL_EGenerateQpMode eMode)
    \note iMinQp <= iMaxQP
    \return 0 on success, 1 if file is not found, 2 if there is an error in the file
 *****************************************************************************/
-#ifdef HAVE_VCU2_CTRLSW
-AL_ERR GenerateQPBuffer(AL_EGenerateQpMode eMode, int16_t iSliceQP, int16_t iMinQP, int16_t iMaxQP, int16_t iLCUPicWidth, int16_t iLCUPicHeight, AL_EProfile eProf, uint8_t uLogMaxCuSize, int32_t iQPTableDepth, const std::string& sQPTablesFolder, int32_t iFrameID, uint8_t* pQPTable);
-#else
+
 AL_ERR GenerateQPBuffer(AL_EGenerateQpMode eMode, int16_t iSliceQP, int16_t iMinQP, int16_t iMaxQP, int16_t iLCUPicWidth, int16_t iLCUPicHeight, AL_EProfile eProf, uint8_t uLogMaxCuSize, int32_t iQPTableDepth, const std::string& sQPTablesFolder, int32_t iFrameID, AL_TBuffer* pQpBuf);
-#endif
+
 
 /*****************************************************************************
    \brief Fill QP part of the buffer pointed to by pQP with a QP for each

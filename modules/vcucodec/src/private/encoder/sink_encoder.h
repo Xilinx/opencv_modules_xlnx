@@ -6,18 +6,17 @@
 #pragma once
 #include <cassert>
 
-#include "lib_app/BufPool.h"
-#include "lib_app/timing.h"
-#include "lib_app/Sink.h"
-#include "lib_app/convert.h"
-#include "lib_app/YuvIO.h"
+#include "lib_app/BufPool.hpp"
+#include "lib_app/timing.hpp"
+#include "lib_app/Sink.hpp"
+#include "lib_app/convert.hpp"
+#include "lib_app/YuvIO.hpp"
 
 #include "QPGenerator.h"
 #include "EncCmdMngr.h"
 #include "CommandsSender.h"
-
 #include "HDRParser.h"
-
+#include "IEncoderSink.hpp"
 #include "TwoPassMngr.h"
 
 extern "C"
@@ -78,12 +77,7 @@ static std::string PictTypeToString(AL_ESliceType type)
   return m.at(type);
 }
 
-#ifdef HAVE_VCU2_CTRLSW
-static AL_ERR PreprocessQP(uint8_t* pQPs, AL_EGenerateQpMode eMode, const AL_TEncChanParam& tChParam, const std::string& sQPTablesFolder, int32_t iFrameCountSent)
-#else
 static AL_ERR PreprocessQP(AL_TBuffer* pQpBuf, AL_EGenerateQpMode eMode, const AL_TEncChanParam& tChParam, const std::string& sQPTablesFolder, int32_t iFrameCountSent)
-
-#endif
 {
   auto iQPTableDepth = 0;
 #ifdef HAVE_VCU2_CTRLSW
@@ -97,12 +91,7 @@ static AL_ERR PreprocessQP(AL_TBuffer* pQpBuf, AL_EGenerateQpMode eMode, const A
                           *std::min_element(tChParam.tRCParam.iMaxQP, tChParam.tRCParam.iMaxQP + minMaxQPSize),
                           AL_GetWidthInLCU(tChParam), AL_GetHeightInLCU(tChParam),
                           tChParam.eProfile, tChParam.uLog2MaxCuSize, iQPTableDepth, sQPTablesFolder,
-                          iFrameCountSent,
-#ifdef HAVE_VCU2_CTRLSW
-						  pQPs + EP2_BUF_SEG_CTRL.Offset);
-#else
-						  pQpBuf);
-#endif
+                          iFrameCountSent, pQpBuf);
 }
 
 class QPBuffers
@@ -178,7 +167,6 @@ private:
 #ifdef HAVE_VCU2_CTRLSW
       iQPTableDepth = tLayerChParam.iQPTableDepth;
 #endif
-
       AL_ERR bRetROI = GenerateROIBuffer(mQPLayerRoiCtxs[iLayerID], layerInfo.sRoiFileName,
                                          AL_GetWidthInLCU(tLayerChParam), AL_GetHeightInLCU(tLayerChParam),
                                          tLayerChParam.eProfile, tLayerChParam.uLog2MaxCuSize, iQPTableDepth,
@@ -199,11 +187,7 @@ private:
     }
     else
     {
-#ifdef HAVE_VCU2_CTRLSW
-      AL_ERR bRetQP = PreprocessQP(AL_Buffer_GetData(pQpBuf), mode, tLayerChParam, layerInfo.sQPTablesFolder, frameNum);
-#else
       AL_ERR bRetQP = PreprocessQP(pQpBuf, mode, tLayerChParam, layerInfo.sQPTablesFolder, frameNum);
-#endif
       auto releaseQPBuf = [&](std::string sErrorMsg, bool bThrow)
                           {
                             (void)sErrorMsg;
@@ -246,13 +230,6 @@ private:
   std::map<int, AL_TRoiMngrCtx*> mQPLayerRoiCtxs;
 };
 
-static AL_ERR g_EncoderLastError = AL_SUCCESS;
-
-inline AL_ERR GetEncoderLastError(void)
-{
-  return g_EncoderLastError;
-}
-
 struct safe_ifstream
 {
   std::ifstream fp {};
@@ -265,7 +242,7 @@ struct safe_ifstream
   }
 };
 
-struct EncoderSink : IFrameSink
+struct EncoderSink : IEncoderSink
 {
 #ifdef HAVE_VCU2_CTRLSW
   explicit EncoderSink(cv::vcucodec::EncContext::Config const& cfg, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator) :
@@ -370,6 +347,11 @@ struct EncoderSink : IFrameSink
     AL_Encoder_Destroy(hEnc);
   }
 
+  void SetChangeSourceCallback(ChangeSourceCallback changeSourceCB) override
+  {
+    m_changeSourceCB = changeSourceCB;
+  }
+
   void AddQpBufPool(QPBuffers::QPLayerInfo qpInf, int32_t iLayerID)
   {
     qpBuffers.AddBufPool(qpInf, iLayerID);
@@ -380,8 +362,6 @@ struct EncoderSink : IFrameSink
     std::unique_lock<std::mutex> lock(encoding_complete_mutex);
     return encoding_complete_cv.wait_for(lock, std::chrono::seconds(1), [this] { return encoding_finished; });
   }
-
-  std::function<void(int, int)> m_InputChanged;
 
   // Synchronization for blocking eos()
   std::mutex encoding_complete_mutex;
@@ -397,7 +377,7 @@ struct EncoderSink : IFrameSink
     int32_t iIdx;
 
     if(commandsSender->HasInputChanged(iIdx))
-      m_InputChanged(iIdx, 0);
+      RequestSourceChange(iIdx, 0);
 
     if(commandsSender->HasHDRChanged(iIdx))
       ReadHDR(iIdx);
@@ -420,6 +400,8 @@ struct EncoderSink : IFrameSink
     LogVerbose("\r  Encoding picture #%-6d - ", m_input_picCount[0]);
     fflush(stdout);
 
+    CheckSourceResolutionChanged(Src);
+
     if(twoPassMngr.iPass)
     {
       auto pPictureMetaTP = AL_TwoPassMngr_CreateAndAttachTwoPassMetaData(Src);
@@ -439,6 +421,11 @@ struct EncoderSink : IFrameSink
       CheckErrorAndThrow();
 
     m_input_picCount[0]++;
+  }
+
+  AL_ERR GetLastError(void) override
+  {
+    return m_EncoderLastError;
   }
 
   std::unique_ptr<IFrameSink> RecOutput[MAX_NUM_REC_OUTPUT];
@@ -462,6 +449,9 @@ private:
 
   AL_TAllocator* pAllocator;
   AL_TEncSettings const* pSettings;
+  ChangeSourceCallback m_changeSourceCB;
+  AL_TDimension tLastEncodedDim;
+  AL_ERR m_EncoderLastError = AL_SUCCESS;
 
   void CheckErrorAndThrow(void)
   {
@@ -522,7 +512,7 @@ private:
     if(AL_IS_ERROR_CODE(eErr))
     {
       LogError("%s\n", AL_Codec_ErrorToString(eErr));
-      g_EncoderLastError = eErr;
+      m_EncoderLastError = eErr;
     }
 
     if(AL_IS_WARNING_CODE(eErr))
@@ -621,7 +611,7 @@ private:
     if(AL_IS_ERROR_CODE(eErr))
     {
       LogError("%s\n", AL_Codec_ErrorToString(eErr));
-      g_EncoderLastError = eErr;
+      m_EncoderLastError = eErr;
     }
 
     if(AL_IS_WARNING_CODE(eErr))
@@ -664,4 +654,23 @@ private:
       CloseOutputs();
   }
 
+
+  void RequestSourceChange(int32_t iInputIdx, int32_t iLayerIdx)
+  {
+    if(m_changeSourceCB)
+      m_changeSourceCB(iInputIdx, iLayerIdx);
+  }
+
+  void CheckSourceResolutionChanged(AL_TBuffer* pSrc)
+  {
+    (void)pSrc;
+    AL_TDimension tNewDim = AL_PixMapBuffer_GetDimension(pSrc);
+    bool bDimensionChanged = tNewDim.iWidth != tLastEncodedDim.iWidth || tNewDim.iHeight != tLastEncodedDim.iHeight;
+
+    if(bDimensionChanged)
+    {
+      AL_Encoder_SetInputResolution(hEnc, tNewDim);
+      tLastEncodedDim = tNewDim;
+    }
+  }
 };

@@ -18,25 +18,20 @@ extern "C"
 {
 #include "lib_rtos/lib_rtos.h"
 #include "lib_common/BufferAPI.h"
-#ifdef HAVE_VCU2_CTRLSW
-#include "lib_common_enc/EncBuffers.h"
-#endif
 #include "lib_common/Error.h"
-#include "lib_common/RoundUp.h"
-#ifdef HAVE_VCU_CTRLSW
+#include "lib_common/Round.h"
 #include "lib_common_enc/EncBuffers.h"
 #include "lib_common_enc/QpTableMeta.h"
-#endif
 }
 
 #include "QPGenerator.h"
 #include "ROIMngr.h"
 #include "config.h" //CJQ
 
-#include "lib_app/FileUtils.h"
+#include "lib_app/FileUtils.hpp"
 
 using namespace std;
-#ifdef HAVE_VCU_CTRLSW
+
 /****************************************************************************/
 static bool GetTag(ifstream& qpFile, AL_ESliceType& eType)
 {
@@ -83,7 +78,7 @@ static AL_TQpTableMetaData* GetQpTableMetaData(AL_TBuffer* pQpBuf)
   if(pMeta)
     return pMeta;
 
-  pMeta = AL_QpTableMetaData_Create();
+  pMeta = nullptr; //AL_QpTableMetaData_Create();
   AL_Buffer_AddMetaData(pQpBuf, (AL_TMetaData*)pMeta);
 
   pMeta->tQpTable[AL_SLICE_P].iChunkIdx = pMeta->tQpTable[AL_SLICE_I].iChunkIdx = 0;
@@ -111,7 +106,6 @@ static AL_TQpTableMetaData* GetQpTableMetaData(AL_TBuffer* pQpBuf)
 
   return pMeta;
 }
-#endif
 
 /****************************************************************************/
 static AL_ERR ReadQPs(ifstream& qpFile, uint8_t* pQPs, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth)
@@ -124,7 +118,7 @@ static AL_ERR ReadQPs(ifstream& qpFile, uint8_t* pQPs, int32_t iNumLCUs, int32_t
   if(bQPTableDepth2)
     iNumQPPerLine = 4;
   else
-#endif  
+#endif
   iNumQPPerLine = (iNumQPPerLCU == 5) ? 5 : 1;
   int32_t iNumDigit = iNumQPPerLine * 2;
 
@@ -186,7 +180,7 @@ static AL_ERR ReadQPs(ifstream& qpFile, uint8_t* pQPs, int32_t iNumLCUs, int32_t
         }
       }
     }
-#endif	
+#endif
   }
 
   return AL_SUCCESS;
@@ -215,11 +209,7 @@ static const string QPTablesExtension = ".hex";
 
 static string createQPFileName(const string& folder, const string& motif)
 {
-#ifdef HAVE_VCU2_CTRLSW
-  return combinePath(folder, motif + QPTablesExtension);
-#else
   return CombinePath(folder, motif + QPTablesExtension);
-#endif
 }
 
 /****************************************************************************/
@@ -227,11 +217,8 @@ static bool OpenFile(const string& sQPTablesFolder, int32_t iFrameID, string mot
 {
   string sFileFolder = sQPTablesFolder.empty() ? DefaultQPTablesFolder : sQPTablesFolder;
 
-#ifdef HAVE_VCU2_CTRLSW
-  auto qpFileName = createFileNameWithID(sFileFolder, motif, QPTablesExtension, iFrameID);
-#else
   auto qpFileName = CreateFileNameWithID(sFileFolder, motif, QPTablesExtension, iFrameID);
-#endif
+
   File.open(qpFileName);
 
   if(!File.is_open())
@@ -244,24 +231,13 @@ static bool OpenFile(const string& sQPTablesFolder, int32_t iFrameID, string mot
 }
 
 /****************************************************************************/
-#ifdef HAVE_VCU2_CTRLSW
-static AL_ERR Load_QPTable_FromFile_AOM(uint8_t* pSegs, uint8_t* pQPs, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID, bool bRelative)
-{
-  string sLine;
-  ifstream file;
-
-  if(!OpenFile(sQPTablesFolder, iFrameID, QPTablesMotif, file))
-    return AL_ERR_CANNOT_OPEN_FILE;
-
-  int16_t* pSeg = (int16_t*)pSegs;
-#else
 static AL_ERR Load_QPTable_FromFile_AOM(ifstream& file, uint8_t* pQpData, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth, bool bRelative)
 {
   string sLine;
   int16_t* pSeg = reinterpret_cast<int16_t*>(pQpData + EP2_BUF_SEG_CTRL.Offset);
 
   Rtos_Memset(pSeg, 0, AL_QPTABLE_SEGMENTS_SIZE);
-#endif
+
   for(int32_t iSeg = 0; iSeg < 8; ++iSeg)
   {
     int32_t idx = (iSeg & 0x01) << 2;
@@ -293,25 +269,13 @@ static AL_ERR Load_QPTable_FromFile_AOM(ifstream& file, uint8_t* pQpData, int32_
 
     pSeg[iSeg] = max(iMinQP, min(iMaxQP, pSeg[iSeg]));
   }
-#ifdef HAVE_VCU_CTRLSW
+
   uint8_t* pQPs = pQpData + EP2_BUF_QP_BY_MB.Offset;
-#endif
+
   return ReadQPs(file, pQPs, iNumLCUs, iNumQPPerLCU, iNumBytesPerLCU, iQPTableDepth);
 }
 
 /****************************************************************************/
-#ifdef HAVE_VCU2_CTRLSW
-static AL_ERR Load_QPTable_FromFile(uint8_t* pQPs, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID)
-{
-
-  ifstream file;
-
-  if(!OpenFile(sQPTablesFolder, iFrameID, QPTablesMotif, file))
-    return AL_ERR_CANNOT_OPEN_FILE;
-  // Warning: the LOAD_QP is not backward compatible
-  return ReadQPs(file, pQPs, iNumLCUs, iNumQPPerLCU, iNumBytesPerLCU, iQPTableDepth);
-}
-#else
 static AL_ERR Load_QPTable_FromFile(ifstream& file, uint8_t* pQpData, int32_t iNumLCUs, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, int32_t iQPTableDepth)
 {
   uint8_t* pQPs = pQpData + EP2_BUF_QP_BY_MB.Offset;
@@ -319,7 +283,6 @@ static AL_ERR Load_QPTable_FromFile(ifstream& file, uint8_t* pQpData, int32_t iN
   // Warning: the LOAD_QP is not backward compatible
   return ReadQPs(file, pQPs, iNumLCUs, iNumQPPerLCU, iNumBytesPerLCU, iQPTableDepth);
 }
-#endif
 
 /****************************************************************************/
 static bool get_motif(char* sLine, string motif, int& iPos)
@@ -500,12 +463,12 @@ static int32_t GetLcuQpOffset(int32_t iQPTableDepth)
 {
   int32_t iLcuQpOffset = 0;
   (void)iQPTableDepth;
-#ifdef HAVE_VCU2_CTRLSW
+
   auto const bQPTableDepth2 = iQPTableDepth == 2;
 
   if(bQPTableDepth2)
     iLcuQpOffset = 4;
-#endif
+
   return iLcuQpOffset;
 }
 
@@ -587,11 +550,7 @@ AL_ERR GenerateROIBuffer(AL_TRoiMngrCtx* pRoiCtx, string const& sRoiFileName, in
 }
 
 /****************************************************************************/
-#ifdef HAVE_VCU2_CTRLSW
-AL_ERR GenerateQPBuffer(AL_EGenerateQpMode eMode, int16_t iSliceQP, int16_t iMinQP, int16_t iMaxQP, int16_t iLCUPicWidth, int16_t iLCUPicHeight, AL_EProfile eProf, uint8_t uLog2MaxCuSize, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID, uint8_t* pQPTable)
-#else
 AL_ERR GenerateQPBuffer(AL_EGenerateQpMode eMode, int16_t iSliceQP, int16_t iMinQP, int16_t iMaxQP, int16_t iLCUPicWidth, int16_t iLCUPicHeight, AL_EProfile eProf, uint8_t uLog2MaxCuSize, int32_t iQPTableDepth, const string& sQPTablesFolder, int32_t iFrameID, AL_TBuffer* pQpBuf)
-#endif
 {
   (void)iSliceQP;
   (void)iMinQP;
@@ -600,23 +559,13 @@ AL_ERR GenerateQPBuffer(AL_EGenerateQpMode eMode, int16_t iSliceQP, int16_t iMin
 
   if(((AL_EGenerateQpMode)(eMode & AL_GENERATE_QP_TABLE_MASK)) == AL_GENERATE_LOAD_QP)
   {
-  #ifdef HAVE_VCU2_CTRLSW
-    uint8_t* pSegs = pQPTable;
-    uint8_t* pQPs = pQPTable + AL_QPTABLE_SEGMENTS_SIZE;
-  #endif
     bool bIsAOM = false;
 
-#ifdef HAVE_VCU_CTRLSW
     uint8_t* pQPs = AL_Buffer_GetData(pQpBuf) + EP2_BUF_QP_TABLE.Offset;
-#endif
     int32_t iNumQPPerLCU, iNumBytesPerLCU, iNumLCUs;
     GetQPBufferParameters(iLCUPicWidth, iLCUPicHeight, eProf, uLog2MaxCuSize, iQPTableDepth, iNumQPPerLCU, iNumBytesPerLCU, iNumLCUs, pQPs);
     Set_Block_Feature(pQPs, iNumLCUs, iNumBytesPerLCU, iQPTableDepth);
 
-#ifdef HAVE_VCU2_CTRLSW
-    AL_ERR Err = bIsAOM ? Load_QPTable_FromFile_AOM(pSegs, pQPs, iNumLCUs, iNumQPPerLCU, iNumBytesPerLCU, iQPTableDepth, sQPTablesFolder, iFrameID, bRelative) :
-                 Load_QPTable_FromFile(pQPs, iNumLCUs, iNumQPPerLCU, iNumBytesPerLCU, iQPTableDepth, sQPTablesFolder, iFrameID);
-#else
     ifstream file;
 
     if(!OpenFile(sQPTablesFolder, iFrameID, QPTablesMotif, file))
@@ -646,7 +595,6 @@ AL_ERR GenerateQPBuffer(AL_EGenerateQpMode eMode, int16_t iSliceQP, int16_t iMin
             Load_QPTable_FromFile(file, pQpData, iNumLCUs, iNumQPPerLCU, iNumBytesPerLCU, iQPTableDepth);
     }
     while(Err == AL_SUCCESS && bTagFound);
-#endif
     return Err;
   }
 

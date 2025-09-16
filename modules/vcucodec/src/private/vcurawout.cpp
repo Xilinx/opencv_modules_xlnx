@@ -22,7 +22,7 @@ extern "C" {
 #include "lib_common/DisplayInfoMeta.h"
 #include "lib_common/PixMapBuffer.h"
 }
-#include "lib_app/convert.h"
+#include "lib_app/convert.hpp"
 
 
 #include <iostream>

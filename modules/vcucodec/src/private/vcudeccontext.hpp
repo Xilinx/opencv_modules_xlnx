@@ -29,7 +29,7 @@ extern "C" {
 
 }
 
-#include "lib_app/utils.h"
+#include "lib_app/utils.hpp"
 
 #include <cstdint>
 #include <memory>
