@@ -27,6 +27,7 @@
 
 extern "C"
 {
+#include "lib_encode/lib_encoder.h"
 #include "lib_common_enc/Settings.h"
 #include "lib_common_enc/RateCtrlMeta.h"
 }
@@ -54,6 +55,7 @@ public:
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() = 0;
     virtual bool waitForCompletion() = 0;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) = 0;
+    virtual AL_HEncoder hEnc() = 0;
 
     static Ptr<EncContext> create(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback);
 };
@@ -136,10 +138,6 @@ struct EncContext::Config
 
     // \brief Reconstructed YUV output file name
     std::string RecFileName;
-
-    // \brief Name of the file specifying the frame numbers where scene changes
-    // happen
-    std::string sCmdFileName;
 
 #ifdef HAVE_VCU2_CTRLSW
     // \brief Name of the file specifying Global Motion Vector for each frame

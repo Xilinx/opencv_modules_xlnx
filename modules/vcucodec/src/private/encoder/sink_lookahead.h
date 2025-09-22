@@ -38,8 +38,6 @@ struct EncoderLookAheadSink : IEncoderSink
                                 , AL_TAllocator* pAllocator) :
     hEnc(nullptr),
     m_pNext(pNext),
-    m_cmdFile(cfg.sCmdFileName),
-    m_encCmd(m_cmdFile, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_lookAheadMngr(cfg.Settings.LookAhead, cfg.Settings.bEnableFirstPassSceneChangeDetection),
     tLastEncodedDim{cfg.Settings.tChParam[0].uSrcWidth, cfg.Settings.tChParam[0].uSrcHeight}
   {
@@ -61,7 +59,6 @@ struct EncoderLookAheadSink : IEncoderSink
     if(errorCode)
       throw codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
 
-    m_pCommandsSender.reset(new CommandsSender(hEnc));
     m_iPictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
 
     m_bEnableFirstPassSceneChangeDetection = false;
@@ -83,8 +80,6 @@ struct EncoderLookAheadSink : IEncoderSink
                                 , AL_TAllocator* pAllocator) :
     hEnc(nullptr),
     m_pNext(pNext),
-    m_cmdFile(cfg.sCmdFileName),
-    m_encCmd(m_cmdFile, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_lookAheadMngr(cfg.Settings.LookAhead, cfg.Settings.bEnableFirstPassSceneChangeDetection),
     tLastEncodedDim{cfg.Settings.tChParam[0].uSrcWidth, cfg.Settings.tChParam[0].uSrcHeight}
   {
@@ -105,7 +100,6 @@ struct EncoderLookAheadSink : IEncoderSink
     if(errorCode)
       throw codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
 
-    m_pCommandsSender.reset(new CommandsSender(hEnc));
     m_iPictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
 
     m_bEnableFirstPassSceneChangeDetection = cfg.Settings.bEnableFirstPassSceneChangeDetection;
@@ -138,12 +132,7 @@ struct EncoderLookAheadSink : IEncoderSink
 
   void PreprocessFrame() override
   {
-    m_encCmd.Process(m_pCommandsSender.get(), m_iPicCount);
 
-    int32_t iInputIdx;
-
-    if(m_pCommandsSender->HasInputChanged(iInputIdx))
-      RequestSourceChange(iInputIdx);
   }
 
   void ProcessFrame(AL_TBuffer* Src) override
@@ -203,11 +192,8 @@ private:
   int32_t m_iPicCount = 0;
   int32_t m_iMaxpicCount = -1;
   int32_t m_iPictureType = -1;
-  std::ifstream m_cmdFile;
-  CEncCmdMngr m_encCmd;
   cv::vcucodec::EncContext::Config m_cfgLA;
   QPBuffers m_qpBuffers;
-  std::unique_ptr<CommandsSender> m_pCommandsSender;
   LookAheadMngr m_lookAheadMngr;
   bool m_bEnableFirstPassSceneChangeDetection;
   AL_EVENT m_EOSFinished;

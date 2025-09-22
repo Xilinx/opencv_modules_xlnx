@@ -16,6 +16,12 @@
 #include "opencv2/vcucodec.hpp"
 
 #include "private/vcuenccontext.hpp"
+#include "private/vcucommand.h"
+
+extern "C"
+{
+#include "lib_encode/lib_encoder.h"
+}
 
 namespace cv {
 namespace vcucodec {
@@ -48,6 +54,47 @@ public:
     virtual void set(const ProfileSettings& profileSettings) override;
     virtual void get(ProfileSettings& profileSettings) const override;
 
+    //
+    // Dynamic commands
+    //
+
+    virtual void setSceneChange(int32_t frameIdx, int32_t lookAhead) override;
+    virtual void setIsLongTerm(int32_t frameIdx) override;
+    virtual void setUseLongTerm(int32_t frameIdx) override;
+    virtual void restartGop(int32_t frameIdx) override;
+    virtual void restartGopRecoveryPoint(int32_t frameIdx) override;
+    virtual void setGopLength(int32_t frameIdx, int32_t gopLength) override;
+    virtual void setNumB(int32_t frameIdx, int32_t numB) override;
+    virtual void setFreqIDR(int32_t frameIdx, int32_t freqIDR) override;
+    virtual void setFrameRate(int32_t frameIdx, int32_t frameRate, int32_t clockRatio) override;
+    virtual void setBitRate(int32_t frameIdx, int32_t bitRate) override;
+    virtual void setMaxBitRate(int32_t frameIdx, int32_t iTargetBitRate, int32_t iMaxBitRate) override;
+    virtual void setQP(int32_t frameIdx, int32_t qp) override;
+    virtual void setQPOffset(int32_t frameIdx, int32_t iQpOffset) override;
+    virtual void setQPBounds(int32_t frameIdx, int32_t iMinQP, int32_t iMaxQP) override;
+    virtual void setQPBoundsI(int32_t frameIdx, int32_t iMinQP_I, int32_t iMaxQP_I) override;
+    virtual void setQPBoundsP(int32_t frameIdx, int32_t iMinQP_P, int32_t iMaxQP_P) override;
+    virtual void setQPBoundsB(int32_t frameIdx, int32_t iMinQP_B, int32_t iMaxQP_B) override;
+    virtual void setQPIPDelta(int32_t frameIdx, int32_t iQPDelta) override;
+    virtual void setQPPBDelta(int32_t frameIdx, int32_t iQPDelta) override;
+    virtual void setLFMode(int32_t frameIdx, int32_t iMode) override;
+    virtual void setLFBetaOffset(int32_t frameIdx, int32_t iBetaOffset) override;
+    virtual void setLFTcOffset(int32_t frameIdx, int32_t iTcOffset) override;
+    virtual void setCostMode(int32_t frameIdx, bool bCostMode) override;
+    virtual void setMaxPictureSize(int32_t frameIdx, int32_t iMaxPictureSize) override;
+    virtual void setMaxPictureSizeI(int32_t frameIdx, int32_t iMaxPictureSize_I) override;
+    virtual void setMaxPictureSizeP(int32_t frameIdx, int32_t iMaxPictureSize_P) override;
+    virtual void setMaxPictureSizeB(int32_t frameIdx, int32_t iMaxPictureSize_B) override;
+    virtual void setQPChromaOffsets(int32_t frameIdx, int32_t iQp1Offset, int32_t iQp2Offset) override;
+    virtual void setAutoQP(int32_t frameIdx, bool bUseAutoQP) override;
+    virtual void setHDRIndex(int32_t frameIdx, int32_t iHDRIdx) override;
+#ifdef HAVE_VCU2_CTRLSW
+    virtual void setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUserAutoQPValues,
+            std::vector<int> thresholdQP, std::vector<int> deltaQP) override;
+    virtual void setIsSkip(int32_t frameIdx) override;
+    virtual void setSAO(int32_t frameIdx, bool bSAOEnabled) override;
+#endif
+
 private:
     String filename_;
     EncoderInitParams params_;
@@ -57,6 +104,9 @@ private:
     Ptr<EncContext::Config> cfg_;
     mutable std::mutex settingsMutex_;
     Settings currentSettings_;
+    CommandQueue commandQueue_;
+    int32_t currentFrameIndex_;
+    AL_HEncoder hEnc_;
 };
 
 }  // namespace vcucodec

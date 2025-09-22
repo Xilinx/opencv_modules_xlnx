@@ -13,8 +13,6 @@
 #include "lib_app/YuvIO.hpp"
 
 #include "QPGenerator.h"
-#include "EncCmdMngr.h"
-#include "CommandsSender.h"
 #include "HDRParser.h"
 #include "IEncoderSink.hpp"
 #include "TwoPassMngr.h"
@@ -246,8 +244,6 @@ struct EncoderSink : IEncoderSink
 {
 #ifdef HAVE_VCU2_CTRLSW
   explicit EncoderSink(cv::vcucodec::EncContext::Config const& cfg, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator) :
-    CmdFile(cfg.sCmdFileName, false),
-    EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_cfg(cfg),
     twoPassMngr(cfg.sTwoPassFileName, cfg.Settings.TwoPass, cfg.Settings.bEnableFirstPassSceneChangeDetection, cfg.Settings.tChParam[0].tGopParam.uGopLength,
                 cfg.Settings.tChParam[0].tRCParam.uCPBSize / 90, cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay / 90, cfg.MainInput.FileInfo.FrameRate),
@@ -266,8 +262,6 @@ struct EncoderSink : IEncoderSink
 
     if(AL_IS_WARNING_CODE(errorCode))
       LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
-
-    commandsSender.reset(new CommandsSender(hEnc));
 
     for(int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
       RecOutput[i].reset(new NullFrameSink);
@@ -289,8 +283,6 @@ struct EncoderSink : IEncoderSink
 #endif
 
   explicit EncoderSink(cv::vcucodec::EncContext::Config const& cfg, AL_IEncScheduler* pScheduler, AL_TAllocator* pAllocator) :
-    CmdFile(cfg.sCmdFileName, false),
-    EncCmd(CmdFile.fp, cfg.RunInfo.iScnChgLookAhead, cfg.Settings.tChParam[0].tGopParam.uFreqLT),
     m_cfg(cfg),
     twoPassMngr(cfg.sTwoPassFileName, cfg.Settings.TwoPass, cfg.Settings.bEnableFirstPassSceneChangeDetection, cfg.Settings.tChParam[0].tGopParam.uGopLength,
                 cfg.Settings.tChParam[0].tRCParam.uCPBSize / 90, cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay / 90, cfg.MainInput.FileInfo.FrameRate),
@@ -308,8 +300,6 @@ struct EncoderSink : IEncoderSink
 
     if(AL_IS_WARNING_CODE(errorCode))
       LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
-
-    commandsSender.reset(new CommandsSender(hEnc));
 
     for(int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
       RecOutput[i].reset(new NullFrameSink);
@@ -371,16 +361,6 @@ struct EncoderSink : IEncoderSink
 
   void PreprocessFrame() override
   {
-    commandsSender->Reset();
-    EncCmd.Process(commandsSender.get(), m_input_picCount[0]);
-
-    int32_t iIdx;
-
-    if(commandsSender->HasInputChanged(iIdx))
-      RequestSourceChange(iIdx, 0);
-
-    if(commandsSender->HasHDRChanged(iIdx))
-      ReadHDR(iIdx);
   }
 
   void ProcessFrame(AL_TBuffer* Src) override
@@ -439,12 +419,9 @@ private:
   int32_t m_pictureType = -1;
   uint64_t m_StartTime = 0;
   uint64_t m_EndTime = 0;
-  safe_ifstream CmdFile;
-  CEncCmdMngr EncCmd;
   cv::vcucodec::EncContext::Config const& m_cfg;
   TwoPassMngr twoPassMngr;
   QPBuffers qpBuffers;
-  std::unique_ptr<CommandsSender> commandsSender;
   std::unique_ptr<HDRParser> hdrParser;
 
   AL_TAllocator* pAllocator;

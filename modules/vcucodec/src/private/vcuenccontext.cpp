@@ -999,6 +999,7 @@ public:
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
     virtual bool waitForCompletion() override;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) override;
+    virtual AL_HEncoder hEnc() override { return enc_->hEnc; }
 
 private:
     std::unique_ptr<EncoderSink> enc_;
