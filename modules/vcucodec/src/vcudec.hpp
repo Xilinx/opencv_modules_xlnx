@@ -40,7 +40,7 @@ public:
 private:
     void   cleanup();
     void   copyToDestination(OutputArray dst, std::vector<Mat>& src, int fourccConvert,
-                             bool vector_output, bool single_output_buffer, bool by_reference);
+                             bool vector_output, bool single_output_buffer, bool by_reference, int bit_depth);
     void   retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
                               bool vector_output, bool by_reference);
     void   updateRawInfo(RawInfo& frame_info);

@@ -251,6 +251,14 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
     cfg.MainInput.FileInfo.FourCC = params.fourcc;
     if(cfg.MainInput.FileInfo.FourCC == FOURCC(NV12))
         cfg.Settings.tChParam[0].ePicFormat = AL_420_8BITS;
+    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(P010))
+    {
+        cfg.Settings.tChParam[0].ePicFormat = AL_420_10BITS;
+        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 10);
+        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
+        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN10;
+        //cfg.Settings.tChParam[0].uLevel = 51;
+    }
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(NV16))
         cfg.Settings.tChParam[0].ePicFormat = AL_422_8BITS;
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y800))
@@ -298,6 +306,17 @@ void VCUEncoder::write(InputArray frame)
         char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
                                                                            AL_PLANE_Y));
         int32_t ySize = size.width * size.height * 2 / 3;
+        memcpy(pY, (char*)frame.getMat().data, ySize);
+        char* pUV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
+                                                                            AL_PLANE_UV));
+        memcpy(pUV, (char*)frame.getMat().data + ySize, ySize / 2);
+    }
+    else if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(P010))
+    {
+        //to do convertion case later
+        char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
+                                                                           AL_PLANE_Y));
+        int32_t ySize = size.width * size.height * 2 / 3 * 2;
         memcpy(pY, (char*)frame.getMat().data, ySize);
         char* pUV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
                                                                             AL_PLANE_UV));
