@@ -17,6 +17,14 @@
 #ifndef OPENCV_VCUTYPES_HPP
 #define OPENCV_VCUTYPES_HPP
 
+#include <opencv2/core.hpp>
+#include <opencv2/videoio.hpp>
+
+#include <cstdint>
+#include <optional>
+#include <stdexcept>
+#include <string>
+
 namespace cv {
 namespace vcucodec {
 
@@ -117,6 +125,153 @@ enum class GDRMode
     HORIZONTAL = 3  ///< Horizontal Gradual %Decoder Refresh
 };
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//  HDR SEI
+
+struct CV_EXPORTS_W_SIMPLE ChromaCoordinates
+{
+    CV_PROP_RW int x; ///< x chromaticity coordinate scaled by 50000
+    CV_PROP_RW int y; ///< y chromaticity coordinate scaled by 50000
+};
+
+/// Struct MasteringDisplayColourVolume contains the Mastering Display Colour Volume SEI information.
+struct CV_EXPORTS_W_SIMPLE MasteringDisplayColourVolume
+{
+    CV_PROP_RW std::vector<ChromaCoordinates> display_primaries; ///< Display primaries as (x,y) for R, G, B
+    CV_PROP_RW ChromaCoordinates white_point;         ///< White point as (x,y)
+    CV_PROP_RW int max_display_mastering_luminance;   ///< Max display mastering luminance in cd/m^2
+    CV_PROP_RW int min_display_mastering_luminance;   ///< Min display mastering luminance in cd/m^2
+};
+
+/// Struct ContentLightLevel contains the Content Light Level SEI information.
+struct CV_EXPORTS_W_SIMPLE ContentLightLevel
+{
+    CV_PROP_RW int max_content_light_level;       ///< Max content light level in cd/m^2
+    CV_PROP_RW int max_pic_average_light_level;   ///< Max picture average light level in cd/m^2
+};
+
+/// Struct AlternativeTransferCharacteristics contains the Alternative Transfer Characteristics
+/// SEI information.
+struct CV_EXPORTS_W_SIMPLE AlternativeTransferCharacteristics
+{
+    CV_PROP_RW int preferred_transfer_characteristics; ///< Preferred transfer characteristics
+};
+
+struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_10
+{
+    CV_PROP_RW int active_area_left_offset;
+    CV_PROP_RW int active_area_right_offset;
+    CV_PROP_RW int active_area_top_offset;
+    CV_PROP_RW int active_area_bottom_offset;
+};
+
+struct CV_EXPORTS_W_SIMPLE ImageCharacteristics_ST2094_10
+{
+    CV_PROP_RW int min_pq;
+    CV_PROP_RW int max_pq;
+    CV_PROP_RW int avg_pq;
+};
+
+struct CV_EXPORTS_W_SIMPLE ManualAdjustment_ST2094_10
+{
+    CV_PROP_RW int target_max_pq;
+    CV_PROP_RW int trim_slope;
+    CV_PROP_RW int trim_offset;
+    CV_PROP_RW int trim_power;
+    CV_PROP_RW int trim_chroma_weight;
+    CV_PROP_RW int trim_saturation_gain;
+    CV_PROP_RW int ms_weight;
+};
+
+
+struct CV_EXPORTS_W_SIMPLE DynamicMeta_ST2094_10
+{
+    CV_PROP_RW int application_version; /* = 0 */
+    CV_PROP_RW bool processing_window_flag;
+    CV_PROP_RW ProcessingWindow_ST2094_10 processing_window;
+    CV_PROP_RW ImageCharacteristics_ST2094_10 image_characteristics;
+    CV_PROP_RW std::vector<ManualAdjustment_ST2094_10> manual_adjustments;
+};
+
+struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_1
+{
+    CV_PROP_RW int upper_left_corner_x;
+    CV_PROP_RW int upper_left_corner_y;
+    CV_PROP_RW int lower_right_corner_x;
+    CV_PROP_RW int lower_right_corner_y;
+};
+
+struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_40
+{
+    ProcessingWindow_ST2094_1 base_processing_window;
+    CV_PROP_RW int center_of_ellipse_x;
+    CV_PROP_RW int center_of_ellipse_y;
+    CV_PROP_RW int rotation_angle;
+    CV_PROP_RW int semimajor_axis_internal_ellipse;
+    CV_PROP_RW int semimajor_axis_external_ellipse;
+    CV_PROP_RW int semiminor_axis_external_ellipse;
+    CV_PROP_RW int overlap_process_option;
+};
+
+struct CV_EXPORTS_W_SIMPLE DisplayPeakLuminance_ST2094_40
+{
+    CV_PROP_RW bool actual_peak_luminance_flag;
+    CV_PROP_RW int num_rows_actual_peak_luminance;
+    CV_PROP_RW int num_cols_actual_peak_luminance;
+    CV_PROP_RW std::vector<std::vector<int>> actual_peak_luminance;
+};
+
+struct CV_EXPORTS_W_SIMPLE TargetedSystemDisplay_ST2094_40
+{
+    CV_PROP_RW uint32_t maximum_luminance;
+    CV_PROP_RW DisplayPeakLuminance_ST2094_40 peak_luminance;
+};
+
+struct CV_EXPORTS_W_SIMPLE ToneMapping_ST2094_40
+{
+    CV_PROP_RW bool tone_mapping_flag;
+    CV_PROP_RW int knee_point_x;
+    CV_PROP_RW int knee_point_y;
+    CV_PROP_RW std::vector<int> bezier_curve_anchors;
+};
+
+struct CV_EXPORTS_W_SIMPLE ProcessingWindowTransform_ST2094_40
+{
+    CV_PROP_RW std::vector<int> maxscl;
+    CV_PROP_RW int average_maxrgb;
+    CV_PROP_RW std::vector<int> distribution_maxrgb_percentages;
+    CV_PROP_RW std::vector<int> distribution_maxrgb_percentiles;
+    CV_PROP_RW int fraction_bright_pixels;
+    CV_PROP_RW ToneMapping_ST2094_40 tone_mapping;
+    CV_PROP_RW bool color_saturation_mapping_flag;
+    CV_PROP_RW int color_saturation_weight;
+};
+
+
+/// Struct ST2094_10 contains the Dynamic Metadata ST 2094-10 SEI information.
+struct CV_EXPORTS_W_SIMPLE DynamicMeta_ST2094_40
+{
+    CV_PROP_RW int application_version;
+    CV_PROP_RW std::vector<ProcessingWindow_ST2094_40> processing_windows;
+    CV_PROP_RW TargetedSystemDisplay_ST2094_40 targeted_system_display;
+    CV_PROP_RW DisplayPeakLuminance_ST2094_40 mastering_display_peak_luminance;
+    CV_PROP_RW std::vector<ProcessingWindowTransform_ST2094_40> processing_window_transforms;
+};
+
+/// Struct HDRSEIs contains the HDR SEI information to insert in the stream.
+struct CV_EXPORTS_W_SIMPLE HDRSEIs
+{
+    bool hasMDCV;
+    MasteringDisplayColourVolume mdcv; ///< Mastering Display Colour Volume SEI
+    bool hasCLL;
+    ContentLightLevel cll;             ///< Content Light Level SEI
+    bool hasATC;
+    AlternativeTransferCharacteristics atc; ///< Alternative Transfer Characteristics
+    bool hasST2094_10;
+    DynamicMeta_ST2094_10 st2094_10;   ///< Dynamic Metadata ST 2094-10 SEI
+    bool hasST2094_40;
+    DynamicMeta_ST2094_40 st2094_40;   ///< Dynamic Metadata ST 2094-40 SEI
+};
 
 //! @}
 }  // namespace vcucodec

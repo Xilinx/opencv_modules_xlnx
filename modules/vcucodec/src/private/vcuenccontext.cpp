@@ -8,8 +8,6 @@
 #include <dirent.h>
 
 
-#include "resource.h"
-
 #include "sink_encoder.h"
 #include "sink_lookahead.h"
 
@@ -123,16 +121,6 @@ static int32_t g_StrideHeight = -1;
 static int32_t g_Stride = -1;
 static int32_t constexpr g_defaultMinBuffers = 2;
 static bool g_MultiChunk = false;
-
-void DisplayVersionInfo(void)
-{
-    ::DisplayVersionInfo(AL_ENCODER_COMPANY,
-                         AL_ENCODER_PRODUCT_NAME,
-                         AL_ENCODER_VERSION,
-                         AL_ENCODER_COPYRIGHT,
-                         AL_ENCODER_COMMENTS);
-}
-
 
 /*****************************************************************************/
 bool checkQPTableFolder(Config& cfg)
@@ -966,8 +954,6 @@ std::unique_ptr<EncoderSink> CtrlswEncOpen(Config& cfg,
 
         for(uint8_t uLayer = 0; uLayer < cfg.Settings.NumLayer; uLayer++)
             Settings.tChParam[uLayer].eSrcMode = eSrcMode;
-
-        DisplayVersionInfo();
 
         ValidateConfig(cfg);
     }

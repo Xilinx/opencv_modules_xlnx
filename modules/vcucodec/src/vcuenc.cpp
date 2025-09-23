@@ -662,6 +662,16 @@ void VCUEncoder::setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUs
     }};
     commandQueue_.push(cmd);
 }
+#else
+void VCUEncoder::setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUserAutoQPValues,
+        std::vector<int> thresholdQP, std::vector<int> deltaQP)
+{
+    (void)frameIdx;
+    (void)bEnableUserAutoQPValues;
+    (void)thresholdQP;
+    (void)deltaQP;
+    // Not implemented
+}
 #endif
 
 void VCUEncoder::setHDRIndex(int32_t frameIdx, int32_t iHDRIdx)

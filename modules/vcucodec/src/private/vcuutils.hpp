@@ -21,6 +21,7 @@
 
 extern "C" {
 #include "lib_common/Error.h"
+#include "lib_common/HDR.h"
 }
 
 #include <fstream>
@@ -57,6 +58,10 @@ protected:
     AL_ERR errorCode_;
 };
 
+template <typename T, typename F>
+void convert(T& to, const F& from);
+
+template <> void convert(HDRSEIs& to, const AL_THDRSEIs& from);
 
 } // namespace vcucodec
 } // namespace cv

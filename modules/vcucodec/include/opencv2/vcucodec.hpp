@@ -18,12 +18,6 @@
 #define OPENCV_VCUCODEC_HPP
 
 #include "vcutypes.hpp"
-#include <opencv2/core.hpp>
-#include <opencv2/videoio.hpp>
-
-
-#include <string>
-#include <stdexcept>
 
 /**
   @addtogroup versal_zynq
@@ -291,106 +285,104 @@ public:
     //
 
     /// Indicate a scene change at frameIdx with lookAhead frames
-    virtual void setSceneChange(int32_t frameIdx, int32_t lookAhead) = 0;
+    CV_WRAP virtual void setSceneChange(int32_t frameIdx, int32_t lookAhead) = 0;
 
     /// Indicate that frameIdx is a long-term reference
-    virtual void setIsLongTerm(int32_t frameIdx) = 0;
+    CV_WRAP virtual void setIsLongTerm(int32_t frameIdx) = 0;
 
     /// Indicate that frameIdx is a long-term reference
-    virtual void setUseLongTerm(int32_t frameIdx) = 0;
+    CV_WRAP virtual void setUseLongTerm(int32_t frameIdx) = 0;
 
     /// Restart the GOP at frameIdx (next frame will be an IDR)
-    virtual void restartGop(int32_t frameIdx) = 0;
+    CV_WRAP virtual void restartGop(int32_t frameIdx) = 0;
 
     /// Restart the GOP at frameIdx with a recovery point SEI
-    virtual void restartGopRecoveryPoint(int32_t frameIdx) = 0;
+    CV_WRAP virtual void restartGopRecoveryPoint(int32_t frameIdx) = 0;
 
     /// Set the GOP length at frameIdx
-    virtual void setGopLength(int32_t frameIdx, int32_t gopLength) = 0;
+    CV_WRAP virtual void setGopLength(int32_t frameIdx, int32_t gopLength) = 0;
 
     /// Set the number of B-frames at frameIdx
-    virtual void setNumB(int32_t frameIdx, int32_t numB) = 0;
+    CV_WRAP virtual void setNumB(int32_t frameIdx, int32_t numB) = 0;
 
     /// Set the frequency of IDR frames at frameIdx
-    virtual void setFreqIDR(int32_t frameIdx, int32_t freqIDR) = 0;
+    CV_WRAP virtual void setFreqIDR(int32_t frameIdx, int32_t freqIDR) = 0;
 
     /// Set the frame rate at frameIdx
-    virtual void setFrameRate(int32_t frameIdx, int32_t frameRate, int32_t clockRatio) = 0;
+    CV_WRAP virtual void setFrameRate(int32_t frameIdx, int32_t frameRate, int32_t clockRatio) = 0;
 
     /// Set the target and maximum bitrate at frameIdx
-    virtual void setBitRate(int32_t frameIdx, int32_t bitRate) = 0;
+    CV_WRAP virtual void setBitRate(int32_t frameIdx, int32_t bitRate) = 0;
 
     /// Set the target and maximum bitrate at frameIdx
-    virtual void setMaxBitRate(int32_t frameIdx, int32_t iTargetBitRate, int32_t iMaxBitRate) = 0;
+    CV_WRAP virtual void setMaxBitRate(int32_t frameIdx, int32_t iTargetBitRate, int32_t iMaxBitRate) = 0;
 
     /// Set the QP (Quantization Parameter) at a specific frame index.
-    virtual void setQP(int32_t frameIdx, int32_t qp) = 0;
+    CV_WRAP virtual void setQP(int32_t frameIdx, int32_t qp) = 0;
 
     /// Set the QP offset at a specific frame index.
-    virtual void setQPOffset(int32_t frameIdx, int32_t iQpOffset) = 0;
+    CV_WRAP virtual void setQPOffset(int32_t frameIdx, int32_t iQpOffset) = 0;
 
     /// Set the QP bounds for a specific frame index.
-    virtual void setQPBounds(int32_t frameIdx, int32_t iMinQP, int32_t iMaxQP) = 0;
+    CV_WRAP virtual void setQPBounds(int32_t frameIdx, int32_t iMinQP, int32_t iMaxQP) = 0;
 
     /// Set the QP bounds for I-frames at a specific frame index.
-    virtual void setQPBoundsI(int32_t frameIdx, int32_t iMinQP_I, int32_t iMaxQP_I) = 0;
+    CV_WRAP virtual void setQPBoundsI(int32_t frameIdx, int32_t iMinQP_I, int32_t iMaxQP_I) = 0;
 
     /// Set the QP bounds for P-frames at a specific frame index.
-    virtual void setQPBoundsP(int32_t frameIdx, int32_t iMinQP_P, int32_t iMaxQP_P) = 0;
+    CV_WRAP virtual void setQPBoundsP(int32_t frameIdx, int32_t iMinQP_P, int32_t iMaxQP_P) = 0;
 
     /// Set the QP bounds for B-frames at a specific frame index.
-    virtual void setQPBoundsB(int32_t frameIdx, int32_t iMinQP_B, int32_t iMaxQP_B) = 0;
+    CV_WRAP virtual void setQPBoundsB(int32_t frameIdx, int32_t iMinQP_B, int32_t iMaxQP_B) = 0;
 
     /// Set the QP delta between I and P frames at a specific frame index.
-    virtual void setQPIPDelta(int32_t frameIdx, int32_t iQPDelta) = 0;
+    CV_WRAP virtual void setQPIPDelta(int32_t frameIdx, int32_t iQPDelta) = 0;
 
     /// Set the QP delta between P and B frames at a specific frame index.
-    virtual void setQPPBDelta(int32_t frameIdx, int32_t iQPDelta) = 0;
+    CV_WRAP virtual void setQPPBDelta(int32_t frameIdx, int32_t iQPDelta) = 0;
 
     /// Set the loop filter mode at a specific frame index.
-    virtual void setLFMode(int32_t frameIdx, int32_t iMode) = 0;
+    CV_WRAP virtual void setLFMode(int32_t frameIdx, int32_t iMode) = 0;
 
     /// Set the loop filter beta offset at a specific frame index.
-    virtual void setLFBetaOffset(int32_t frameIdx, int32_t iBetaOffset) = 0;
+    CV_WRAP virtual void setLFBetaOffset(int32_t frameIdx, int32_t iBetaOffset) = 0;
 
     /// Set the loop filter tc offset at a specific frame index.
-    virtual void setLFTcOffset(int32_t frameIdx, int32_t iTcOffset) = 0;
+    CV_WRAP virtual void setLFTcOffset(int32_t frameIdx, int32_t iTcOffset) = 0;
 
     /// Set the cost mode at a specific frame index.
-    virtual void setCostMode(int32_t frameIdx, bool bCostMode) = 0;
+    CV_WRAP virtual void setCostMode(int32_t frameIdx, bool bCostMode) = 0;
 
     /// Set the maximum picture size at a specific frame index.
-    virtual void setMaxPictureSize(int32_t frameIdx, int32_t iMaxPictureSize) = 0;
+    CV_WRAP virtual void setMaxPictureSize(int32_t frameIdx, int32_t iMaxPictureSize) = 0;
 
     /// Set the maximum picture size for I-frames at a specific frame index.
-    virtual void setMaxPictureSizeI(int32_t frameIdx, int32_t iMaxPictureSize_I) = 0;
+    CV_WRAP virtual void setMaxPictureSizeI(int32_t frameIdx, int32_t iMaxPictureSize_I) = 0;
 
     /// Set the maximum picture size for P-frames at a specific frame index.
-    virtual void setMaxPictureSizeP(int32_t frameIdx, int32_t iMaxPictureSize_P) = 0;
+    CV_WRAP virtual void setMaxPictureSizeP(int32_t frameIdx, int32_t iMaxPictureSize_P) = 0;
 
     /// Set the maximum picture size for B-frames at a specific frame index.
-    virtual void setMaxPictureSizeB(int32_t frameIdx, int32_t iMaxPictureSize_B) = 0;
+    CV_WRAP virtual void setMaxPictureSizeB(int32_t frameIdx, int32_t iMaxPictureSize_B) = 0;
 
     /// Set the chroma QP offsets at a specific frame index.
-    virtual void setQPChromaOffsets(int32_t frameIdx, int32_t iQp1Offset, int32_t iQp2Offset) = 0;
+    CV_WRAP virtual void setQPChromaOffsets(int32_t frameIdx, int32_t iQp1Offset, int32_t iQp2Offset) = 0;
 
     /// Set whether to use Auto QP at a specific frame index.
-    virtual void setAutoQP(int32_t frameIdx, bool bUseAutoQP) = 0;
+    CV_WRAP virtual void setAutoQP(int32_t frameIdx, bool bUseAutoQP) = 0;
 
     /// Set the HDR index at a specific frame index.
-    virtual void setHDRIndex(int32_t frameIdx, int32_t iHDRIdx) = 0;
+    CV_WRAP virtual void setHDRIndex(int32_t frameIdx, int32_t iHDRIdx) = 0;
 
-    #ifdef HAVE_VCU2_CTRLSW
     /// Indicate that frameIdx is a skip frame
-    virtual void setIsSkip(int32_t frameIdx) = 0;
+    CV_WRAP virtual void setIsSkip(int32_t frameIdx) = 0;
 
     /// Indicate whether SAO (Sample Adaptive Offset) is enabled for the frame
-    virtual void setSAO(int32_t frameIdx, bool bSAOEnabled) = 0;
+    CV_WRAP virtual void setSAO(int32_t frameIdx, bool bSAOEnabled) = 0;
 
     /// Set Auto QP threshold QP and delta QP at a specific frame index.
-    virtual void setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUserAutoQPValues,
+    CV_WRAP virtual void setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUserAutoQPValues,
             std::vector<int> thresholdQP, std::vector<int> deltaQP) = 0;
-#endif
 
     //
     // static functions
