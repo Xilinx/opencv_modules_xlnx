@@ -422,12 +422,28 @@ void VCUEncoder::setIsSkip(int32_t frameIdx)
     Command cmd = { frameIdx, false, [this](){ AL_Encoder_NotifyIsSkip(hEnc_); }};
     commandQueue_.push(cmd);
 }
+#else
+void VCUEncoder::setIsSkip(int32_t frameIdx)
+{
+    (void) frameIdx;
+    std::cerr << "Warning: Skip is only supported on VCU2 devices." << std::endl;
+}
+#endif
 
+#ifdef HAVE_VCU2_CTRLSW
 void VCUEncoder::setSAO(int32_t frameIdx, bool bSAOEnabled)
 {
     Command cmd = { frameIdx, false,
                     [this, bSAOEnabled](){ CHECK(AL_Encoder_SetSAO(hEnc_, bSAOEnabled)); }};
     commandQueue_.push(cmd);
+}
+#else
+void VCUEncoder::setSAO(int32_t frameIdx, bool bSAOEnabled)
+{
+    (void) frameIdx;
+    (void) bSAOEnabled;
+    if (bSAOEnabled)
+        std::cerr << "Warning: SAO is only supported on VCU2 devices." << std::endl;
 }
 #endif
 
@@ -670,7 +686,9 @@ void VCUEncoder::setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUs
     (void)bEnableUserAutoQPValues;
     (void)thresholdQP;
     (void)deltaQP;
-    // Not implemented
+
+    std::cerr << "Warning: Auto QP thresholds and delta QP are only supported on VCU2 devices."
+              << std::endl;
 }
 #endif
 
