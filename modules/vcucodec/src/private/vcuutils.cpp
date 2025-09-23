@@ -64,10 +64,6 @@ OutputStream::OutputStream(const String& filename, bool binary)
 OutputStream::~OutputStream()
 {
     file_.close();
-    AL_THDRSEIs sei;
-    HDRSEIs Sei;
-    convert(Sei, sei);
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
