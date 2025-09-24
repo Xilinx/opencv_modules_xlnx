@@ -13,7 +13,6 @@
 #include "lib_app/YuvIO.hpp"
 
 #include "QPGenerator.h"
-#include "HDRParser.h"
 #include "IEncoderSink.hpp"
 #include "TwoPassMngr.h"
 
@@ -271,14 +270,7 @@ struct EncoderSink : IEncoderSink
 
     m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
 
-    if(!cfg.sHDRFileName.empty())
-    {
-      hdrParser.reset(new HDRParser(cfg.sHDRFileName));
-      ReadHDR(0);
-    }
-
     iPendingStreamCnt = 1;
-
   }
 #endif
 
@@ -309,24 +301,10 @@ struct EncoderSink : IEncoderSink
 
     m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
 
-    if(!cfg.sHDRFileName.empty())
-    {
-      hdrParser.reset(new HDRParser(cfg.sHDRFileName));
-      ReadHDR(0);
-    }
+    // TODO: AL_Encoder_SetHDRSEIs(hEnc, &tHDRSEIs);
 
     iPendingStreamCnt = 1;
 
-  }
-
-  void ReadHDR(int32_t iHDRIdx)
-  {
-    AL_THDRSEIs tHDRSEIs;
-
-    if(!hdrParser->ReadHDRSEIs(tHDRSEIs, iHDRIdx))
-      throw std::runtime_error("Failed to parse HDR File.");
-
-    AL_Encoder_SetHDRSEIs(hEnc, &tHDRSEIs);
   }
 
   ~EncoderSink(void)
@@ -422,7 +400,6 @@ private:
   cv::vcucodec::EncContext::Config const& m_cfg;
   TwoPassMngr twoPassMngr;
   QPBuffers qpBuffers;
-  std::unique_ptr<HDRParser> hdrParser;
 
   AL_TAllocator* pAllocator;
   AL_TEncSettings const* pSettings;
