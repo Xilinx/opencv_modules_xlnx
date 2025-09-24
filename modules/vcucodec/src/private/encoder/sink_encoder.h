@@ -12,8 +12,6 @@
 #include "lib_app/convert.hpp"
 #include "lib_app/YuvIO.hpp"
 
-#include "IEncoderSink.hpp"
-
 extern "C"
 {
 #include "lib_common/BufferPictureMeta.h"
@@ -55,6 +53,7 @@ extern "C" {
 
 using DataCallback = std::function<void (std::vector<std::string_view>&)>;
 using en_codec_error = cv::vcucodec::en_codec_error;
+using ChangeSourceCallback = std::function<void(int, int)>;
 
 static std::string PictTypeToString(AL_ESliceType type)
 {
@@ -72,7 +71,7 @@ static std::string PictTypeToString(AL_ESliceType type)
   return m.at(type);
 }
 
-struct EncoderSink : IEncoderSink
+struct EncoderSink
 {
 #ifdef HAVE_VCU2_CTRLSW
   explicit EncoderSink(cv::vcucodec::EncContext::Config const& cfg, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator) :
@@ -140,7 +139,7 @@ struct EncoderSink : IEncoderSink
     AL_Encoder_Destroy(hEnc);
   }
 
-  void SetChangeSourceCallback(ChangeSourceCallback changeSourceCB) override
+  void SetChangeSourceCallback(ChangeSourceCallback changeSourceCB)
   {
     m_changeSourceCB = changeSourceCB;
   }
@@ -157,11 +156,11 @@ struct EncoderSink : IEncoderSink
   bool encoding_finished = false;
 
 
-  void PreprocessFrame() override
+  void PreprocessFrame()
   {
   }
 
-  void ProcessFrame(AL_TBuffer* Src) override
+  void ProcessFrame(AL_TBuffer* Src)
   {
     if(m_input_picCount[0] == 0)
       m_StartTime = GetPerfTime();
@@ -189,7 +188,7 @@ struct EncoderSink : IEncoderSink
     m_input_picCount[0]++;
   }
 
-  AL_ERR GetLastError(void) override
+  AL_ERR GetLastError(void)
   {
     return m_EncoderLastError;
   }

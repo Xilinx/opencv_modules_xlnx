@@ -81,11 +81,11 @@ struct LayerResources
 
     void OpenEncoderInput(Config& cfg, AL_HEncoder hEnc);
 
-    bool SendInput(Config& cfg, IEncoderSink* firstSink, void* pTraceHook);
+    bool SendInput(Config& cfg, EncoderSink* firstSink, void* pTraceHook);
 
     bool sendInputFileTo(std::unique_ptr<FrameReader>& frameReader, PixMapBufPool& SrcBufPool,
                          AL_TBuffer* Yuv, Config const& cfg, AL_TYUVFileInfo& FileInfo,
-                         IConvSrc* pSrcConv, IEncoderSink* pEncoderSink, int& iPictCount,
+                         IConvSrc* pSrcConv, EncoderSink* pEncoderSink, int& iPictCount,
                          int& iReadCount);
 
     std::unique_ptr<FrameReader> InitializeFrameReader(Config& cfg, std::ifstream& YuvFile,
@@ -641,7 +641,7 @@ void LayerResources::PushResources(Config& cfg, EncoderSink* enc)
     ChangeInput(cfg, iInputIdx, hEnc);
 }
 
-[[maybe_unused]] bool LayerResources::SendInput(Config& cfg, IEncoderSink* firstSink,
+[[maybe_unused]] bool LayerResources::SendInput(Config& cfg, EncoderSink* firstSink,
                                                 void* pTraceHooker)
 {
     (void)pTraceHooker;
@@ -653,7 +653,7 @@ void LayerResources::PushResources(Config& cfg, EncoderSink* enc)
 
 bool LayerResources::sendInputFileTo(std::unique_ptr<FrameReader>& frameReader,
     PixMapBufPool& SrcBufPool, AL_TBuffer* Yuv, Config const& cfg, AL_TYUVFileInfo& FileInfo,
-    IConvSrc* pSrcConv, IEncoderSink* pEncoderSink, int& iPictCount, int& iReadCount)
+    IConvSrc* pSrcConv, EncoderSink* pEncoderSink, int& iPictCount, int& iReadCount)
 {
     if (AL_IS_ERROR_CODE(pEncoderSink->GetLastError()))
     {
@@ -768,7 +768,7 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
     enc.reset(new EncoderSink(cfg, pScheduler, pAllocator));
 #endif
 
-    IEncoderSink* pFirstEncoderSink = enc.get();
+    EncoderSink* pFirstEncoderSink = enc.get();
 
     // --------------------------------------------------------------------------------
     // Allocate/Push Layers resources
