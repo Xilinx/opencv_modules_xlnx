@@ -14,7 +14,6 @@
 
 #include "QPGenerator.h"
 #include "IEncoderSink.hpp"
-#include "TwoPassMngr.h"
 
 extern "C"
 {
@@ -244,8 +243,6 @@ struct EncoderSink : IEncoderSink
 #ifdef HAVE_VCU2_CTRLSW
   explicit EncoderSink(cv::vcucodec::EncContext::Config const& cfg, AL_RiscV_Ctx ctx, AL_TAllocator* pAllocator) :
     m_cfg(cfg),
-    twoPassMngr(cfg.sTwoPassFileName, cfg.Settings.TwoPass, cfg.Settings.bEnableFirstPassSceneChangeDetection, cfg.Settings.tChParam[0].tGopParam.uGopLength,
-                cfg.Settings.tChParam[0].tRCParam.uCPBSize / 90, cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay / 90, cfg.MainInput.FileInfo.FrameRate),
     pAllocator{pAllocator},
     pSettings{&cfg.Settings}
   {
@@ -276,8 +273,6 @@ struct EncoderSink : IEncoderSink
 
   explicit EncoderSink(cv::vcucodec::EncContext::Config const& cfg, AL_IEncScheduler* pScheduler, AL_TAllocator* pAllocator) :
     m_cfg(cfg),
-    twoPassMngr(cfg.sTwoPassFileName, cfg.Settings.TwoPass, cfg.Settings.bEnableFirstPassSceneChangeDetection, cfg.Settings.tChParam[0].tGopParam.uGopLength,
-                cfg.Settings.tChParam[0].tRCParam.uCPBSize / 90, cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay / 90, cfg.MainInput.FileInfo.FrameRate),
     pAllocator{pAllocator},
     pSettings{&cfg.Settings}
   {
@@ -360,14 +355,6 @@ struct EncoderSink : IEncoderSink
 
     CheckSourceResolutionChanged(Src);
 
-    if(twoPassMngr.iPass)
-    {
-      auto pPictureMetaTP = AL_TwoPassMngr_CreateAndAttachTwoPassMetaData(Src);
-
-      if(twoPassMngr.iPass == 2)
-        twoPassMngr.GetFrame(pPictureMetaTP);
-    }
-
     AL_TBuffer* QpBuf = qpBuffers.getBuffer(m_input_picCount[0]);
 
     std::shared_ptr<AL_TBuffer> QpBufShared(QpBuf, [&](AL_TBuffer* pBuf) { qpBuffers.releaseBuffer(pBuf); });
@@ -398,7 +385,7 @@ private:
   uint64_t m_StartTime = 0;
   uint64_t m_EndTime = 0;
   cv::vcucodec::EncContext::Config const& m_cfg;
-  TwoPassMngr twoPassMngr;
+
   QPBuffers qpBuffers;
 
   AL_TAllocator* pAllocator;
@@ -429,17 +416,6 @@ private:
 
     if(isStreamReleased(pStream, pSrc) || isSourceReleased(pStream, pSrc))
       return;
-
-    if(pThis->twoPassMngr.iPass == 1)
-    {
-      if(!pSrc)
-        pThis->twoPassMngr.Flush();
-      else
-      {
-        auto pPictureMetaTP = (AL_TLookAheadMetaData*)AL_Buffer_GetMetaData(pSrc, AL_META_TYPE_LOOKAHEAD);
-        pThis->twoPassMngr.AddFrame(pPictureMetaTP);
-      }
-    }
 
     cv::Ptr<cv::vcucodec::Data> data = cv::vcucodec::Data::create(pStream, pThis->hEnc);
     pThis->processOutput(data);

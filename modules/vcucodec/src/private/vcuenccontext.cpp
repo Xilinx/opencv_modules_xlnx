@@ -9,7 +9,6 @@
 
 
 #include "sink_encoder.h"
-#include "sink_lookahead.h"
 
 #include "lib_app/AL_RasterConvert.hpp"
 #include "lib_app/BuildInfo.hpp"
@@ -34,7 +33,6 @@ extern "C" {
 
 #include "vcudevice.hpp"
 #include "vcuenccontext.hpp"
-#include "TwoPassMngr.h"
 
 #if !defined(HAS_COMPIL_FLAGS)
 #define AL_COMPIL_FLAGS ""
@@ -78,7 +76,7 @@ struct LayerResources
     void Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID,
               AL_TAllocator* pAllocator, int32_t chanId);
 
-    void PushResources(Config& cfg, EncoderSink* enc , EncoderLookAheadSink* encFirstPassLA);
+    void PushResources(Config& cfg, EncoderSink* enc);
 
     void OpenEncoderInput(Config& cfg, AL_HEncoder hEnc);
 
@@ -179,9 +177,6 @@ void ValidateConfig(Config& cfg)
             throw std::runtime_error("Fatal coherency error in settings (layer[" +
                                      std::to_string(i) + "/" + std::to_string(MaxLayer) + "])");
     }
-
-    if (cfg.Settings.TwoPass == 1)
-        AL_TwoPassMngr_SetPass1Settings(cfg.Settings);
 
     SetConsoleColor(CC_DEFAULT);
 }
@@ -498,19 +493,6 @@ bool InitStreamBufPool(BufPool& pool, AL_TEncSettings& Settings, int32_t iLayerI
         numStreams = g_defaultMinBuffers + smoothingStream + GetNumBufForGop(Settings);
     }
 
-    bool bHasLookAhead;
-    bHasLookAhead = AL_TwoPassMngr_HasLookAhead(Settings);
-
-    if (bHasLookAhead)
-    {
-        int32_t extraLookAheadStream = 1;
-
-        // the look ahead needs one more stream buffer to work in AVC due to (potential) multi-core
-        if (AL_IS_AVC(Settings.tChParam[0].eProfile))
-            extraLookAheadStream += 1;
-        numStreams += extraLookAheadStream;
-    }
-
     if (Settings.tChParam[0].bSubframeLatency)
     {
         numStreams *= Settings.tChParam[0].uNumSlices;
@@ -587,8 +569,6 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
     bool bUsePictureMeta = false;
     bUsePictureMeta |= cfg.RunInfo.printPictureType;
 
-    bUsePictureMeta |= AL_TwoPassMngr_HasLookAhead(Settings);
-
     if (iLayerID == 0 && bUsePictureMeta)
     {
         auto pMeta = (AL_TMetaData*)AL_PictureMetaData_Create();
@@ -625,15 +605,6 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
 
     {
         frameBuffersCount = g_defaultMinBuffers + GetNumBufForGop(Settings);
-
-        if (AL_TwoPassMngr_HasLookAhead(Settings))
-        {
-            frameBuffersCount += Settings.LookAhead + (GetNumBufForGop(Settings) * 2);
-
-            if (AL_IS_AVC(cfg.Settings.tChParam[0].eProfile))
-                frameBuffersCount += 1;
-        }
-
     }
 
     if (!InitQpBufPool(QpBufPool, Settings, Settings.tChParam[iLayerID], frameBuffersCount, pAllocator))
@@ -669,8 +640,7 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
     iReadCount = 0;
 }
 
-void LayerResources::PushResources(Config& cfg, EncoderSink* enc ,
-                                   EncoderLookAheadSink* encFirstPassLA)
+void LayerResources::PushResources(Config& cfg, EncoderSink* enc)
 {
     (void)cfg;
     QPBuffers::QPLayerInfo qpInf
@@ -681,11 +651,6 @@ void LayerResources::PushResources(Config& cfg, EncoderSink* enc ,
     };
 
     enc->AddQpBufPool(qpInf, iLayerID);
-
-    if (AL_TwoPassMngr_HasLookAhead(cfg.Settings))
-    {
-        encFirstPassLA->AddQpBufPool(qpInf, iLayerID);
-    }
 
     if (frameWriter)
         enc->RecOutput[iLayerID] = std::move(frameWriter);
@@ -709,9 +674,6 @@ void LayerResources::PushResources(Config& cfg, EncoderSink* enc ,
             // the look ahead needs one more stream buffer to work AVC due to (potential) multi-core
             if (AL_IS_AVC(cfg.Settings.tChParam[0].eProfile))
                 iStreamNum += 1;
-
-            if (AL_TwoPassMngr_HasLookAhead(cfg.Settings) && i < iStreamNum)
-                hEnc = encFirstPassLA->hEnc;
 
             bRet = AL_Encoder_PutStreamBuffer(hEnc, pStream.get());
         }
@@ -825,7 +787,6 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
     /* null if not supported */
     //void* pTraceHook {};
     std::unique_ptr<EncoderSink> enc;
-    std::unique_ptr<EncoderLookAheadSink> encFirstPassLA;
 
     auto pAllocator = device->getAllocator();
     auto pScheduler = (AL_IEncScheduler*)device->getScheduler();
@@ -856,19 +817,6 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
 
     IEncoderSink* pFirstEncoderSink = enc.get();
 
-    if (AL_TwoPassMngr_HasLookAhead(cfg.Settings))
-    {
-
-#ifdef HAVE_VCU2_CTRLSW
-        if (ctx)
-            encFirstPassLA.reset(new EncoderLookAheadSink(pFirstEncoderSink, cfg, ctx, pAllocator));
-        else
-#endif
-            encFirstPassLA.reset(new EncoderLookAheadSink(pFirstEncoderSink, cfg, pScheduler, pAllocator));
-
-        pFirstEncoderSink = encFirstPassLA.get();
-    }
-
     // --------------------------------------------------------------------------------
     // Allocate/Push Layers resources
     AL_TEncoderInfo tEncInfo;
@@ -878,7 +826,7 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
     {
         auto multisinkRec = std::unique_ptr<MultiSink>(new MultiSink);
         pLayerResources[i]->Init(cfg, tEncInfo, i, pAllocator, chanId);
-        pLayerResources[i]->PushResources(cfg, enc.get(), encFirstPassLA.get());
+        pLayerResources[i]->PushResources(cfg, enc.get());
 
         // Rec file creation
         std::string LayerRecFileName = cfg.RecFileName;

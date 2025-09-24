@@ -143,8 +143,6 @@ struct EncContext::Config
     // \brief Name of the file specifying Global Motion Vector for each frame
     std::string sGMVFileName;
 #endif
-    // \brief Name of the file that reads/writes video statistics for TwoPassMode
-    std::string sTwoPassFileName;
 
     // \brief Name of the file specifying HDR SEI contents
     std::string sHDRFileName;
