@@ -12,7 +12,6 @@
 #include "lib_app/convert.hpp"
 #include "lib_app/YuvIO.hpp"
 
-#include "QPGenerator.h"
 #include "IEncoderSink.hpp"
 
 extern "C"
@@ -73,171 +72,6 @@ static std::string PictTypeToString(AL_ESliceType type)
   return m.at(type);
 }
 
-static AL_ERR PreprocessQP(AL_TBuffer* pQpBuf, AL_EGenerateQpMode eMode, const AL_TEncChanParam& tChParam, const std::string& sQPTablesFolder, int32_t iFrameCountSent)
-{
-  auto iQPTableDepth = 0;
-#ifdef HAVE_VCU2_CTRLSW
-  iQPTableDepth = tChParam.iQPTableDepth;
-#endif
-
-  int32_t minMaxQPSize = (int)(sizeof(tChParam.tRCParam.iMaxQP) / sizeof(tChParam.tRCParam.iMaxQP[0]));
-
-  return GenerateQPBuffer(eMode, tChParam.tRCParam.iInitialQP,
-                          *std::max_element(tChParam.tRCParam.iMinQP, tChParam.tRCParam.iMinQP + minMaxQPSize),
-                          *std::min_element(tChParam.tRCParam.iMaxQP, tChParam.tRCParam.iMaxQP + minMaxQPSize),
-                          AL_GetWidthInLCU(tChParam), AL_GetHeightInLCU(tChParam),
-                          tChParam.eProfile, tChParam.uLog2MaxCuSize, iQPTableDepth, sQPTablesFolder,
-                          iFrameCountSent, pQpBuf);
-}
-
-class QPBuffers
-{
-public:
-  struct QPLayerInfo
-  {
-    BufPool* bufPool;
-    std::string sQPTablesFolder;
-    std::string sRoiFileName;
-  };
-
-  QPBuffers() {};
-
-  void Configure(AL_TEncSettings const* pSettings, AL_EGenerateQpMode mode)
-  {
-    isExternQpTable = AL_IS_QP_TABLE_REQUIRED(pSettings->eQpTableMode);
-    this->pSettings = pSettings;
-    this->mode = mode;
-  }
-
-  ~QPBuffers(void)
-  {
-
-    for(auto roiCtx = mQPLayerRoiCtxs.begin(); roiCtx != mQPLayerRoiCtxs.end(); roiCtx++)
-      AL_RoiMngr_Destroy(roiCtx->second);
-
-  }
-
-  void AddBufPool(QPLayerInfo& qpLayerInfo, int32_t iLayerID)
-  {
-    initLayer(qpLayerInfo, iLayerID);
-  }
-
-  AL_TBuffer* getBuffer(int32_t frameNum)
-  {
-    return getBufferP(frameNum, 0);
-  }
-
-  void releaseBuffer(AL_TBuffer* buffer)
-  {
-    if(!isExternQpTable || !buffer)
-      return;
-    AL_Buffer_Unref(buffer);
-  }
-
-private:
-  void initLayer(QPLayerInfo& qpLayerInfo, int32_t iLayerID)
-  {
-    mQPLayerInfos[iLayerID] = qpLayerInfo;
-    auto& tChParam = pSettings->tChParam[iLayerID];
-    mQPLayerRoiCtxs[iLayerID] = AL_RoiMngr_Create(tChParam.uEncWidth, tChParam.uEncHeight, tChParam.eProfile, tChParam.uLog2MaxCuSize, AL_ROI_QUALITY_MEDIUM, AL_ROI_QUALITY_ORDER);
-  }
-
-  AL_TBuffer* getBufferP(int32_t frameNum, int32_t iLayerID)
-  {
-    if(!isExternQpTable || mQPLayerInfos.find(iLayerID) == mQPLayerInfos.end())
-      return nullptr;
-
-    auto& layerInfo = mQPLayerInfos[iLayerID];
-    auto& tLayerChParam = pSettings->tChParam[iLayerID];
-
-    AL_TBuffer* pQpBuf = layerInfo.bufPool->GetBuffer();
-
-    if(!pQpBuf)
-      throw std::runtime_error("Invalid QP buffer");
-
-    std::string sErrorMsg = "Error loading external QP tables.";
-
-    if(AL_GENERATE_ROI_QP == (AL_EGenerateQpMode)(mode & AL_GENERATE_QP_TABLE_MASK))
-    {
-      auto iQPTableDepth = 0;
-#ifdef HAVE_VCU2_CTRLSW
-      iQPTableDepth = tLayerChParam.iQPTableDepth;
-#endif
-      AL_ERR bRetROI = GenerateROIBuffer(mQPLayerRoiCtxs[iLayerID], layerInfo.sRoiFileName,
-                                         AL_GetWidthInLCU(tLayerChParam), AL_GetHeightInLCU(tLayerChParam),
-                                         tLayerChParam.eProfile, tLayerChParam.uLog2MaxCuSize, iQPTableDepth,
-                                         frameNum, AL_Buffer_GetData(pQpBuf) + EP2_BUF_QP_BY_MB.Offset);
-
-      if(!AL_IS_SUCCESS_CODE(bRetROI))
-      {
-        releaseBuffer(pQpBuf);
-        switch(bRetROI)
-        {
-        case AL_ERR_CANNOT_OPEN_FILE:
-          sErrorMsg = "Error loading ROI file.";
-          throw std::runtime_error(sErrorMsg);
-        default:
-          break;
-        }
-      }
-    }
-    else
-    {
-      AL_ERR bRetQP = PreprocessQP(pQpBuf, mode, tLayerChParam, layerInfo.sQPTablesFolder, frameNum);
-      auto releaseQPBuf = [&](std::string sErrorMsg, bool bThrow)
-                          {
-                            (void)sErrorMsg;
-                            releaseBuffer(pQpBuf);
-                            pQpBuf = NULL;
-
-                            if(bThrow)
-                              throw std::runtime_error(sErrorMsg);
-                          };
-      switch(bRetQP)
-      {
-      case AL_SUCCESS:
-        break;
-      case AL_ERR_QPLOAD_DATA:
-        releaseQPBuf(AL_Codec_ErrorToString(bRetQP), true);
-        break;
-      case AL_ERR_QPLOAD_NOT_ENOUGH_DATA:
-        releaseQPBuf(AL_Codec_ErrorToString(bRetQP), true);
-        break;
-      case AL_ERR_CANNOT_OPEN_FILE:
-      {
-        bool bThrow = false;
-        bThrow = true;
-        releaseQPBuf("Cannot open QP file.", bThrow);
-        break;
-      }
-      default:
-        break;
-      }
-    }
-
-    return pQpBuf;
-  }
-
-private:
-  bool isExternQpTable;
-  AL_TEncSettings const* pSettings;
-  AL_EGenerateQpMode mode;
-  std::map<int, QPLayerInfo> mQPLayerInfos;
-  std::map<int, AL_TRoiMngrCtx*> mQPLayerRoiCtxs;
-};
-
-struct safe_ifstream
-{
-  std::ifstream fp {};
-  safe_ifstream(std::string const& filename, bool binary)
-  {
-    /* support no file at all */
-    if(filename.empty())
-      return;
-    OpenInput(fp, filename, binary);
-  }
-};
-
 struct EncoderSink : IEncoderSink
 {
 #ifdef HAVE_VCU2_CTRLSW
@@ -248,8 +82,6 @@ struct EncoderSink : IEncoderSink
   {
     assert(ctx);
     AL_CB_EndEncoding onEncoding = { &EncoderSink::EndEncoding, this };
-
-    qpBuffers.Configure(&cfg.Settings, cfg.RunInfo.eGenerateQpMode);
 
     AL_ERR errorCode = AL_Encoder_CreateWithCtx(&hEnc, ctx, this->pAllocator, &cfg.Settings, onEncoding);
 
@@ -277,8 +109,6 @@ struct EncoderSink : IEncoderSink
     pSettings{&cfg.Settings}
   {
     AL_CB_EndEncoding onEncoding = { &EncoderSink::EndEncoding, this };
-
-    qpBuffers.Configure(&cfg.Settings, cfg.RunInfo.eGenerateQpMode);
 
     AL_ERR errorCode = AL_Encoder_Create(&hEnc, pScheduler, this->pAllocator, &cfg.Settings, onEncoding);
 
@@ -313,11 +143,6 @@ struct EncoderSink : IEncoderSink
   void SetChangeSourceCallback(ChangeSourceCallback changeSourceCB) override
   {
     m_changeSourceCB = changeSourceCB;
-  }
-
-  void AddQpBufPool(QPBuffers::QPLayerInfo qpInf, int32_t iLayerID)
-  {
-    qpBuffers.AddBufPool(qpInf, iLayerID);
   }
 
   bool waitForCompletion(void)
@@ -355,14 +180,10 @@ struct EncoderSink : IEncoderSink
 
     CheckSourceResolutionChanged(Src);
 
-    AL_TBuffer* QpBuf = qpBuffers.getBuffer(m_input_picCount[0]);
-
-    std::shared_ptr<AL_TBuffer> QpBufShared(QpBuf, [&](AL_TBuffer* pBuf) { qpBuffers.releaseBuffer(pBuf); });
-
     if(pSettings->hRcPluginDmaContext != NULL)
       RCPlugin_SetNextFrameQP(pSettings, this->pAllocator);
 
-    if(!AL_Encoder_Process(hEnc, Src, QpBuf))
+    if(!AL_Encoder_Process(hEnc, Src, nullptr))
       CheckErrorAndThrow();
 
     m_input_picCount[0]++;
@@ -385,8 +206,6 @@ private:
   uint64_t m_StartTime = 0;
   uint64_t m_EndTime = 0;
   cv::vcucodec::EncContext::Config const& m_cfg;
-
-  QPBuffers qpBuffers;
 
   AL_TAllocator* pAllocator;
   AL_TEncSettings const* pSettings;

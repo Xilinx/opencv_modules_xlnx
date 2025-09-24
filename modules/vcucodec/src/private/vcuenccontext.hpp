@@ -21,7 +21,6 @@
 
 #include "lib_app/InputFiles.hpp"
 #include "lib_app/utils.hpp"
-#include "QPGenerator.h"
 
 #include "config.h"
 
@@ -84,7 +83,6 @@ struct ConfigRunInfo
     std::string rateCtrlMetaPath = "";
     std::string bitrateFile = "";
     AL_64U uInputSleepInMilliseconds;
-    AL_EGenerateQpMode eGenerateQpMode = AL_GENERATE_UNIFORM_QP;
 #ifdef HAVE_VCU2_CTRLSW
     bool bEmulateSrcSync = false;
 #endif
@@ -100,13 +98,6 @@ struct ConfigYUVInput
 
     // \brief Information relative to the YUV input file
     AL_TYUVFileInfo FileInfo;
-
-    // \brief Folder where qp tables files are located, if load qp enabled.
-    std::string sQPTablesFolder;
-
-    // \brief Name of the file specifying the region of interest per frame is specified
-    // happen
-    std::string sRoiFileName;
 };
 
 typedef enum

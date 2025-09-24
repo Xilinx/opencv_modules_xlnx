@@ -26,6 +26,7 @@
 extern "C" {
 #include "lib_common/Round.h"
 #include "lib_common/StreamBuffer.h"
+#include "lib_common_enc/EncBuffers.h"
 #include "lib_common_enc/IpEncFourCC.h"
 #include "lib_common_enc/RateCtrlMeta.h"
 #include "lib_encode/lib_encoder.h"
@@ -94,7 +95,6 @@ struct LayerResources
     void ChangeInput(Config& cfg, int32_t iInputIdx, AL_HEncoder hEnc);
 
     BufPool StreamBufPool;
-    BufPool QpBufPool;
     PixMapBufPool SrcBufPool;
 
     // Input/Output Format conversion
@@ -120,17 +120,6 @@ static int32_t g_Stride = -1;
 static int32_t constexpr g_defaultMinBuffers = 2;
 static bool g_MultiChunk = false;
 
-/*****************************************************************************/
-bool checkQPTableFolder(Config& cfg)
-{
-    std::regex qp_file_per_frame_regex("QP(^|)(s|_[0-9]+)\\.hex");
-
-    if (!FolderExists(cfg.MainInput.sQPTablesFolder))
-        return false;
-
-    return FileExists(cfg.MainInput.sQPTablesFolder, qp_file_per_frame_regex);
-}
-
 void ValidateConfig(Config& cfg)
 {
     std::string const invalid_settings("Invalid settings, check the [SETTINGS] section of your "
@@ -139,10 +128,6 @@ void ValidateConfig(Config& cfg)
     if (cfg.MainInput.YUVFileName.empty())
         throw std::runtime_error("No YUV input was given, specify it in the [INPUT] section of your"
                                  " configuration file or in your commandline (use -h to get help)");
-
-    if (!cfg.MainInput.sQPTablesFolder.empty()
-            && ((cfg.RunInfo.eGenerateQpMode & AL_GENERATE_QP_TABLE_MASK) != AL_GENERATE_LOAD_QP))
-        throw std::runtime_error("QPTablesFolder can only be specified with Load QP control mode");
 
     SetConsoleColor(CC_RED);
 
@@ -162,12 +147,6 @@ void ValidateConfig(Config& cfg)
             std::stringstream ss;
             ss << "Found: " << err << " errors(s). " << invalid_settings;
             throw std::runtime_error(ss.str());
-        }
-
-        if ((cfg.RunInfo.eGenerateQpMode & AL_GENERATE_QP_TABLE_MASK) == AL_GENERATE_LOAD_QP)
-        {
-            if (!checkQPTableFolder(cfg))
-                throw std::runtime_error("No QP File found");
         }
 
         auto const incoherencies = AL_Settings_CheckCoherency(&cfg.Settings,
@@ -392,21 +371,6 @@ AL_ESrcMode SrcFormatToSrcMode(AL_ESrcFormat eSrcFormat)
 }
 
 /*****************************************************************************/
-bool InitQpBufPool(BufPool& pool, AL_TEncSettings& Settings, AL_TEncChanParam& tChParam,
-                          int32_t frameBuffersCount, AL_TAllocator* pAllocator)
-{
-    (void)Settings;
-
-    if (!AL_IS_QP_TABLE_REQUIRED(Settings.eQpTableMode))
-        return true;
-
-    AL_TDimension tDim = { tChParam.uEncWidth, tChParam.uEncHeight };
-    return pool.Init(pAllocator, frameBuffersCount,
-        AL_GetAllocSizeEP2(tDim, static_cast<AL_ECodec>(AL_GET_CODEC(tChParam.eProfile)),
-        tChParam.uLog2MaxCuSize), nullptr, "qp-ext");
-}
-
-/*****************************************************************************/
 SrcBufDesc GetSrcBufDescription(AL_TDimension tDimension, uint8_t uBitDepth,
         AL_EChromaMode eCMode, AL_ESrcMode eSrcMode, AL_ECodec eCodec)
 {
@@ -607,9 +571,6 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
         frameBuffersCount = g_defaultMinBuffers + GetNumBufForGop(Settings);
     }
 
-    if (!InitQpBufPool(QpBufPool, Settings, Settings.tChParam[iLayerID], frameBuffersCount, pAllocator))
-        throw std::runtime_error("Error creating QP buffer pool");
-
     // --------------------------------------------------------------------------------
     // Application Input/Output Format conversion
     // --------------------------------------------------------------------------------
@@ -643,14 +604,6 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
 void LayerResources::PushResources(Config& cfg, EncoderSink* enc)
 {
     (void)cfg;
-    QPBuffers::QPLayerInfo qpInf
-    {
-        &QpBufPool,
-        layerInputs[iInputIdx].sQPTablesFolder,
-        layerInputs[iInputIdx].sRoiFileName
-    };
-
-    enc->AddQpBufPool(qpInf, iLayerID);
 
     if (frameWriter)
         enc->RecOutput[iLayerID] = std::move(frameWriter);
