@@ -83,62 +83,52 @@ struct RCPlugin
     uint32_t curQp;
 };
 
-static inline void RCPlugin_SetNextFrameQP(RCPlugin* rc)
-{
-    rc->qpFifo[rc->head] = rc->curQp;
-    rc->head = (rc->head + 1) % rc->capacity;
-
-    ++rc->curQp;
-
-    if(rc->curQp > 51)
-        rc->curQp = 30;
-}
-
-static inline void RCPlugin_SetNextFrameQP(AL_TEncSettings const* pSettings,
+void RCPlugin_SetNextFrameQP(AL_TEncSettings const* pSettings,
                                             AL_TAllocator* pDmaAllocator)
 {
-    if(pSettings->hRcPluginDmaContext == NULL)
+    if (pSettings->hRcPluginDmaContext == NULL)
         throw std::runtime_error("RC Context isn't allocated");
 
     auto rc = (RCPlugin*)AL_Allocator_GetVirtualAddr(pDmaAllocator,
                                                      pSettings->hRcPluginDmaContext);
 
-    if(rc == NULL)
+    if (rc == NULL)
         throw std::runtime_error("RC Context isn't correctly defined");
 
-    RCPlugin_SetNextFrameQP(rc);
+    rc->qpFifo[rc->head] = rc->curQp;
+    rc->head = (rc->head + 1) % rc->capacity;
+
+    ++rc->curQp;
+
+    if (rc->curQp > 51)
+        rc->curQp = 30;
 }
 
-static inline void RCPlugin_Init(RCPlugin* rc)
-{
-    rc->head = 0;
-    rc->tail = 0;
-    rc->capacity = 32;
-    rc->curQp = 30;
-
-    for(uint32_t i = 0; i < rc->capacity; ++i)
-        rc->qpFifo[i] = 0;
-}
-
-static inline void RCPlugin_Init(AL_TEncSettings* pSettings, AL_TEncChanParam* pChParam,
+void RCPlugin_Init(AL_TEncSettings* pSettings, AL_TEncChanParam* pChParam,
                                  AL_TAllocator* pDmaAllocator)
 {
     pSettings->hRcPluginDmaContext = NULL;
     pChParam->pRcPluginDmaContext = 0;
     pChParam->zRcPluginDmaSize = 0;
 
-    if(pChParam->tRCParam.eRCMode == AL_RC_PLUGIN)
+    if (pChParam->tRCParam.eRCMode == AL_RC_PLUGIN)
     {
         pChParam->zRcPluginDmaSize = sizeof(struct RCPlugin);
         pSettings->hRcPluginDmaContext = AL_Allocator_Alloc(pDmaAllocator,
                                                              pChParam->zRcPluginDmaSize);
 
-        if(pSettings->hRcPluginDmaContext == NULL)
+        if (pSettings->hRcPluginDmaContext == NULL)
             throw std::runtime_error("Couldn't allocate RC Plugin Context");
 
         auto rc = (RCPlugin*)AL_Allocator_GetVirtualAddr(pDmaAllocator,
                                                          pSettings->hRcPluginDmaContext);
-        RCPlugin_Init(rc);
+        rc->head = 0;
+        rc->tail = 0;
+        rc->capacity = 32;
+        rc->curQp = 30;
+
+        for (uint32_t i = 0; i < rc->capacity; ++i)
+            rc->qpFifo[i] = 0;
     }
 }
 
@@ -158,16 +148,16 @@ struct EncoderSink
         AL_ERR errorCode = AL_Encoder_CreateWithCtx(&hEnc, ctx, this->pAllocator,
                                                      &cfg.Settings, onEncoding);
 
-        if(AL_IS_ERROR_CODE(errorCode))
+        if (AL_IS_ERROR_CODE(errorCode))
             throw en_codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
 
-        if(AL_IS_WARNING_CODE(errorCode))
+        if (AL_IS_WARNING_CODE(errorCode))
             LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
 
-        for(int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
+        for (int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
             RecOutput[i].reset(new NullFrameSink);
 
-        for(int32_t i = 0; i < MAX_NUM_LAYER; i++)
+        for (int32_t i = 0; i < MAX_NUM_LAYER; i++)
             m_input_picCount[i] = 0;
 
         m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
@@ -187,16 +177,16 @@ struct EncoderSink
         AL_ERR errorCode = AL_Encoder_Create(&hEnc, pScheduler, this->pAllocator,
                                              &cfg.Settings, onEncoding);
 
-        if(AL_IS_ERROR_CODE(errorCode))
+        if (AL_IS_ERROR_CODE(errorCode))
             throw en_codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
 
-        if(AL_IS_WARNING_CODE(errorCode))
+        if (AL_IS_WARNING_CODE(errorCode))
             LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
 
-        for(int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
+        for (int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
             RecOutput[i].reset(new NullFrameSink);
 
-        for(int32_t i = 0; i < MAX_NUM_LAYER; i++)
+        for (int32_t i = 0; i < MAX_NUM_LAYER; i++)
             m_input_picCount[i] = 0;
 
         m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
@@ -222,7 +212,7 @@ struct EncoderSink
     bool waitForCompletion(void)
     {
         std::unique_lock<std::mutex> lock(encoding_complete_mutex);
-        return encoding_complete_cv.wait_for(lock, std::chrono::seconds(1),
+        return encoding_complete_cv.wait_for (lock, std::chrono::seconds(1),
                                              [this] { return encoding_finished; });
     }
 
@@ -237,14 +227,14 @@ struct EncoderSink
 
     void ProcessFrame(AL_TBuffer* Src)
     {
-        if(m_input_picCount[0] == 0)
+        if (m_input_picCount[0] == 0)
             m_StartTime = GetPerfTime();
 
-        if(!Src)
+        if (!Src)
         {
             LogVerbose("Flushing...\n\n");
 
-            if(!AL_Encoder_Process(hEnc, nullptr, nullptr))
+            if (!AL_Encoder_Process(hEnc, nullptr, nullptr))
                 CheckErrorAndThrow();
             return;
         }
@@ -254,10 +244,10 @@ struct EncoderSink
 
         CheckSourceResolutionChanged(Src);
 
-        if(pSettings->hRcPluginDmaContext != NULL)
+        if (pSettings->hRcPluginDmaContext != NULL)
             RCPlugin_SetNextFrameQP(pSettings, this->pAllocator);
 
-        if(!AL_Encoder_Process(hEnc, Src, nullptr))
+        if (!AL_Encoder_Process(hEnc, Src, nullptr))
             CheckErrorAndThrow();
 
         m_input_picCount[0]++;
@@ -293,12 +283,12 @@ private:
         throw std::runtime_error(AL_IS_ERROR_CODE(eErr) ? AL_Codec_ErrorToString(eErr) : "Failed");
     }
 
-    static inline bool isStreamReleased(AL_TBuffer* pStream, AL_TBuffer const* pSrc)
+    static bool isStreamReleased(AL_TBuffer* pStream, AL_TBuffer const* pSrc)
     {
         return pStream && !pSrc;
     }
 
-    static inline bool isSourceReleased(AL_TBuffer* pStream, AL_TBuffer const* pSrc)
+    static bool isSourceReleased(AL_TBuffer* pStream, AL_TBuffer const* pSrc)
     {
         return !pStream && pSrc;
     }
@@ -307,7 +297,7 @@ private:
     {
         auto pThis = (EncoderSink*)userParam;
 
-        if(isStreamReleased(pStream, pSrc) || isSourceReleased(pStream, pSrc))
+        if (isStreamReleased(pStream, pSrc) || isSourceReleased(pStream, pSrc))
             return;
 
         Ptr<Data> data = Data::create(pStream, pThis->hEnc);
@@ -316,7 +306,7 @@ private:
 
     void ComputeQualityMeasure(AL_TRateCtrlMetaData* pMeta)
     {
-        if(!pMeta->bFilled)
+        if (!pMeta->bFilled)
             return;
     }
 
@@ -326,7 +316,7 @@ private:
         int32_t seiSection = AL_Encoder_AddSei(hEnc, pStream, isPrefix, payloadType,
                                                payload, payloadSize, tempId);
 
-        if(seiSection < 0)
+        if (seiSection < 0)
             LogWarning("Failed to add dummy SEI (id:%d) \n", seiSection);
     }
 
@@ -334,21 +324,21 @@ private:
     {
         AL_ERR eErr = AL_Encoder_GetLastError(hEnc);
 
-        if(AL_IS_ERROR_CODE(eErr))
+        if (AL_IS_ERROR_CODE(eErr))
         {
             LogError("%s\n", AL_Codec_ErrorToString(eErr));
             m_EncoderLastError = eErr;
         }
 
-        if(AL_IS_WARNING_CODE(eErr))
+        if (AL_IS_WARNING_CODE(eErr))
             LogWarning("%s\n", AL_Codec_ErrorToString(eErr));
 
-        if(pStream->buf() && shouldAddDummySei)
+        if (pStream->buf() && shouldAddDummySei)
         {
             constexpr int32_t payloadSize = 8 * 10;
             uint8_t payload[payloadSize];
 
-            for(int32_t i = 0; i < payloadSize; ++i)
+            for (int32_t i = 0; i < payloadSize; ++i)
                 payload[i] = i;
 
             AL_TStreamMetaData* pStreamMeta = (AL_TStreamMetaData*)AL_Buffer_GetMetaData(
@@ -357,11 +347,11 @@ private:
             AddSei(pStream->buf(), true, 18, payload, payloadSize, pStreamMeta->uTemporalID);
         }
 
-        if(pStream->buf() == EndOfStream)
+        if (pStream->buf() == EndOfStream)
             iPendingStreamCnt--;
         else
         {
-            if(m_pictureType != -1)
+            if (m_pictureType != -1)
             {
                 auto const pMeta = (AL_TPictureMetaData*)AL_Buffer_GetMetaData(
                     pStream->buf(), AL_META_TYPE_PICTURE);
@@ -373,7 +363,7 @@ private:
             AL_TRateCtrlMetaData* pMeta = (AL_TRateCtrlMetaData*)AL_Buffer_GetMetaData(
                 pStream->buf(), AL_META_TYPE_RATECTRL);
 
-            if(pMeta && pMeta->bFilled)
+            if (pMeta && pMeta->bFilled)
             {
             }
             std::vector<std::string_view> vec;
@@ -401,18 +391,18 @@ private:
     void CheckAndAllocateConversionBuffer(TFourCC tConvFourCC, AL_TDimension const& tConvDim,
                                           std::shared_ptr<AL_TBuffer>& pConvYUV)
     {
-        if(pConvYUV != nullptr)
+        if (pConvYUV != nullptr)
         {
             AL_TDimension tCurrentConvDim = AL_PixMapBuffer_GetDimension(pConvYUV.get());
 
-            if(tCurrentConvDim.iHeight >= tConvDim.iHeight &&
+            if (tCurrentConvDim.iHeight >= tConvDim.iHeight &&
                tCurrentConvDim.iWidth >= tConvDim.iWidth)
                 return;
         }
 
         AL_TBuffer* pYuv = AllocateDefaultYuvIOBuffer(tConvDim, tConvFourCC);
 
-        if(pYuv == nullptr)
+        if (pYuv == nullptr)
             throw std::runtime_error("Couldn't allocate reconstruct conversion buffer");
 
         pConvYUV = std::shared_ptr<AL_TBuffer>(pYuv, &AL_Buffer_Destroy);
@@ -425,10 +415,10 @@ private:
 
         AL_PixMapBuffer_SetDimension(pYuv, AL_PixMapBuffer_GetDimension(pRec));
 
-        if(!pFunc)
+        if (!pFunc)
             throw std::runtime_error("Can't find a conversion function suitable for format");
 
-        if(AL_IsTiled(tRecFourCC) == false)
+        if (AL_IsTiled(tRecFourCC) == false)
             throw std::runtime_error("FourCC must be in Tile mode");
         return pFunc(pRec, pYuv);
     }
@@ -440,13 +430,13 @@ private:
             eErr = PreprocessOutput(pStream);
         }
 
-        if(AL_IS_ERROR_CODE(eErr))
+        if (AL_IS_ERROR_CODE(eErr))
         {
             LogError("%s\n", AL_Codec_ErrorToString(eErr));
             m_EncoderLastError = eErr;
         }
 
-        if(AL_IS_WARNING_CODE(eErr))
+        if (AL_IS_WARNING_CODE(eErr))
             LogWarning("%s\n", AL_Codec_ErrorToString(eErr));
 
         AL_TRecPic RecPic;
@@ -456,18 +446,18 @@ private:
             auto buf = RecPic.pBuf;
             int32_t iRecId = 0;
 
-            if(buf)
+            if (buf)
             {
                 TFourCC tFileRecFourCC = m_cfg.RecFourCC;
                 AL_Buffer_InvalidateMemory(buf);
 
                 TFourCC fourCC = AL_PixMapBuffer_GetFourCC(buf);
 
-                if(AL_IsCompressed(fourCC))
+                if (AL_IsCompressed(fourCC))
                     RecOutput[iRecId]->ProcessFrame(buf);
                 else
                 {
-                    if(AL_PixMapBuffer_GetFourCC(buf) != tFileRecFourCC)
+                    if (AL_PixMapBuffer_GetFourCC(buf) != tFileRecFourCC)
                     {
                         std::shared_ptr<AL_TBuffer> bufPostConv;
                         CheckAndAllocateConversionBuffer(tFileRecFourCC,
@@ -483,13 +473,13 @@ private:
             AL_Encoder_ReleaseRecPicture(hEnc, &RecPic);
         }
 
-        if(iPendingStreamCnt == 0)
+        if (iPendingStreamCnt == 0)
             CloseOutputs();
     }
 
     void RequestSourceChange(int32_t iInputIdx, int32_t iLayerIdx)
     {
-        if(m_changeSourceCB)
+        if (m_changeSourceCB)
             m_changeSourceCB(iInputIdx, iLayerIdx);
     }
 
@@ -500,7 +490,7 @@ private:
         bool bDimensionChanged = tNewDim.iWidth != tLastEncodedDim.iWidth ||
                                  tNewDim.iHeight != tLastEncodedDim.iHeight;
 
-        if(bDimensionChanged)
+        if (bDimensionChanged)
         {
             AL_Encoder_SetInputResolution(hEnc, tNewDim);
             tLastEncodedDim = tNewDim;
@@ -578,10 +568,10 @@ struct LayerResources
     std::vector<ConfigYUVInput> layerInputs;
 };
 
-static int32_t g_StrideHeight = -1;
-static int32_t g_Stride = -1;
-static int32_t constexpr g_defaultMinBuffers = 2;
-static bool g_MultiChunk = false;
+int32_t g_StrideHeight = -1;
+int32_t g_Stride = -1;
+int32_t constexpr g_defaultMinBuffers = 2;
+bool g_MultiChunk = false;
 
 void ValidateConfig(Config& cfg)
 {
@@ -594,8 +584,6 @@ void ValidateConfig(Config& cfg)
                                  "your configuration file or in your commandline "
                                  "(use -h to get help)");
 
-    SetConsoleColor(CC_RED);
-
     FILE* out = stdout;
 
     if (!g_Verbosity)
@@ -603,7 +591,7 @@ void ValidateConfig(Config& cfg)
 
     auto const MaxLayer = cfg.Settings.NumLayer - 1;
 
-    for(int32_t i = 0; i < cfg.Settings.NumLayer; ++i)
+    for (int32_t i = 0; i < cfg.Settings.NumLayer; ++i)
     {
         auto const err = AL_Settings_CheckValidity(&cfg.Settings, &cfg.Settings.tChParam[i], out);
 
@@ -621,8 +609,6 @@ void ValidateConfig(Config& cfg)
             throw std::runtime_error("Fatal coherency error in settings (layer[" +
                                      std::to_string(i) + "/" + std::to_string(MaxLayer) + "])");
     }
-
-    SetConsoleColor(CC_DEFAULT);
 }
 
 void SetMoreDefaults(Config& cfg)
@@ -857,7 +843,7 @@ SrcBufDesc GetSrcBufDescription(AL_TDimension tDimension, uint8_t uBitDepth,
     AL_EPlaneId usedPlanes[AL_MAX_BUFFER_PLANES];
     int32_t iNbPlanes = AL_Plane_GetBufferPixelPlanes(tPicFormat, usedPlanes);
 
-    for(int32_t iPlane = 0; iPlane < iNbPlanes; iPlane++)
+    for (int32_t iPlane = 0; iPlane < iNbPlanes; iPlane++)
     {
         int32_t iPitch = usedPlanes[iPlane] == AL_PLANE_Y ?
             iPitchY : AL_GetChromaPitch(srcBufDesc.tFourCC, iPitchY);
@@ -917,10 +903,9 @@ bool InitStreamBufPool(BufPool& pool, AL_TEncSettings& Settings, int32_t iLayerI
                 Settings.tChParam[0].uLevel);
     }
 
-    {
-        static const int32_t smoothingStream = 2;
-        numStreams = g_defaultMinBuffers + smoothingStream + GetNumBufForGop(Settings);
-    }
+    const int32_t smoothingStream = 2;
+    numStreams = g_defaultMinBuffers + smoothingStream + GetNumBufForGop(Settings);
+
 
     if (Settings.tChParam[0].bSubframeLatency)
     {
@@ -961,7 +946,7 @@ void InitSrcBufPool(PixMapBufPool& SrcBufPool, AL_TAllocator* pAllocator,
 
     SrcBufPool.SetFormat(FrameInfo.tDimension, srcBufDesc.tFourCC);
 
-    for(auto& vChunk : srcBufDesc.vChunks)
+    for (auto& vChunk : srcBufDesc.vChunks)
         SrcBufPool.AddChunk(vChunk.iChunkSize, vChunk.vPlaneDesc);
 
     bool const ret = SrcBufPool.Init(pAllocator, frameBuffersCount, "input");
@@ -1028,15 +1013,6 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
     }
 
     // --------------------------------------------------------------------------------
-    // Tuning Input Buffers
-    // --------------------------------------------------------------------------------
-    int32_t frameBuffersCount = g_defaultMinBuffers + GetNumBufForGop(Settings);
-
-    {
-        frameBuffersCount = g_defaultMinBuffers + GetNumBufForGop(Settings);
-    }
-
-    // --------------------------------------------------------------------------------
     // Application Input/Output Format conversion
     // --------------------------------------------------------------------------------
     const AL_TPicFormat tSrcPicFmt = GetSrcPicFormat(Settings.tChParam[iLayerID]);
@@ -1057,7 +1033,7 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
     // --------------------------------------------------------------------------------
     // Source Buffers
     // --------------------------------------------------------------------------------
-    int32_t srcBuffersCount = frameBuffersCount;
+    int32_t srcBuffersCount = g_defaultMinBuffers + GetNumBufForGop(Settings);;
 
     InitSrcBufPool(SrcBufPool, pAllocator, tSrcFrameInfo, eSrcMode, srcBuffersCount,
                    static_cast<AL_ECodec>(AL_GET_CODEC(Settings.tChParam[0].eProfile)));
@@ -1073,7 +1049,7 @@ void LayerResources::PushResources(Config& cfg, EncoderSink* enc)
     if (frameWriter)
         enc->RecOutput[iLayerID] = std::move(frameWriter);
 
-    for(int32_t i = 0; i < (int)StreamBufPool.GetNumBuf(); ++i)
+    for (int32_t i = 0; i < (int)StreamBufPool.GetNumBuf(); ++i)
     {
         std::shared_ptr<AL_TBuffer> pStream =
             StreamBufPool.GetSharedBuffer(AL_EBufMode::AL_BUF_MODE_NONBLOCK);
@@ -1196,7 +1172,109 @@ void LayerResources::ChangeInput(Config& cfg, int32_t iInputIdx, AL_HEncoder hEn
     }
 }
 
-std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
+} // anonymous namespace
+
+class EncoderContext : public EncContext
+{
+public:
+    EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback);
+    virtual ~EncoderContext();
+
+    virtual void writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer) override;
+    virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
+    virtual bool waitForCompletion() override;
+    virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) override;
+    virtual AL_HEncoder hEnc() override { return enc_->hEnc; }
+
+private:
+    std::unique_ptr<EncoderSink> channelMain(Config& cfg,
+        std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
+        Ptr<Device> device, int32_t chanId, DataCallback dataCallback);
+
+    std::unique_ptr<EncoderSink> enc_;
+    std::vector<std::unique_ptr<LayerResources>> layerResources_;
+};
+
+
+EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback)
+{
+    layerResources_.emplace_back(std::make_unique<LayerResources>());
+
+    InitializePlateform();
+
+    {
+        auto& Settings = cfg->Settings;
+        auto& RecFileName = cfg->RecFileName;
+
+        AL_Settings_SetDefaultParam(&Settings);
+        SetMoreDefaults(*cfg);
+
+        if (!RecFileName.empty())
+        {
+            Settings.tChParam[0].eEncOptions = (AL_EChEncOption)(Settings.tChParam[0].eEncOptions
+                                               | AL_OPT_FORCE_REC);
+        }
+
+#ifdef HAVE_VCU2_CTRLSW
+        Settings.tChParam[0].bUseGMV = !cfg->sGMVFileName.empty();
+#endif
+
+        AL_ESrcMode eSrcMode = SrcFormatToSrcMode(cfg->eSrcFormat);
+
+        for (uint8_t uLayer = 0; uLayer < cfg->Settings.NumLayer; uLayer++)
+            Settings.tChParam[uLayer].eSrcMode = eSrcMode;
+
+        ValidateConfig(*cfg);
+    }
+
+    AL_ELibEncoderArch eArch = AL_LIB_ENCODER_ARCH_HOST;
+
+#ifdef HAVE_VCU2_CTRLSW
+    eArch = AL_LIB_ENCODER_ARCH_RISCV;
+#endif
+
+    if (!AL_IS_SUCCESS_CODE(AL_Lib_Encoder_Init(eArch)))
+        throw std::runtime_error("Can't setup encode library");
+
+    device = Device::create(Device::ENCODER);
+    enc_ = channelMain(*cfg, layerResources_, device, 0, dataCallback);
+}
+
+EncoderContext::~EncoderContext()
+{
+    enc_.reset();
+    layerResources_[0].reset();
+    AL_Lib_Encoder_DeInit();
+}
+
+void EncoderContext::writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer)
+{
+    enc_->ProcessFrame(sourceBuffer.get());
+}
+
+
+std::shared_ptr<AL_TBuffer> EncoderContext::getSharedBuffer()
+{
+    return layerResources_[0]->SrcBufPool.GetSharedBuffer();
+}
+
+bool EncoderContext::waitForCompletion()
+{
+    return enc_->waitForCompletion();
+}
+
+void EncoderContext::notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY)
+{
+#ifdef HAVE_VCU2_CTRLSW
+    AL_Encoder_NotifyGMV(enc_->hEnc, frameIndex, gmVectorX, gmVectorY);
+#else
+    (void)frameIndex;
+    (void)gmVectorX;
+    (void)gmVectorY;
+#endif
+}
+
+std::unique_ptr<EncoderSink> EncoderContext::channelMain(Config& cfg,
         std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
         Ptr<Device> device, int32_t chanId, DataCallback dataCallback)
 {
@@ -1241,7 +1319,7 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
     AL_TEncoderInfo tEncInfo;
     AL_Encoder_GetInfo(enc->hEnc, &tEncInfo);
 
-    for(size_t i = 0; i < pLayerResources.size(); i++)
+    for (size_t i = 0; i < pLayerResources.size(); i++)
     {
         auto multisinkRec = std::unique_ptr<MultiSink>(new MultiSink);
         pLayerResources[i]->Init(cfg, tEncInfo, i, pAllocator, chanId);
@@ -1284,120 +1362,8 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
                                 pLayerResources[iLayerID]->ChangeInput(cfg, iInputIdx, enc->hEnc);
                            });
 
-#if 0 // encoder input file is not needed for opencv case
-    for(int32_t i = 0; i < Settings.NumLayer; ++i)
-        pLayerResources[i]->OpenEncoderInput(cfg, enc->hEnc);
-#endif
     OnScopeExit.release();
     return enc;
-}
-
-/*****************************************************************************/
-std::unique_ptr<EncoderSink> CtrlswEncOpen(Config& cfg,
-        std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
-        Ptr<Device>& device, DataCallback dataCallback)
-{
-  std::unique_ptr<EncoderSink> enc;
-  InitializePlateform();
-
-    {
-        auto& Settings = cfg.Settings;
-        auto& RecFileName = cfg.RecFileName;
-
-        AL_Settings_SetDefaultParam(&Settings);
-        SetMoreDefaults(cfg);
-
-        if (!RecFileName.empty())
-        {
-            Settings.tChParam[0].eEncOptions = (AL_EChEncOption)(Settings.tChParam[0].eEncOptions
-                                               | AL_OPT_FORCE_REC);
-        }
-
-#ifdef HAVE_VCU2_CTRLSW
-        Settings.tChParam[0].bUseGMV = !cfg.sGMVFileName.empty();
-#endif
-
-        AL_ESrcMode eSrcMode = SrcFormatToSrcMode(cfg.eSrcFormat);
-
-        for(uint8_t uLayer = 0; uLayer < cfg.Settings.NumLayer; uLayer++)
-            Settings.tChParam[uLayer].eSrcMode = eSrcMode;
-
-        ValidateConfig(cfg);
-    }
-
-    AL_ELibEncoderArch eArch = AL_LIB_ENCODER_ARCH_HOST;
-
-#ifdef HAVE_VCU2_CTRLSW
-    eArch = AL_LIB_ENCODER_ARCH_RISCV;
-#endif
-
-    if (!AL_IS_SUCCESS_CODE(AL_Lib_Encoder_Init(eArch)))
-        throw std::runtime_error("Can't setup encode library");
-
-    device = Device::create(Device::ENCODER);
-    enc = ChannelMain(cfg, pLayerResources, device, 0, dataCallback);
-
-    return enc;
-}
-
-} // anonymous namespace
-
-class EncoderContext : public EncContext
-{
-public:
-    EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback);
-    virtual ~EncoderContext();
-
-    virtual void writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer) override;
-    virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
-    virtual bool waitForCompletion() override;
-    virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) override;
-    virtual AL_HEncoder hEnc() override { return enc_->hEnc; }
-
-private:
-    std::unique_ptr<EncoderSink> enc_;
-    std::vector<std::unique_ptr<LayerResources>> layerResources_;
-};
-
-
-EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback)
-{
-    layerResources_.emplace_back(std::make_unique<LayerResources>());
-    enc_ = CtrlswEncOpen(*cfg, layerResources_, device, dataCallback);
-}
-
-EncoderContext::~EncoderContext()
-{
-    enc_.reset();
-    layerResources_[0].reset();
-    AL_Lib_Encoder_DeInit();
-}
-
-void EncoderContext::writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer)
-{
-    enc_->ProcessFrame(sourceBuffer.get());
-}
-
-
-std::shared_ptr<AL_TBuffer> EncoderContext::getSharedBuffer()
-{
-    return layerResources_[0]->SrcBufPool.GetSharedBuffer();
-}
-
-bool EncoderContext::waitForCompletion()
-{
-    return enc_->waitForCompletion();
-}
-
-void EncoderContext::notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY)
-{
-#ifdef HAVE_VCU2_CTRLSW
-    AL_Encoder_NotifyGMV(enc_->hEnc, frameIndex, gmVectorX, gmVectorY);
-#else
-    (void)frameIndex;
-    (void)gmVectorX;
-    (void)gmVectorY;
-#endif
 }
 
 
