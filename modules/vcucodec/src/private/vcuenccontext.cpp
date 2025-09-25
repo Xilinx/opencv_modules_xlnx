@@ -5,25 +5,28 @@
 #if defined(HAVE_VCU_CTRLSW) || defined(HAVE_VCU2_CTRLSW)
 
 //#include "ctrlsw_enc.hpp"
-#include <dirent.h>
-
-
-#include "sink_encoder.h"
+#include "config.h"
 
 #include "lib_app/AL_RasterConvert.hpp"
+#define HAS_COMPIL_FLAGS 0
 #include "lib_app/BuildInfo.hpp"
+#include "lib_app/convert.hpp"
 #include "lib_app/FileUtils.hpp"
 #include "lib_app/PixMapBufPool.hpp"
+#include "lib_app/plateform.hpp"
+#include "lib_app/SinkFrame.hpp"
+#include "lib_app/timing.hpp"
+#include "lib_app/UnCompFrameReader.hpp"
+#include "lib_app/YuvIO.hpp"
 
 #ifdef HAVE_VCU2_CTRLSW
 #include "lib_app/CompFrameReader.hpp"
 #include "lib_app/CompFrameCommon.hpp"
 #endif
-#include "lib_app/UnCompFrameReader.hpp"
-#include "lib_app/SinkFrame.hpp"
-#include "lib_app/plateform.hpp"
 
 extern "C" {
+#include "lib_common/BufferPictureMeta.h"
+#include "lib_common/BufferStreamMeta.h"
 #include "lib_common/Round.h"
 #include "lib_common/StreamBuffer.h"
 #include "lib_common_enc/EncBuffers.h"
@@ -32,22 +35,480 @@ extern "C" {
 #include "lib_encode/lib_encoder.h"
 }
 
+#include "vcudata.hpp"
 #include "vcudevice.hpp"
 #include "vcuenccontext.hpp"
+#include "vcuutils.hpp"
 
-#if !defined(HAS_COMPIL_FLAGS)
-#define AL_COMPIL_FLAGS ""
-#endif
-
+#include <condition_variable>
 #include <regex>
 
-namespace cv{
-namespace vcucodec{
-class Device;
+namespace cv {
+namespace vcucodec {
+
+#define NUM_PASS_OUTPUT 1
+
+#define MAX_NUM_REC_OUTPUT (MAX_NUM_LAYER > NUM_PASS_OUTPUT ? MAX_NUM_LAYER : NUM_PASS_OUTPUT)
+#define MAX_NUM_BITSTREAM_OUTPUT NUM_PASS_OUTPUT
+
 
 namespace { // anonymous
 
-using Config = cv::vcucodec::EncContext::Config;
+using DataCallback = std::function<void (std::vector<std::string_view>&)>;
+using ChangeSourceCallback = std::function<void(int, int)>;
+
+
+static std::string PictTypeToString(AL_ESliceType type)
+{
+    std::map<AL_ESliceType, std::string> m =
+    {
+        { AL_SLICE_B, "B" },
+        { AL_SLICE_P, "P" },
+        { AL_SLICE_I, "I" },
+        { AL_SLICE_GOLDEN, "Golden" },
+        { AL_SLICE_CONCEAL, "Conceal" },
+        { AL_SLICE_SKIP, "Skip" },
+        { AL_SLICE_REPEAT, "Repeat" },
+    };
+
+    return m.at(type);
+}
+
+struct RCPlugin
+{
+    uint32_t capacity;
+    uint32_t qpFifo[32];
+    uint32_t head;
+    uint32_t tail;
+    uint32_t curQp;
+};
+
+static inline void RCPlugin_SetNextFrameQP(RCPlugin* rc)
+{
+    rc->qpFifo[rc->head] = rc->curQp;
+    rc->head = (rc->head + 1) % rc->capacity;
+
+    ++rc->curQp;
+
+    if(rc->curQp > 51)
+        rc->curQp = 30;
+}
+
+static inline void RCPlugin_SetNextFrameQP(AL_TEncSettings const* pSettings,
+                                            AL_TAllocator* pDmaAllocator)
+{
+    if(pSettings->hRcPluginDmaContext == NULL)
+        throw std::runtime_error("RC Context isn't allocated");
+
+    auto rc = (RCPlugin*)AL_Allocator_GetVirtualAddr(pDmaAllocator,
+                                                     pSettings->hRcPluginDmaContext);
+
+    if(rc == NULL)
+        throw std::runtime_error("RC Context isn't correctly defined");
+
+    RCPlugin_SetNextFrameQP(rc);
+}
+
+static inline void RCPlugin_Init(RCPlugin* rc)
+{
+    rc->head = 0;
+    rc->tail = 0;
+    rc->capacity = 32;
+    rc->curQp = 30;
+
+    for(uint32_t i = 0; i < rc->capacity; ++i)
+        rc->qpFifo[i] = 0;
+}
+
+static inline void RCPlugin_Init(AL_TEncSettings* pSettings, AL_TEncChanParam* pChParam,
+                                 AL_TAllocator* pDmaAllocator)
+{
+    pSettings->hRcPluginDmaContext = NULL;
+    pChParam->pRcPluginDmaContext = 0;
+    pChParam->zRcPluginDmaSize = 0;
+
+    if(pChParam->tRCParam.eRCMode == AL_RC_PLUGIN)
+    {
+        pChParam->zRcPluginDmaSize = sizeof(struct RCPlugin);
+        pSettings->hRcPluginDmaContext = AL_Allocator_Alloc(pDmaAllocator,
+                                                             pChParam->zRcPluginDmaSize);
+
+        if(pSettings->hRcPluginDmaContext == NULL)
+            throw std::runtime_error("Couldn't allocate RC Plugin Context");
+
+        auto rc = (RCPlugin*)AL_Allocator_GetVirtualAddr(pDmaAllocator,
+                                                         pSettings->hRcPluginDmaContext);
+        RCPlugin_Init(rc);
+    }
+}
+
+
+struct EncoderSink
+{
+#ifdef HAVE_VCU2_CTRLSW
+    explicit EncoderSink(EncContext::Config const& cfg, AL_RiscV_Ctx ctx,
+                         AL_TAllocator* pAllocator) :
+        m_cfg(cfg),
+        pAllocator{pAllocator},
+        pSettings{&cfg.Settings}
+    {
+        assert(ctx);
+        AL_CB_EndEncoding onEncoding = { &EncoderSink::EndEncoding, this };
+
+        AL_ERR errorCode = AL_Encoder_CreateWithCtx(&hEnc, ctx, this->pAllocator,
+                                                     &cfg.Settings, onEncoding);
+
+        if(AL_IS_ERROR_CODE(errorCode))
+            throw en_codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
+
+        if(AL_IS_WARNING_CODE(errorCode))
+            LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
+
+        for(int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
+            RecOutput[i].reset(new NullFrameSink);
+
+        for(int32_t i = 0; i < MAX_NUM_LAYER; i++)
+            m_input_picCount[i] = 0;
+
+        m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
+
+        iPendingStreamCnt = 1;
+    }
+#endif
+
+    explicit EncoderSink(EncContext::Config const& cfg, AL_IEncScheduler* pScheduler,
+                         AL_TAllocator* pAllocator) :
+        m_cfg(cfg),
+        pAllocator{pAllocator},
+        pSettings{&cfg.Settings}
+    {
+        AL_CB_EndEncoding onEncoding = { &EncoderSink::EndEncoding, this };
+
+        AL_ERR errorCode = AL_Encoder_Create(&hEnc, pScheduler, this->pAllocator,
+                                             &cfg.Settings, onEncoding);
+
+        if(AL_IS_ERROR_CODE(errorCode))
+            throw en_codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
+
+        if(AL_IS_WARNING_CODE(errorCode))
+            LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
+
+        for(int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
+            RecOutput[i].reset(new NullFrameSink);
+
+        for(int32_t i = 0; i < MAX_NUM_LAYER; i++)
+            m_input_picCount[i] = 0;
+
+        m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
+
+        // TODO: AL_Encoder_SetHDRSEIs(hEnc, &tHDRSEIs);
+
+        iPendingStreamCnt = 1;
+    }
+
+    ~EncoderSink(void)
+    {
+        LogInfo("%d pictures encoded. Average FrameRate = %.4f Fps\n",
+                m_input_picCount[0], (m_input_picCount[0] * 1000.0) / (m_EndTime - m_StartTime));
+
+        AL_Encoder_Destroy(hEnc);
+    }
+
+    void SetChangeSourceCallback(ChangeSourceCallback changeSourceCB)
+    {
+        m_changeSourceCB = changeSourceCB;
+    }
+
+    bool waitForCompletion(void)
+    {
+        std::unique_lock<std::mutex> lock(encoding_complete_mutex);
+        return encoding_complete_cv.wait_for(lock, std::chrono::seconds(1),
+                                             [this] { return encoding_finished; });
+    }
+
+    // Synchronization for blocking eos()
+    std::mutex encoding_complete_mutex;
+    std::condition_variable encoding_complete_cv;
+    bool encoding_finished = false;
+
+    void PreprocessFrame()
+    {
+    }
+
+    void ProcessFrame(AL_TBuffer* Src)
+    {
+        if(m_input_picCount[0] == 0)
+            m_StartTime = GetPerfTime();
+
+        if(!Src)
+        {
+            LogVerbose("Flushing...\n\n");
+
+            if(!AL_Encoder_Process(hEnc, nullptr, nullptr))
+                CheckErrorAndThrow();
+            return;
+        }
+
+        LogVerbose("\r  Encoding picture #%-6d - ", m_input_picCount[0]);
+        fflush(stdout);
+
+        CheckSourceResolutionChanged(Src);
+
+        if(pSettings->hRcPluginDmaContext != NULL)
+            RCPlugin_SetNextFrameQP(pSettings, this->pAllocator);
+
+        if(!AL_Encoder_Process(hEnc, Src, nullptr))
+            CheckErrorAndThrow();
+
+        m_input_picCount[0]++;
+    }
+
+    AL_ERR GetLastError(void)
+    {
+        return m_EncoderLastError;
+    }
+
+    std::unique_ptr<IFrameSink> RecOutput[MAX_NUM_REC_OUTPUT];
+    DataCallback dataCallback_;
+    AL_HEncoder hEnc;
+    bool shouldAddDummySei = false;
+
+private:
+    int32_t iPendingStreamCnt;
+    int32_t m_input_picCount[MAX_NUM_LAYER] {};
+    int32_t m_pictureType = -1;
+    uint64_t m_StartTime = 0;
+    uint64_t m_EndTime = 0;
+    EncContext::Config const& m_cfg;
+
+    AL_TAllocator* pAllocator;
+    AL_TEncSettings const* pSettings;
+    ChangeSourceCallback m_changeSourceCB;
+    AL_TDimension tLastEncodedDim;
+    AL_ERR m_EncoderLastError = AL_SUCCESS;
+
+    void CheckErrorAndThrow(void)
+    {
+        AL_ERR eErr = AL_Encoder_GetLastError(hEnc);
+        throw std::runtime_error(AL_IS_ERROR_CODE(eErr) ? AL_Codec_ErrorToString(eErr) : "Failed");
+    }
+
+    static inline bool isStreamReleased(AL_TBuffer* pStream, AL_TBuffer const* pSrc)
+    {
+        return pStream && !pSrc;
+    }
+
+    static inline bool isSourceReleased(AL_TBuffer* pStream, AL_TBuffer const* pSrc)
+    {
+        return !pStream && pSrc;
+    }
+
+    static void EndEncoding(void* userParam, AL_TBuffer* pStream, AL_TBuffer const* pSrc, int)
+    {
+        auto pThis = (EncoderSink*)userParam;
+
+        if(isStreamReleased(pStream, pSrc) || isSourceReleased(pStream, pSrc))
+            return;
+
+        Ptr<Data> data = Data::create(pStream, pThis->hEnc);
+        pThis->processOutput(data);
+    }
+
+    void ComputeQualityMeasure(AL_TRateCtrlMetaData* pMeta)
+    {
+        if(!pMeta->bFilled)
+            return;
+    }
+
+    void AddSei(AL_TBuffer* pStream, bool isPrefix, int32_t payloadType, uint8_t* payload,
+                int32_t payloadSize, int32_t tempId)
+    {
+        int32_t seiSection = AL_Encoder_AddSei(hEnc, pStream, isPrefix, payloadType,
+                                               payload, payloadSize, tempId);
+
+        if(seiSection < 0)
+            LogWarning("Failed to add dummy SEI (id:%d) \n", seiSection);
+    }
+
+    AL_ERR PreprocessOutput(Ptr<Data> pStream)
+    {
+        AL_ERR eErr = AL_Encoder_GetLastError(hEnc);
+
+        if(AL_IS_ERROR_CODE(eErr))
+        {
+            LogError("%s\n", AL_Codec_ErrorToString(eErr));
+            m_EncoderLastError = eErr;
+        }
+
+        if(AL_IS_WARNING_CODE(eErr))
+            LogWarning("%s\n", AL_Codec_ErrorToString(eErr));
+
+        if(pStream->buf() && shouldAddDummySei)
+        {
+            constexpr int32_t payloadSize = 8 * 10;
+            uint8_t payload[payloadSize];
+
+            for(int32_t i = 0; i < payloadSize; ++i)
+                payload[i] = i;
+
+            AL_TStreamMetaData* pStreamMeta = (AL_TStreamMetaData*)AL_Buffer_GetMetaData(
+                pStream->buf(), AL_META_TYPE_STREAM);
+            AddSei(pStream->buf(), false, 15, payload, payloadSize, pStreamMeta->uTemporalID);
+            AddSei(pStream->buf(), true, 18, payload, payloadSize, pStreamMeta->uTemporalID);
+        }
+
+        if(pStream->buf() == EndOfStream)
+            iPendingStreamCnt--;
+        else
+        {
+            if(m_pictureType != -1)
+            {
+                auto const pMeta = (AL_TPictureMetaData*)AL_Buffer_GetMetaData(
+                    pStream->buf(), AL_META_TYPE_PICTURE);
+                m_pictureType = pMeta->eType;
+                LogInfo("Picture Type %s (%i) %s\n", PictTypeToString(pMeta->eType).c_str(),
+                        m_pictureType, pMeta->bSkipped ? "is skipped" : "");
+            }
+
+            AL_TRateCtrlMetaData* pMeta = (AL_TRateCtrlMetaData*)AL_Buffer_GetMetaData(
+                pStream->buf(), AL_META_TYPE_RATECTRL);
+
+            if(pMeta && pMeta->bFilled)
+            {
+            }
+            std::vector<std::string_view> vec;
+            pStream->walkBuffers([&vec](size_t size, uint8_t* data) {
+                vec.push_back({(char*)data, size});
+            });
+            dataCallback_(vec);
+        }
+
+        return AL_SUCCESS;
+    }
+
+    void CloseOutputs(void)
+    {
+        m_EndTime = GetPerfTime();
+
+        // Signal that encoding is complete
+        {
+            std::lock_guard<std::mutex> lock(encoding_complete_mutex);
+            encoding_finished = true;
+        }
+        encoding_complete_cv.notify_all();
+    }
+
+    void CheckAndAllocateConversionBuffer(TFourCC tConvFourCC, AL_TDimension const& tConvDim,
+                                          std::shared_ptr<AL_TBuffer>& pConvYUV)
+    {
+        if(pConvYUV != nullptr)
+        {
+            AL_TDimension tCurrentConvDim = AL_PixMapBuffer_GetDimension(pConvYUV.get());
+
+            if(tCurrentConvDim.iHeight >= tConvDim.iHeight &&
+               tCurrentConvDim.iWidth >= tConvDim.iWidth)
+                return;
+        }
+
+        AL_TBuffer* pYuv = AllocateDefaultYuvIOBuffer(tConvDim, tConvFourCC);
+
+        if(pYuv == nullptr)
+            throw std::runtime_error("Couldn't allocate reconstruct conversion buffer");
+
+        pConvYUV = std::shared_ptr<AL_TBuffer>(pYuv, &AL_Buffer_Destroy);
+    }
+
+    void RecToYuv(AL_TBuffer const* pRec, AL_TBuffer* pYuv, TFourCC tYuvFourCC)
+    {
+        TFourCC tRecFourCC = AL_PixMapBuffer_GetFourCC(pRec);
+        tConvFourCCFunc pFunc = GetConvFourCCFunc(tRecFourCC, tYuvFourCC);
+
+        AL_PixMapBuffer_SetDimension(pYuv, AL_PixMapBuffer_GetDimension(pRec));
+
+        if(!pFunc)
+            throw std::runtime_error("Can't find a conversion function suitable for format");
+
+        if(AL_IsTiled(tRecFourCC) == false)
+            throw std::runtime_error("FourCC must be in Tile mode");
+        return pFunc(pRec, pYuv);
+    }
+
+    void processOutput(Ptr<Data> pStream)
+    {
+        AL_ERR eErr;
+        {
+            eErr = PreprocessOutput(pStream);
+        }
+
+        if(AL_IS_ERROR_CODE(eErr))
+        {
+            LogError("%s\n", AL_Codec_ErrorToString(eErr));
+            m_EncoderLastError = eErr;
+        }
+
+        if(AL_IS_WARNING_CODE(eErr))
+            LogWarning("%s\n", AL_Codec_ErrorToString(eErr));
+
+        AL_TRecPic RecPic;
+
+        while(AL_Encoder_GetRecPicture(hEnc, &RecPic))
+        {
+            auto buf = RecPic.pBuf;
+            int32_t iRecId = 0;
+
+            if(buf)
+            {
+                TFourCC tFileRecFourCC = m_cfg.RecFourCC;
+                AL_Buffer_InvalidateMemory(buf);
+
+                TFourCC fourCC = AL_PixMapBuffer_GetFourCC(buf);
+
+                if(AL_IsCompressed(fourCC))
+                    RecOutput[iRecId]->ProcessFrame(buf);
+                else
+                {
+                    if(AL_PixMapBuffer_GetFourCC(buf) != tFileRecFourCC)
+                    {
+                        std::shared_ptr<AL_TBuffer> bufPostConv;
+                        CheckAndAllocateConversionBuffer(tFileRecFourCC,
+                                                         AL_PixMapBuffer_GetDimension(buf),
+                                                         bufPostConv);
+                        RecToYuv(buf, bufPostConv.get(), tFileRecFourCC);
+                        RecOutput[iRecId]->ProcessFrame(bufPostConv.get());
+                    }
+                    else
+                        RecOutput[iRecId]->ProcessFrame(buf);
+                }
+            }
+            AL_Encoder_ReleaseRecPicture(hEnc, &RecPic);
+        }
+
+        if(iPendingStreamCnt == 0)
+            CloseOutputs();
+    }
+
+    void RequestSourceChange(int32_t iInputIdx, int32_t iLayerIdx)
+    {
+        if(m_changeSourceCB)
+            m_changeSourceCB(iInputIdx, iLayerIdx);
+    }
+
+    void CheckSourceResolutionChanged(AL_TBuffer* pSrc)
+    {
+        (void)pSrc;
+        AL_TDimension tNewDim = AL_PixMapBuffer_GetDimension(pSrc);
+        bool bDimensionChanged = tNewDim.iWidth != tLastEncodedDim.iWidth ||
+                                 tNewDim.iHeight != tLastEncodedDim.iHeight;
+
+        if(bDimensionChanged)
+        {
+            AL_Encoder_SetInputResolution(hEnc, tNewDim);
+            tLastEncodedDim = tNewDim;
+        }
+    }
+};
+
+using Config = EncContext::Config;
 /*****************************************************************************/
 
 struct SrcConverterParams
@@ -89,8 +550,10 @@ struct LayerResources
                          int& iReadCount);
 
     std::unique_ptr<FrameReader> InitializeFrameReader(Config& cfg, std::ifstream& YuvFile,
-         std::string sYuvFileName, std::ifstream& MapFile, std::string sMapFileName,
-         AL_TYUVFileInfo& FileInfo);
+                                                       std::string sYuvFileName,
+                                                       std::ifstream& MapFile,
+                                                       std::string sMapFileName,
+                                                       AL_TYUVFileInfo& FileInfo);
 
     void ChangeInput(Config& cfg, int32_t iInputIdx, AL_HEncoder hEnc);
 
@@ -123,11 +586,13 @@ static bool g_MultiChunk = false;
 void ValidateConfig(Config& cfg)
 {
     std::string const invalid_settings("Invalid settings, check the [SETTINGS] section of your "
-            "configuration file or check your commandline (use -h to get help)");
+                                       "configuration file or check your commandline "
+                                       "(use -h to get help)");
 
     if (cfg.MainInput.YUVFileName.empty())
-        throw std::runtime_error("No YUV input was given, specify it in the [INPUT] section of your"
-                                 " configuration file or in your commandline (use -h to get help)");
+        throw std::runtime_error("No YUV input was given, specify it in the [INPUT] section of "
+                                 "your configuration file or in your commandline "
+                                 "(use -h to get help)");
 
     SetConsoleColor(CC_RED);
 
@@ -763,6 +1228,7 @@ std::unique_ptr<EncoderSink> ChannelMain(Config& cfg,
     // Create Encoder
 
 #ifdef HAVE_VCU2_CTRLSW
+    (void) pScheduler;
     enc.reset(new EncoderSink(cfg, ctx, pAllocator));
 #else
     enc.reset(new EncoderSink(cfg, pScheduler, pAllocator));
