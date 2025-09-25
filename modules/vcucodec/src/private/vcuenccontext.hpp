@@ -90,14 +90,9 @@ struct ConfigRunInfo
 
 struct ConfigYUVInput
 {
-    // \brief YUV input file name(s)
-    std::string YUVFileName;
-
-    // \brief Map file name used when the encoder receives a compressed YUV file.
-    std::string sMapFileName;
-
-    // \brief Information relative to the YUV input file
-    AL_TYUVFileInfo FileInfo;
+    std::string YUVFileName;  ///< Input YUV file name
+    std::string sMapFileName; ///< Map file name used when encoder receives a compressed YUV file.
+    AL_TYUVFileInfo FileInfo; ///< Information related to the YUV input file
 };
 
 typedef enum
@@ -115,48 +110,14 @@ typedef enum
 
 struct EncContext::Config
 {
-    // \brief Path to the cfg location
-    std::string sCfgPath;
-
-    // \brief Main YUV input
-    ConfigYUVInput MainInput;
-
-    // \brief List of inputs for resolution change
-    std::vector<ConfigYUVInput> DynamicInputs;
-
-    // \brief Output bitstream file name
-    std::string BitstreamFileName;
-
-    // \brief Reconstructed YUV output file name
-    std::string RecFileName;
-
-#ifdef HAVE_VCU2_CTRLSW
-    // \brief Name of the file specifying Global Motion Vector for each frame
-    std::string sGMVFileName;
-#endif
-
-    // \brief Name of the file specifying HDR SEI contents
-    std::string sHDRFileName;
-
-    // \brief FOURCC Code of the reconstructed picture output file
-    TFourCC RecFourCC;
-
-    // \brief Source format of encoder input
-    AL_ESrcFormat eSrcFormat;
-
-    // \brief Sections RATE_CONTROL and SETTINGS
-    AL_TEncSettings Settings;
-
-    // \brief Section RUN
-    ConfigRunInfo RunInfo;
-#ifdef HAVE_VCU2_CTRLSW
-    // \brief maximum burst size
-    int32_t iEncMaxAxiBurstSize = 0;
-#endif
-    // \brief control the strictness when parsing the configuration file
-    bool strict_mode;
-
-    int32_t iForceStreamBufSize = 0;
+    ConfigYUVInput MainInput; ///< Main YUV input
+    std::vector<ConfigYUVInput> DynamicInputs; ///<List of inputs for resolution change
+    std::string RecFileName;  ///< Reconstructed YUV output file name
+    TFourCC RecFourCC;        ///< FOURCC Code of the reconstructed picture output file
+    AL_ESrcFormat eSrcFormat; ///< Source format of encoder input
+    AL_TEncSettings Settings; ///< Rate control and other encoder settings
+    ConfigRunInfo RunInfo;    ///< Runtime information
+    int32_t iForceStreamBufSize = 0; ///< Force stream buffer size (0 = automatic)
 };
 
 } // namespace vcucodec

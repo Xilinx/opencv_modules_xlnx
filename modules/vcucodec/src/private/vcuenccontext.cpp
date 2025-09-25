@@ -903,9 +903,8 @@ bool InitStreamBufPool(BufPool& pool, AL_TEncSettings& Settings, int32_t iLayerI
                 Settings.tChParam[0].uLevel);
     }
 
-    const int32_t smoothingStream = 2;
+    static const int32_t smoothingStream = 2;
     numStreams = g_defaultMinBuffers + smoothingStream + GetNumBufForGop(Settings);
-
 
     if (Settings.tChParam[0].bSubframeLatency)
     {
@@ -1214,10 +1213,6 @@ EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallbac
             Settings.tChParam[0].eEncOptions = (AL_EChEncOption)(Settings.tChParam[0].eEncOptions
                                                | AL_OPT_FORCE_REC);
         }
-
-#ifdef HAVE_VCU2_CTRLSW
-        Settings.tChParam[0].bUseGMV = !cfg->sGMVFileName.empty();
-#endif
 
         AL_ESrcMode eSrcMode = SrcFormatToSrcMode(cfg->eSrcFormat);
 

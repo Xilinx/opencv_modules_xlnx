@@ -15,10 +15,10 @@
 */
 #include "vcuenc.hpp"
 
-#include "private/vcuutils.hpp"
-#include "private/vcucommand.h"
-#include "../vcudevice.hpp"
-#include "../vcuenccontext.hpp"
+#include "vcuutils.hpp"
+#include "vcucommand.hpp"
+#include "vcudevice.hpp"
+#include "vcuenccontext.hpp"
 
 extern "C" {
 #include "lib_common/PixMapBuffer.h"
@@ -149,7 +149,6 @@ uint8_t getLevel(Codec codec, String level)
 
 void setDefaults(EncContext::Config& cfg)
 {
-    cfg.BitstreamFileName = "Stream.bin";
     cfg.RecFourCC = FOURCC(NULL);
     AL_Settings_SetDefaults(&cfg.Settings);
     cfg.MainInput.FileInfo.FourCC = FOURCC(I420);
@@ -170,7 +169,6 @@ void setDefaults(EncContext::Config& cfg)
     cfg.RunInfo.iScnChgLookAhead = 3;
     cfg.RunInfo.ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
     cfg.RunInfo.uInputSleepInMilliseconds = 0;
-    cfg.strict_mode = false;
     cfg.iForceStreamBufSize = 0;
 }
 
@@ -245,7 +243,6 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
     cfg_.reset(new EncContext::Config);
     EncContext::Config& cfg = *cfg_;
     setDefaults(cfg);
-    cfg.BitstreamFileName = filename;
     cfg.eSrcFormat = AL_SRC_FORMAT_RASTER;
     cfg.MainInput.YUVFileName = "../video/Crowd_Run_1280_720_Y800.yuv";
     cfg.MainInput.FileInfo.FourCC = params.fourcc;

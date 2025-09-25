@@ -15,8 +15,8 @@
 */
 #include "opencv2/vcucodec.hpp"
 
-#include "private/vcuenccontext.hpp"
-#include "private/vcucommand.h"
+#include "vcuenccontext.hpp"
+#include "vcucommand.hpp"
 
 extern "C"
 {

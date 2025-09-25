@@ -15,7 +15,7 @@
 */
 
 #include "opencv2/vcucodec.hpp"
-#include "private/vcudeccontext.hpp"
+#include "vcudeccontext.hpp"
 
 #include <map>
 #include <mutex>

@@ -73,14 +73,14 @@ if(VCU_INCLUDE_DIR AND VCU_LIBS_FOUND)
     if(HAVE_VCU_CTRLSW)
         target_compile_definitions(${the_module} PRIVATE HAVE_VCU_CTRLSW)
         target_include_directories(${the_module} PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/private/encoder
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/ ${CMAKE_CURRENT_SOURCE_DIR}/src/private/
         )
     elseif(HAVE_VDU_CTRLSW)
         target_compile_definitions(${the_module} PRIVATE HAVE_VDU_CTRLSW)
     elseif(HAVE_VCU2_CTRLSW)
         target_compile_definitions(${the_module} PRIVATE HAVE_VCU2_CTRLSW)
         target_include_directories(${the_module} PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/private/encoder
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/  ${CMAKE_CURRENT_SOURCE_DIR}/src/private/
         )
     endif()
 
