@@ -41,6 +41,7 @@ extern "C" {
 #include "vcuutils.hpp"
 
 #include <condition_variable>
+#include <iostream>
 #include <regex>
 
 namespace cv {
@@ -152,7 +153,7 @@ struct EncoderSink
             throw en_codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
 
         if (AL_IS_WARNING_CODE(errorCode))
-            LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
+            std::cout << AL_Codec_ErrorToString(errorCode) << std::endl;
 
         for (int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
             RecOutput[i].reset(new NullFrameSink);
@@ -181,7 +182,7 @@ struct EncoderSink
             throw en_codec_error(AL_Codec_ErrorToString(errorCode), errorCode);
 
         if (AL_IS_WARNING_CODE(errorCode))
-            LogWarning("%s\n", AL_Codec_ErrorToString(errorCode));
+            std::cout << AL_Codec_ErrorToString(errorCode) << std::endl;
 
         for (int32_t i = 0; i < MAX_NUM_REC_OUTPUT; ++i)
             RecOutput[i].reset(new NullFrameSink);
@@ -317,7 +318,7 @@ private:
                                                payload, payloadSize, tempId);
 
         if (seiSection < 0)
-            LogWarning("Failed to add dummy SEI (id:%d) \n", seiSection);
+            std::cout << "Failed to add dummy SEI (id:" << seiSection << ")" << std::endl;
     }
 
     AL_ERR PreprocessOutput(Ptr<Data> pStream)
@@ -331,7 +332,7 @@ private:
         }
 
         if (AL_IS_WARNING_CODE(eErr))
-            LogWarning("%s\n", AL_Codec_ErrorToString(eErr));
+            std::cout << AL_Codec_ErrorToString(eErr) << std::endl;
 
         if (pStream->buf() && shouldAddDummySei)
         {
@@ -437,7 +438,7 @@ private:
         }
 
         if (AL_IS_WARNING_CODE(eErr))
-            LogWarning("%s\n", AL_Codec_ErrorToString(eErr));
+            std::cout << AL_Codec_ErrorToString(eErr) << std::endl;
 
         AL_TRecPic RecPic;
 
