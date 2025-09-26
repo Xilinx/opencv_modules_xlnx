@@ -41,6 +41,7 @@ public:
 
     virtual void write(InputArray frame) override;
     virtual bool eos() override;
+    virtual String statistics() const override;
 
     virtual bool set(int propId, double value) override;
     virtual double get(int propId) const override;

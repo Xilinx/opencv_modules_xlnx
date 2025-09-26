@@ -243,6 +243,9 @@ public:
     /// @return true if encoding completed successfully, false if timeout or error occurred
     CV_WRAP virtual bool eos() = 0;
 
+    /// Get the statistics of the stream that was encoded (if any).
+    CV_WRAP virtual String statistics() const = 0;
+
     /// Set a property for the encoder.
     /// @return true if the property was set successfully, false otherwise
     CV_WRAP virtual bool set(

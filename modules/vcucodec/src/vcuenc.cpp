@@ -344,6 +344,11 @@ bool VCUEncoder::eos()
     return enc_->waitForCompletion();
 }
 
+String VCUEncoder::statistics() const
+{
+    return enc_? enc_->statistics() : String();
+}
+
 bool VCUEncoder::set(int propId, double value)
 {
     std::lock_guard lock(settingsMutex_);

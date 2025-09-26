@@ -199,9 +199,6 @@ struct EncoderSink
 
     ~EncoderSink(void)
     {
-        LogInfo("%d pictures encoded. Average FrameRate = %.4f Fps\n",
-                m_input_picCount[0], (m_input_picCount[0] * 1000.0) / (m_EndTime - m_StartTime));
-
         AL_Encoder_Destroy(hEnc);
     }
 
@@ -233,14 +230,11 @@ struct EncoderSink
 
         if (!Src)
         {
-            LogVerbose("Flushing...\n\n");
-
             if (!AL_Encoder_Process(hEnc, nullptr, nullptr))
                 CheckErrorAndThrow();
             return;
         }
 
-        LogVerbose("\r  Encoding picture #%-6d - ", m_input_picCount[0]);
         fflush(stdout);
 
         CheckSourceResolutionChanged(Src);
@@ -258,6 +252,8 @@ struct EncoderSink
     {
         return m_EncoderLastError;
     }
+    int fps() {return fps_;}
+    int nrFrames() {return m_input_picCount[0];}
 
     std::unique_ptr<IFrameSink> RecOutput[MAX_NUM_REC_OUTPUT];
     DataCallback dataCallback_;
@@ -270,6 +266,7 @@ private:
     int32_t m_pictureType = -1;
     uint64_t m_StartTime = 0;
     uint64_t m_EndTime = 0;
+    int fps_ = 0;
     EncContext::Config const& m_cfg;
 
     AL_TAllocator* pAllocator;
@@ -380,7 +377,12 @@ private:
     void CloseOutputs(void)
     {
         m_EndTime = GetPerfTime();
-
+        uint64_t timeDiff = m_EndTime - m_StartTime;
+        if (timeDiff > 0) {
+            fps_ = static_cast<int>((m_input_picCount[0] * 1000.0) / timeDiff);
+        } else {
+            fps_ = 0; // Avoid division by zero
+        }
         // Signal that encoding is complete
         {
             std::lock_guard<std::mutex> lock(encoding_complete_mutex);
@@ -1184,6 +1186,7 @@ public:
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
     virtual bool waitForCompletion() override;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) override;
+    virtual String statistics() const override;
     virtual AL_HEncoder hEnc() override { return enc_->hEnc; }
 
 private:
@@ -1268,6 +1271,16 @@ void EncoderContext::notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gm
     (void)gmVectorX;
     (void)gmVectorY;
 #endif
+}
+
+String EncoderContext::statistics() const
+{
+    String stats;
+    if (enc_) {
+        stats += std::to_string(enc_->nrFrames()) + " pictures encoded\n";
+        stats += "Average FrameRate = " + std::to_string(enc_->fps()) + " Fps\n";
+    }
+    return stats;
 }
 
 std::unique_ptr<EncoderSink> EncoderContext::channelMain(Config& cfg,
