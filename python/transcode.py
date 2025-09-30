@@ -1,8 +1,7 @@
 #! /usr/bin/env python3
 import cv2
 from time import sleep
-from props import *
-
+from formats import FOURCC
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codec=cv2.vcucodec.CODEC_AVC,
     fourcc=FOURCC("NV12"),
