@@ -241,9 +241,9 @@ void RawOutputImpl::processFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOutF
     {
         AL_EPlaneMode ePlaneMode = AL_PLANE_MODE_PLANAR;
 
-        if (tRecPicFormat.bMSB && (tRecPicFormat.eChromaMode == AL_CHROMA_4_2_0
-                                   || tRecPicFormat.eChromaMode == AL_CHROMA_4_2_2))
-        ePlaneMode = AL_PLANE_MODE_SEMIPLANAR;
+        if ((tRecPicFormat.eChromaMode == AL_CHROMA_4_2_0
+                || tRecPicFormat.eChromaMode == AL_CHROMA_4_2_2))
+            ePlaneMode = AL_PLANE_MODE_SEMIPLANAR;
 
         AL_TPicFormat tConvPicFormat = AL_TPicFormat {
             tRecPicFormat.eChromaMode,

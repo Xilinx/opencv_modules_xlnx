@@ -381,6 +381,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
     //for 1080p AVC decode, output height is 1088 with crop numbers, update width/height
     frame_info.width -= frame_info.cropLeft + frame_info.cropRight;
     frame_info.height -= frame_info.cropTop + frame_info.cropBottom;
+    frame_info.fourcc = frame->getFourCC();
     updateRawInfo(frame_info);
     switch(frame_info.fourcc)
     {
@@ -404,6 +405,21 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         std::vector<Mat> src =
             { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
               Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
+        bool single_output_buffer = !vector_output;
+        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
+                          by_reference, 8);
+        break;
+    }
+    case (FOURCC(I420)):
+    {
+        Size szY = Size(frame_info.width, frame_info.height);
+        Size szUV = Size(frame_info.width / 2, frame_info.height / 2);
+        size_t stepY = frame_info.stride;
+        size_t stepUV = frame_info.stride/2;
+        std::vector<Mat> src =
+            { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
+              Mat(szUV, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepUV),
+              Mat(szUV, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
                           by_reference, 8);
