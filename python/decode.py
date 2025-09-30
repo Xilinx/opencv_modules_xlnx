@@ -10,30 +10,13 @@ codec_group.add_argument("--avc", "-avc", action="store_true", help="Use AVC cod
 codec_group.add_argument("--hevc", "-hevc", action="store_true", help="Use HEVC codec")
 parser.add_argument("--input", "-i", required=True, help="Input file path")
 parser.add_argument("--output", "-o", required=True, help="Output file path")
-parser.add_argument("--output-format", type=str, default="NULL", help="Output format (yuv or bgr)")
+parser.add_argument("--output-format", type=str, default="NULL", help="Output format")
 parser.add_argument("--max-frames", type=int, default=0, help="Maximum number of frames to decode")
 parser.add_argument("--bitdepth","-bd", type=str, choices=["8", "10", "12", "alloc", "stream", "first"], default="first",
     help="Output YUV bitdepth (8, 10, 12, alloc : force prealloc if present, if not fallback to first, stream: use current frame bitdepth, first: always use bitdepth of the first decoded frame)")
 args = parser.parse_args()
 
-def bitdepth_str_to_enum(bd_str):
-    if bd_str == "8":
-        return cv2.vcucodec.BIT_DEPTH_8
-    elif bd_str == "10":
-        return cv2.vcucodec.BIT_DEPTH_10
-    elif bd_str == "12":
-        return cv2.vcucodec.BIT_DEPTH_12
-    elif bd_str == "alloc":
-        return cv2.vcucodec.BIT_DEPTH_ALLOC
-    elif bd_str == "stream":
-        return cv2.vcucodec.BIT_DEPTH_STREAM
-    elif bd_str == "first":
-        return cv2.vcucodec.BIT_DEPTH_FIRST
-    else:
-        raise ValueError(f"Invalid bitdepth string: {bd_str}")
-
 user_bitdepth = bitdepth_str_to_enum(args.bitdepth)
-
 
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codec=cv2.vcucodec.CODEC_AVC if args.avc else cv2.vcucodec.CODEC_HEVC,
