@@ -11,11 +11,11 @@ def fourcc_to_string(fourcc):
 
 def bitdepth_str_to_enum(bd_str):
     if bd_str == "8":
-        return cv2.vcucodec.BIT_DEPTH_8
+        return cv2.vcucodec.BIT_DEPTH_B8
     elif bd_str == "10":
-        return cv2.vcucodec.BIT_DEPTH_10
+        return cv2.vcucodec.BIT_DEPTH_B10
     elif bd_str == "12":
-        return cv2.vcucodec.BIT_DEPTH_12
+        return cv2.vcucodec.BIT_DEPTH_B12
     elif bd_str == "alloc":
         return cv2.vcucodec.BIT_DEPTH_ALLOC
     elif bd_str == "stream":

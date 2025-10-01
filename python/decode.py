@@ -3,14 +3,19 @@ import cv2
 import sys
 import argparse
 from formats import *
-
-parser = argparse.ArgumentParser(description="Decoder command")
+text = "AVC/HEVC Decoder\n"
+text += "\n\nExample usage:\n"
+text += "  ./decode.py -avc --input input.h264 --output output.yuv --output-format NV12\n"
+text += "\nSupported: " + cv2.vcucodec.Decoder.getFourCCs()
+text += "\n\n"
+parser = argparse.ArgumentParser(description=text, formatter_class=argparse.RawDescriptionHelpFormatter)
 codec_group = parser.add_mutually_exclusive_group(required=True)
 codec_group.add_argument("--avc", "-avc", action="store_true", help="Use AVC codec")
 codec_group.add_argument("--hevc", "-hevc", action="store_true", help="Use HEVC codec")
 parser.add_argument("--input", "-i", required=True, help="Input file path")
 parser.add_argument("--output", "-o", required=True, help="Output file path")
 parser.add_argument("--output-format", type=str, default="NULL", help="Output format")
+parser.add_argument("--convert", type=str, default="NULL", help="Color space conversion")
 parser.add_argument("--max-frames", type=int, default=0, help="Maximum number of frames to decode")
 parser.add_argument("--bitdepth","-bd", type=str, choices=["8", "10", "12", "alloc", "stream", "first"], default="first",
     help="Output YUV bitdepth (8, 10, 12, alloc : force prealloc if present, if not fallback to first, stream: use current frame bitdepth, first: always use bitdepth of the first decoded frame)")
