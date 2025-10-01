@@ -44,6 +44,7 @@ struct CV_EXPORTS_W_SIMPLE RawInfo {
     CV_PROP_RW int  bitsPerLuma;    ///< Bit depth of the output data, 8, 10, or 12 bits per channel
     CV_PROP_RW int  bitsPerChroma;  ///< Bit depth of the output data, 8, 10, or 12 bits per channel
     CV_PROP_RW int  stride;         ///< Stride of the output frame in bytes
+    CV_PROP_RW int  strideChroma;   ///< Stride of Chroma buffer of the output frame in bytes.
     CV_PROP_RW int  width;          ///< Width of the raw frame
     CV_PROP_RW int  height;         ///< Height of the raw frame
     CV_PROP_RW int  posX;           ///< Position x offset

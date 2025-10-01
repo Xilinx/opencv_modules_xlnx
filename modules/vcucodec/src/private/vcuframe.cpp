@@ -136,9 +136,13 @@ void Frame::invalidate()
 void Frame::rawInfo(RawInfo& rawInfo) const {
     AL_TBuffer* pFrame = getBuffer();
     TFourCC fourcc = AL_PixMapBuffer_GetFourCC(pFrame);
+    AL_EPlaneMode planeMode = AL_GetPlaneMode(fourcc);
+
     AL_TDimension tYuvDim = AL_PixMapBuffer_GetDimension(pFrame);
     //int32_t bitdepth = AL_GetBitDepth(fourcc);
     int32_t stride = AL_PixMapBuffer_GetPlanePitch(pFrame, AL_PLANE_Y);
+    int32_t strideChroma = AL_PixMapBuffer_GetPlanePitch(pFrame,
+        (AL_PLANE_MODE_SEMIPLANAR == planeMode) ? AL_PLANE_UV : AL_PLANE_U);
     AL_TCropInfo cropInfo = getCropInfo();
     bool cropping = cropInfo.bCropping;
 
@@ -148,6 +152,7 @@ void Frame::rawInfo(RawInfo& rawInfo) const {
     rawInfo.bitsPerLuma = bitDepthY();
     rawInfo.bitsPerChroma = bitDepthUV();
     rawInfo.stride = stride;
+    rawInfo.strideChroma = strideChroma;
     rawInfo.width = tYuvDim.iWidth;
     rawInfo.height = tYuvDim.iHeight;
     rawInfo.posX = 0;
