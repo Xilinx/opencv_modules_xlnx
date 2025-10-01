@@ -21,6 +21,7 @@
 
 extern "C" {
 #include "lib_common/Error.h"
+#include "lib_common/FourCC.h"
 #include "lib_common/HDR.h"
 }
 
@@ -62,6 +63,17 @@ template <typename T, typename F>
 void convert(T& to, const F& from);
 
 template <> void convert(HDRSEIs& to, const AL_THDRSEIs& from);
+
+struct FormatInfo
+{
+    FormatInfo(int fourcc);
+
+    int fourcc;
+    bool decodeable;
+    bool encodeable;
+
+    static String getFourCCs(bool decoder); // false for encoder
+};
 
 } // namespace vcucodec
 } // namespace cv

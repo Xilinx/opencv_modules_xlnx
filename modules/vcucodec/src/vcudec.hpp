@@ -38,6 +38,7 @@ public:
     virtual String statistics() const override;
 
 private:
+    bool   validateParams(const DecoderInitParams& params);
     void   cleanup();
     void   copyToDestination(OutputArray dst, std::vector<Mat>& src, int fourccConvert,
                              bool vector_output, bool single_output_buffer, bool by_reference, int bit_depth);
@@ -49,7 +50,7 @@ private:
 
     String filename_;
     DecoderInitParams params_;
-    bool vcu2_available_ = false;
+    bool vcu_available_ = false;
     bool initialized_ = false;
     WorkerConfig wCfg = {nullptr, nullptr};
     Ptr<RawOutput> rawOutput_ = nullptr;

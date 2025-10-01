@@ -33,17 +33,16 @@ namespace cv {
 namespace vcucodec {
 namespace { // anonymous
 
-const int fourcc_BGR = VideoWriter::fourcc('B', 'G', 'R', ' ');
-const int fourcc_BGRA = VideoWriter::fourcc('B', 'G', 'R', 'A');
+const int fourcc_BGR = FOURCC(BGR ); // note space at end to make 4 chars
+const int fourcc_BGRA = FOURCC(BGRA);
 
 } // anonymous namespace
 
 VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     : filename_(filename), params_(params), rawOutput_(RawOutput::create())
 {
-    // VCU2 initialization will be implemented when VCU2 Control Software is available
-    CV_LOG_INFO(NULL, "VCU2 Decoder initialized");
-    vcu2_available_ = true;
+    if (!validateParams(params))
+        return;
 
     std::shared_ptr<DecContext::Config> pDecConfig
             = std::shared_ptr<DecContext::Config>(new DecContext::Config());
@@ -101,11 +100,58 @@ VCUDecoder::~VCUDecoder()
     cleanup();
 }
 
+bool VCUDecoder::validateParams(const DecoderInitParams& params)
+{
+    bool valid = params.codec == Codec::HEVC || params.codec == Codec::AVC;
+#if HAVE_VCU2_CTRLSW
+    valid |= params.codec == Codec::JPEG;
+#endif
+    if (!valid)
+    {
+        CV_Error(cv::Error::StsBadArg, "Unsupported codec type");
+        return false;
+    }
+    auto fi = FormatInfo(params.fourcc);
+    valid = fi.decodeable;
+    if (!valid)
+    {
+        CV_Error(cv::Error::StsBadArg, "Unsupported output fourcc");
+        return false;
+    }
+    valid = params.fourccConvert == 0 || params.fourccConvert == FOURCC(NULL) ||
+            params.fourccConvert == FOURCC(AUTO) ||
+            params.fourccConvert == fourcc_BGR || params.fourccConvert == fourcc_BGRA;
+    if (!valid)
+    {
+        CV_Error(cv::Error::StsBadArg, "Unsupported fourccConvert");
+        return false;
+    }
+    valid = params.bitDepth == BitDepth::FIRST || params.bitDepth == BitDepth::ALLOC ||
+            params.bitDepth == BitDepth::STREAM || params.bitDepth == BitDepth::B8 ||
+            params.bitDepth == BitDepth::B10 || params.bitDepth == BitDepth::B12;
+    if (!valid)
+    {
+        CV_Error(cv::Error::StsBadArg, "Unsupported bit depth setting");
+        return false;
+    }
+    valid = params.szReturnQueue >= 0;
+    if (!valid) {
+        CV_Error(cv::Error::StsBadArg, "szReturnQueue must be >= 0");
+        return false;
+    }
+    valid = params.maxFrames >= 0;
+    if (!valid) {
+        CV_Error(cv::Error::StsBadArg, "maxFrames must be >= 0");
+        return false;
+    }
+    return valid;
+}
+
 bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override */
 {
     Ptr<Frame> pFrame = nullptr;
 
-    if (!vcu2_available_ || !initialized_)
+    if (!initialized_)
     {
         CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
         return false;
@@ -147,7 +193,7 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
 {
     Ptr<Frame> pFrame = nullptr;
 
-    if (!vcu2_available_ || !initialized_)
+    if (!initialized_)
     {
         CV_LOG_WARNING(NULL, "VCU2 not available or not initialized");
         return false;
@@ -223,7 +269,7 @@ String VCUDecoder::statistics() const {
 
 void VCUDecoder::cleanup()
 {
-    if (vcu2_available_ && initialized_)
+    if (initialized_)
     {
         decodeCtx_->finish();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -528,6 +574,12 @@ double VCUDecoder::getCaptureProperty(int propId) const
     return result;
 }
 
+// static functions:
+
+/*static*/ String Decoder::getFourCCs()
+{
+    return FormatInfo::getFourCCs(true);
+}
 
 } // namespace vcucodec
 } // namespace cv

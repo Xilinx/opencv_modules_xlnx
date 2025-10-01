@@ -130,6 +130,9 @@ public:
 
     /// Get the statistics of the stream that was decoded (if any).
     CV_WRAP virtual String statistics() const = 0;
+
+    /// Get comma separated list of supported FOURCC codes for decoding.
+    static CV_WRAP String getFourCCs();
 };
 
 /// Struct RCSettings provides Rate Control Settings.
@@ -392,12 +395,11 @@ public:
     // static functions
     //
 
-    /// Get supported profiles
+    /// Get comma separated list of supported profiles
     static CV_WRAP String getProfiles(Codec codec);
 
-    /// Get supported levels
+    /// Get comma separated list of supported levels
     static CV_WRAP String getLevels(Codec codec);
-
 };
 
 /// Factory function to create a decoder instance.

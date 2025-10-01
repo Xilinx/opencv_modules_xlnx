@@ -24,6 +24,8 @@ extern "C" {
 }
 #endif
 
+#include <map>
+
 namespace cv {
 namespace vcucodec {
 
@@ -255,7 +257,55 @@ template <> void convert(HDRSEIs& to, const AL_THDRSEIs& from)
         convert(to.st2094_40, from.tST2094_40);
 }
 
+namespace { // anonymous
 
+struct _FormatInfo { int fourcc; bool decodeable; bool encodeable; };
+const bool E = true;
+const bool D = true;
+const bool ND = false;
+const bool NE = false;
+std::map<int, _FormatInfo> const formatInfos =
+{
+    {FOURCC(NULL), {FOURCC(NULL), E, D}},
+    {FOURCC(AUTO), {FOURCC(AUTO), E, D}},
+    {FOURCC(NV12), {FOURCC(NV12), E, D}},
+    {FOURCC(I420), {FOURCC(I420), E, D}},
+    {FOURCC(P010), {FOURCC(P010), E, D}},
+    {FOURCC(NV16), {FOURCC(NV16), E, D}},
+};
+
+} // anonymous namespace
+
+FormatInfo::FormatInfo(int fourcc_)
+{
+    fourcc = (fourcc_ == 0) ? FOURCC(NULL) : fourcc_;
+    auto it = formatInfos.find(fourcc_);
+    if (it != formatInfos.end())
+    {
+        _FormatInfo const& fi = it->second;
+        decodeable = fi.decodeable;
+        encodeable = fi.encodeable;
+    }
+    else
+    {
+        decodeable = false;
+        encodeable = false;
+    }
+}
+
+// static functions
+String FormatInfo::getFourCCs(bool decoder)
+{
+    String result;
+    for (auto const& [fourcc, fi] : formatInfos) {
+        if (decoder && fi.decodeable || !decoder && fi.encodeable) {
+            if (fi.fourcc == FOURCC(NULL) || fi.fourcc == FOURCC(AUTO)) continue;
+            if (!result.empty()) result += ", ";
+            result += AL_FourCCToString(fourcc).cFourcc;
+        }
+    }
+    return result;
+}
 
 } // namespace vcucodec
 } // namespace cv
