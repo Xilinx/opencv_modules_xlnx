@@ -53,6 +53,11 @@ def members_str(obj) -> str:
                 attrs.append(f"{attr}: {value}")
     return f"{obj.__class__.__name__}{{{', '.join(attrs)}}}"
 
+def writeplane(f, frame, width, height, stride):
+    """Write plane of YUV data to a file."""
+    for y in range(height):
+        f.write(frame[y, :width].tobytes())
+
 def writeyuv(f, frame, width, height, stride):
     """Write YUV data to a file in NV12 format."""
     # Write Y plane
@@ -80,6 +85,14 @@ def writebgr(f, frame):
     for y in range(frame.shape[0]):
         f.write(frame[y, :, :].tobytes())
 
+def writeyuv_semiplanar(f, planeY, planeUV, width, height):
+    """Write YUV data to a file from separate Y and UV planes."""
+    # Write Y plane
+    for y in range(height):
+        f.write(planeY[y, :width].tobytes())
+    # Write UV plane
+    for y in range(planeUV.shape[0]):  # UV plane height
+        f.write(planeUV[y, :width].tobytes())
 
 def write(f, frame, info):
     """Write frame data to a file based on its format."""
@@ -90,3 +103,26 @@ def write(f, frame, info):
     else:
         raise ValueError(f"Unsupported FourCC format: {fourcc_to_string(info.fourcc)}")
 
+def write2file(convert, file, frame, planes, info):
+    """Write frame data to a file based on conversion format."""
+    w_y = info.width
+    h_y = info.height
+    stride_y = info.stride
+    stride_uv = info.strideChroma
+
+    w_uv = (w_y + 1) // 2
+    h_uv = (h_y + 1) // 2
+
+    if planes is not None:
+        writeplane(file, planes[0], w_y, h_y, stride_y)
+        if len(planes) > 1:
+            writeplane(file, planes[1], w_uv, h_uv, stride_uv)
+        if len(planes) > 2:
+            writeplane(file, planes[2], w_uv, h_uv, stride_uv)
+    else:
+        if convert == 0:
+            write(file, frame, info)
+        elif convert == FOURCC("BGR") or convert == FOURCC("BGRA"):
+            writebgr(file, frame)
+        else:
+            raise ValueError(f"Unsupported conversion format: {fourcc_to_string(convert)}")

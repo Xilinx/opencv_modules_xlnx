@@ -15,33 +15,52 @@ codec_group.add_argument("--hevc", "-hevc", action="store_true", help="Use HEVC 
 parser.add_argument("--input", "-i", required=True, help="Input file path")
 parser.add_argument("--output", "-o", required=True, help="Output file path")
 parser.add_argument("--output-format", type=str, default="NULL", help="Output format")
-parser.add_argument("--convert", type=str, default="NULL", help="Color space conversion")
+parser.add_argument("--convert", type=str, default="NULL", help="Color space conversion, either BGR or BGRA")
 parser.add_argument("--max-frames", type=int, default=0, help="Maximum number of frames to decode")
 parser.add_argument("--bitdepth","-bd", type=str, choices=["8", "10", "12", "alloc", "stream", "first"], default="first",
     help="Output YUV bitdepth (8, 10, 12, alloc : force prealloc if present, if not fallback to first, stream: use current frame bitdepth, first: always use bitdepth of the first decoded frame)")
+parser.add_argument('--planes', action='store_true', help='Use nextFramePlanes() instead of nextFrame()')
+
 args = parser.parse_args()
 
 user_bitdepth = bitdepth_str_to_enum(args.bitdepth)
-
+if args.convert.upper() == "BGR":
+    print ("Converting to BGR ")
+    convert = FOURCC("BGR ")
+elif args.convert.upper() == "BGRA":
+    convert = FOURCC("BGRA")
+else:
+    convert = 0
+print (f"convert: 0x{convert:08x}")
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codec=cv2.vcucodec.CODEC_AVC if args.avc else cv2.vcucodec.CODEC_HEVC,
     fourcc=FOURCC(args.output_format.upper()),
-    fourccConvert=0, # FOURCC("BGR"),
+    fourccConvert=convert,
     maxFrames=args.max_frames,
     bitDepth=user_bitdepth)
 
 dec = cv2.vcucodec.createDecoder(args.input, decoderInitParams)
 info = cv2.vcucodec.RawInfo()
+filename = args.output
 if (decoderInitParams.fourccConvert == 0):
     filename = args.output if args.output.endswith('.yuv') else args.output + '.yuv'
 elif (decoderInitParams.fourccConvert == FOURCC("BGR")):
     filename = args.output if args.output.endswith('.bgr') else args.output + '.bgr'
+elif (decoderInitParams.fourccConvert == FOURCC("BGRA")):
+    filename = args.output if args.output.endswith('.bgra') else args.output + '.bgra'
+
 file = open(filename, 'wb')
 
 frame_nr = 0
 once = True
 while True:
-    ret, frame, info = dec.nextFrame()
+    planes = None
+    frame = None
+    if args.planes:
+        ret, planes, info = dec.nextFramePlanes()
+    else:
+        ret, frame, info = dec.nextFrame()
+
     if not ret:
         print(f"\ngot no frame: EOS: {info.eos}")
         if info.eos:
@@ -55,11 +74,7 @@ while True:
 
         print(f"\rDecoded {frame_nr}", end='')
         #print(members_str(info))
-        if (decoderInitParams.fourccConvert == 0):
-            write(file, frame, info)
-            pass
-        elif (decoderInitParams.fourccConvert == FOURCC("BGR")):
-            writebgr(file, frame)
+        write2file(convert, file, frame, planes, info)
 
 print (f'Output written to "{filename}"')
 print ("Statistics:\n", dec.statistics())
