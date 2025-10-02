@@ -33,7 +33,7 @@ namespace cv {
 namespace vcucodec {
 namespace { // anonymous
 
-const int fourcc_BGR = FOURCC(BGR ); // note space at end to make 4 chars
+const int fourcc_BGR = 0x20524742; // can't use FOURCC(BGR ) as that would ignore white spaces
 const int fourcc_BGRA = FOURCC(BGRA);
 
 } // anonymous namespace
