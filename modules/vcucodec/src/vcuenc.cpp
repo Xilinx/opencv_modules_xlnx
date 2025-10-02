@@ -236,6 +236,9 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
                        Ptr<EncoderCallback> callback)
 : filename_(filename), params_(params), callback_(callback), currentFrameIndex_(0), hEnc_(nullptr)
 {
+    if (!validateParams(params))
+        return;
+
     AL_EProfile profile = getProfile(params.codec, params.profileSettings.profile);
     (void) profile; // TODO
     uint8_t level = getLevel(params.codec, params.profileSettings.level);
@@ -724,6 +727,31 @@ void VCUEncoder::setHDRIndex(int32_t frameIdx, int32_t iHDRIdx)
         (void)iHDRIdx; // Store for later processing if needed
     }};
     commandQueue_.push(cmd);
+}
+
+bool VCUEncoder::validateParams(const EncoderInitParams& params)
+{
+    bool valid;
+    valid = params.codec == Codec::HEVC || params.codec == Codec::AVC;
+    if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported codec");
+
+    auto fi = FormatInfo(params.fourcc);
+    valid = fi.encodeable;
+    if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported input fourcc");
+    valid = params.rcMode >= RCMode::CONST_QP && params.rcMode <= RCMode::VBR;
+    if (!valid) CV_Error(Error::StsBadArg, "Unsupported rate control mode");
+    valid = params.bitrate > 0;
+    if (!valid) CV_Error(Error::StsBadArg, "Bitrate must be greater than 0");
+    valid = params.gopLength > 0;
+    if (!valid) CV_Error(Error::StsBadArg, "GOP length must be greater than 0");
+    valid = params.nrBFrames >= 0;
+    if (!valid) CV_Error(Error::StsBadArg, "Number of B-frames must be non-negative");
+    valid = params.pictWidth > 0 && params.pictWidth <= 8192; // Max width 8K
+    if (!valid) CV_Error(Error::StsBadArg, "Width must be in the range [1, 8192]");
+    valid = params.pictHeight > 0 && params.pictHeight <= 2160; // Max height 4K
+    if (!valid) CV_Error(Error::StsBadArg, "Height must be in the range [1, 2160]");
+
+    return valid;
 }
 
 // Static functions

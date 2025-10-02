@@ -28,7 +28,8 @@ namespace vcucodec {
 Ptr<Decoder> createDecoder(const String& filename, const DecoderInitParams& params)
 {
     Ptr<Decoder> decoder;
-    try {
+    try
+    {
         decoder = makePtr<VCUDecoder>(filename, params);
     }
     catch (const cv::Exception& e) {
@@ -43,11 +44,16 @@ Ptr<Decoder> createDecoder(const String& filename, const DecoderInitParams& para
 Ptr<Encoder> createEncoder(const String& filename, const EncoderInitParams& params,
     Ptr<EncoderCallback> callback)
 {
-    try {
+    try
+    {
         Ptr<Encoder> encoder = makePtr<VCUEncoder>(filename, params, callback);
         return encoder;
-    } catch (const std::exception& e) {
-        CV_LOG_ERROR(NULL, "Error creating VCUEncoder: ");
+    }
+    catch (const cv::Exception& e) {
+        throw;
+    }
+    catch (const std::exception& e) {
+        CV_Error(Error::StsError, "Error creating VCUEncoder: ");
         return {};
     }
 }

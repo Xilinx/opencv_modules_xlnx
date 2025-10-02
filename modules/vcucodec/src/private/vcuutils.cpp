@@ -262,16 +262,16 @@ namespace { // anonymous
 struct _FormatInfo { int fourcc; bool decodeable; bool encodeable; };
 const bool E = true;
 const bool D = true;
-const bool ND = false;
-const bool NE = false;
+const bool d = false;
+const bool e = false;
 std::map<int, _FormatInfo> const formatInfos =
 {
-    {FOURCC(NULL), {FOURCC(NULL), E, D}},
-    {FOURCC(AUTO), {FOURCC(AUTO), E, D}},
-    {FOURCC(NV12), {FOURCC(NV12), E, D}},
-    {FOURCC(I420), {FOURCC(I420), E, D}},
-    {FOURCC(P010), {FOURCC(P010), E, D}},
-    {FOURCC(NV16), {FOURCC(NV16), E, D}},
+    {FOURCC(NULL), {FOURCC(NULL), D, E}},
+    {FOURCC(AUTO), {FOURCC(AUTO), D, E}},
+    {FOURCC(NV12), {FOURCC(NV12), D, E}},
+    {FOURCC(I420), {FOURCC(I420), D, e}},
+    {FOURCC(P010), {FOURCC(P010), D, E}},
+    {FOURCC(NV16), {FOURCC(NV16), D, E}},
 };
 
 } // anonymous namespace
@@ -298,7 +298,7 @@ String FormatInfo::getFourCCs(bool decoder)
 {
     String result;
     for (auto const& [fourcc, fi] : formatInfos) {
-        if (decoder && fi.decodeable || !decoder && fi.encodeable) {
+        if ((decoder && fi.decodeable) || (!decoder && fi.encodeable)) {
             if (fi.fourcc == FOURCC(NULL) || fi.fourcc == FOURCC(AUTO)) continue;
             if (!result.empty()) result += ", ";
             result += AL_FourCCToString(fourcc).cFourcc;

@@ -204,7 +204,7 @@ struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
 
 /// Struct EncoderInitParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
-    CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC, JPEG)
+    CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC), JPEG not supported for encoding
     CV_PROP_RW int fourcc;     ///< Format of the raw data as FOURCC code
     CV_PROP_RW RCMode rcMode;  ///< Rate control mode (CONST_QP, CBR, VBR, LOW_LATENCY, CAPPED_VBR)
     CV_PROP_RW int bitrate;    ///< Target bitrate in kbits per second

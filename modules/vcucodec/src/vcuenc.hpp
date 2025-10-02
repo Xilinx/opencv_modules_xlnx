@@ -95,6 +95,8 @@ public:
     virtual void setSAO(int32_t frameIdx, bool bSAOEnabled) override;
 
 private:
+    bool   validateParams(const EncoderInitParams& params);
+
     String filename_;
     EncoderInitParams params_;
     Ptr<EncoderCallback> callback_;
