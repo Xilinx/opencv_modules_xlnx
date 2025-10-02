@@ -314,7 +314,7 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
             }
             else
             {
-                srcY.copyTo(dst);
+                srcY.copyTo(planeY);
             }
         }
     }

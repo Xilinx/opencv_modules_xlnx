@@ -268,6 +268,7 @@ std::map<int, _FormatInfo> const formatInfos =
 {
     {FOURCC(NULL), {FOURCC(NULL), D, E}},
     {FOURCC(AUTO), {FOURCC(AUTO), D, E}},
+    {FOURCC(Y800), {FOURCC(Y800), D, E}},
     {FOURCC(NV12), {FOURCC(NV12), D, E}},
     {FOURCC(I420), {FOURCC(I420), D, e}},
     {FOURCC(P010), {FOURCC(P010), D, E}},

@@ -301,7 +301,14 @@ void VCUEncoder::write(InputArray frame)
                                                 AL_GetSrcHeight(cfg_->Settings.tChParam[0])};
     std::shared_ptr<AL_TBuffer> sourceBuffer = enc_->getSharedBuffer();
     AL_PixMapBuffer_SetDimension(sourceBuffer.get(), tUpdatedDim);
-    if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(NV12))
+    if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(Y800))
+    {
+        char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
+                                                                           AL_PLANE_Y));
+        int32_t ySize = size.width * size.height;
+        memcpy(pY, (char*)frame.getMat().data, ySize);
+    }
+    else if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(NV12))
     {
         char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
                                                                            AL_PLANE_Y));
