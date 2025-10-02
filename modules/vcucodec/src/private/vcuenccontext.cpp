@@ -1199,10 +1199,12 @@ private:
 };
 
 
+static int32_t numChan = 0;
 EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback)
 {
     layerResources_.emplace_back(std::make_unique<LayerResources>());
 
+    numChan++;
     InitializePlateform();
 
     {
@@ -1243,7 +1245,8 @@ EncoderContext::~EncoderContext()
 {
     enc_.reset();
     layerResources_[0].reset();
-    AL_Lib_Encoder_DeInit();
+    if(numChan == 1)
+        AL_Lib_Encoder_DeInit();
 }
 
 void EncoderContext::writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer)
