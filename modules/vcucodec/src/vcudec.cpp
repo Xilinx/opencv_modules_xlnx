@@ -50,6 +50,7 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     if (params_.szReturnQueue > 0) {
         pDecConfig->uNumBuffersHeldByNextComponent = params_.szReturnQueue;
     }
+    pDecConfig->enableByRef = params_.szReturnQueue > 0;
 
     switch(params_.codec)
     {
@@ -204,7 +205,7 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
 
     if (byRef && params_.szReturnQueue < 1)
     {
-        CV_LOG_WARNING(NULL, "szReturnQueue must be >= 1 when byRef is true");
+        CV_Error(cv::Error::StsBadArg, "szReturnQueue must be >= 1 when byRef is true");
         byRef = false;
     }
 
@@ -283,8 +284,10 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
     int bit_depth)
 {
     int nr_components = src.size();
-    std::vector<Mat> planes;
-    planes.resize(nr_components);
+    if (fourccConvert == fourcc_BGR || fourccConvert == fourcc_BGRA)
+        nr_components = 1; // force single output for BGR/A conversion
+
+    std::vector<Mat> planes(nr_components);
     Mat& planeY = planes[0];
     Mat& planeU = planes[1];
     Mat& planeV = planes[2];

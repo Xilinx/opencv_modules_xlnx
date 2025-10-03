@@ -282,8 +282,8 @@ void FrameQueue::clear()
 }
 
 void FrameQueue::resizeReturnQueue()
-{ // call when mutex_ is locked
-    while (returnQueue_.size() >  returnQueueSize_)
+{ // call when mutex_ is locked;
+    while (!returnQueue_.empty() && (returnQueue_.size() >= returnQueueSize_)) // leave one space free
     {
         returnQueue_.pop();
     }

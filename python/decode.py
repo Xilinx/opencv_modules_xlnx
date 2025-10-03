@@ -28,16 +28,19 @@ if args.convert.upper() == "BGR":
     print ("Converting to BGR ")
     convert = FOURCC("BGR ")
 elif args.convert.upper() == "BGRA":
+    print ("Converting to BGRA ")
     convert = FOURCC("BGRA")
 else:
     convert = 0
-print (f"convert: 0x{convert:08x}")
+
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codec=cv2.vcucodec.CODEC_AVC if args.avc else cv2.vcucodec.CODEC_HEVC,
     fourcc=FOURCC(args.output_format.upper()),
     fourccConvert=convert,
     maxFrames=args.max_frames,
     bitDepth=user_bitdepth)
+
+#decoderInitParams.szReturnQueue = 1
 
 dec = cv2.vcucodec.createDecoder(args.input, decoderInitParams)
 info = cv2.vcucodec.RawInfo()
