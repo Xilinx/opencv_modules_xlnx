@@ -28,6 +28,8 @@ extern "C" {
 #include "lib_common_dec/DecInfo.h"
 }
 
+#include <functional>
+
 namespace cv {
 namespace vcucodec {
 
@@ -56,25 +58,31 @@ Frame::Frame(Frame const &frame) // shallow copy constructor
     : info_(new AL_TInfoDecode(*frame.info_))
 {
     frame_ = AL_Buffer_ShallowCopy(frame.frame_, &sFreeWithoutDestroyingMemory);
-    AL_Buffer_Ref(frame_);
+    if (!frame_)
+        throw std::runtime_error("Failed to create shallow copy of buffer");
+
     AL_TMetaData *pMetaD;
     AL_TPixMapMetaData *pPixMeta = (AL_TPixMapMetaData *)AL_Buffer_GetMetaData(
         frame.frame_, AL_META_TYPE_PIXMAP);
-    if (!pPixMeta)
-        throw std::runtime_error("PixMapMetaData is NULL");
+    if (!pPixMeta) throw std::runtime_error("PixMapMetaData is NULL");
     AL_TDisplayInfoMetaData *pDispMeta = (AL_TDisplayInfoMetaData *)AL_Buffer_GetMetaData(
         frame.frame_, AL_META_TYPE_DISPLAY_INFO);
-    if (!pDispMeta)
-        throw std::runtime_error("PixMapMetaData is NULL");
+    if (!pDispMeta) throw std::runtime_error("DisplayInfoMetaData is NULL");
     pMetaD = (AL_TMetaData *)AL_PixMapMetaData_Clone(pPixMeta);
-    if (!pMetaD)
-        throw std::runtime_error("Clone of PixMapMetaData was not created!");
-    AL_Buffer_AddMetaData(frame_, pMetaD);
-    pMetaD = (AL_TMetaData *)AL_DisplayInfoMetaData_Clone(pDispMeta);
-    if (!pMetaD)
-        throw std::runtime_error("Clone of PixMapMetaData was not created!");
+    if (!pMetaD) throw std::runtime_error("Clone of PixMapMetaData was not created!");
     if (!AL_Buffer_AddMetaData(frame_, pMetaD))
-        throw std::runtime_error("Cloned pMetaD did not get added!\n");
+    {
+        AL_MetaData_Destroy(pMetaD);
+        throw std::runtime_error("Cloned PixMapMetaData did not get added!\n");
+    }
+    pMetaD = (AL_TMetaData *)AL_DisplayInfoMetaData_Clone(pDispMeta);
+    if (!pMetaD) throw std::runtime_error("Clone of DisplayInfoMetaData was not created!");
+    if (!AL_Buffer_AddMetaData(frame_, pMetaD))
+    {
+        AL_MetaData_Destroy(pMetaD);
+        throw std::runtime_error("Cloned DisplayInfoMetaData did not get added!\n");
+    }
+    AL_Buffer_Ref(frame_);
 }
 
 Frame::Frame(Size const &size, int fourcc)
@@ -247,7 +255,6 @@ void FrameQueue::enqueue(Ptr<Frame> frame)
 Ptr<Frame> FrameQueue::dequeue(std::chrono::milliseconds timeout)
 {
     std::unique_lock<std::mutex> lock(mutex_);
-    resizeReturnQueue();
 
     if (cv_.wait_for(lock, timeout, [this]{ return !queue_.empty(); }))
     {
@@ -256,6 +263,7 @@ Ptr<Frame> FrameQueue::dequeue(std::chrono::milliseconds timeout)
         if (returnQueueSize_ > 0)
         {
             returnQueue_.push(frame);
+            resizeReturnQueue();
         }
         return frame;
     }
@@ -283,7 +291,7 @@ void FrameQueue::clear()
 
 void FrameQueue::resizeReturnQueue()
 { // call when mutex_ is locked;
-    while (!returnQueue_.empty() && (returnQueue_.size() >= returnQueueSize_)) // leave one space free
+    while (returnQueue_.size() > returnQueueSize_)
     {
         returnQueue_.pop();
     }
