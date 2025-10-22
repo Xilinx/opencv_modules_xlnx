@@ -31,7 +31,9 @@ public:
 
     // Implementation of the pure virtual functions from base class
     virtual bool   nextFrame(OutputArray frame, RawInfo& frame_info) override;
-    virtual bool   nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info, bool byRef) override;
+    virtual bool   nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info) override;
+    virtual bool   nextFramePlanesRef(OutputArrayOfArrays planes, RawInfo& frame_info,
+                                      Ptr<FrameToken>& frameToken) override;
     virtual bool   set(int propId, double value) override;
     virtual double get(int propId) const override;
     virtual String streamInfo() const override;

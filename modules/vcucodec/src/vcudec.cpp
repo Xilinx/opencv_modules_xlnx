@@ -36,6 +36,16 @@ namespace { // anonymous
 const int fourcc_BGR = 0x20524742; // can't use FOURCC(BGR ) as that would ignore white spaces
 const int fourcc_BGRA = FOURCC(BGRA);
 
+class FrameTokenImpl : public FrameToken
+{
+public:
+    FrameTokenImpl(Ptr<Frame> frame) : frame_(frame) {}
+    ~FrameTokenImpl() override {}
+
+private:
+    Ptr<Frame> frame_;
+};
+
 } // anonymous namespace
 
 VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
@@ -47,10 +57,9 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     std::shared_ptr<DecContext::Config> pDecConfig
             = std::shared_ptr<DecContext::Config>(new DecContext::Config());
     pDecConfig->sIn = (std::string)filename;
-    if (params_.szReturnQueue > 0) {
-        pDecConfig->uNumBuffersHeldByNextComponent = params_.szReturnQueue;
+    if (params_.extraFrames > 0) {
+        pDecConfig->uNumBuffersHeldByNextComponent = params_.extraFrames;
     }
-    pDecConfig->enableByRef = params_.szReturnQueue > 0;
 
     switch(params_.codec)
     {
@@ -135,9 +144,9 @@ bool VCUDecoder::validateParams(const DecoderInitParams& params)
         CV_Error(cv::Error::StsBadArg, "Unsupported bit depth setting");
         return false;
     }
-    valid = params.szReturnQueue >= 0;
+    valid = params.extraFrames >= 0;
     if (!valid) {
-        CV_Error(cv::Error::StsBadArg, "szReturnQueue must be >= 0");
+        CV_Error(cv::Error::StsBadArg, "extraFrames must be >= 0");
         return false;
     }
     valid = params.maxFrames >= 0;
@@ -190,10 +199,9 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     return true;
 }
 
-bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info, bool byRef)
+bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info)
 {
     Ptr<Frame> pFrame = nullptr;
-
     if (!initialized_)
     {
         CV_LOG_WARNING(NULL, "VCU2 not available or not initialized");
@@ -202,12 +210,6 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
 
     if(!decodeCtx_)
         return false;
-
-    if (byRef && params_.szReturnQueue < 1)
-    {
-        CV_Error(cv::Error::StsBadArg, "szReturnQueue must be >= 1 when byRef is true");
-        byRef = false;
-    }
 
     if(!decodeCtx_->running())
     {
@@ -225,7 +227,52 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
     frame_info.eos = false;
     if(pFrame)
     {
-        retrieveVideoFrame(planes, pFrame, frame_info, true, byRef);
+        retrieveVideoFrame(planes, pFrame, frame_info, true, false);
+        setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
+    } else  {
+        if(decodeCtx_->eos())
+        {
+            frame_info.eos = true;
+            decodeCtx_->finish();
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool VCUDecoder::nextFramePlanesRef(OutputArrayOfArrays planes, RawInfo& frame_info,
+                                 Ptr<FrameToken>& frameToken)
+{
+    Ptr<Frame> pFrame = nullptr;
+
+    if (!initialized_)
+    {
+        CV_LOG_WARNING(NULL, "VCU2 not available or not initialized");
+        return false;
+    }
+
+    if(!decodeCtx_)
+        return false;
+
+    if(!decodeCtx_->running())
+    {
+        decodeCtx_->start(wCfg);
+    }
+
+    if(decodeCtx_->eos())
+    {
+        pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
+    } else {
+        pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
+    }
+
+    frame_info.eos = false;
+    if(pFrame)
+    {
+        FrameTokenImpl *token = new FrameTokenImpl(pFrame);
+        frameToken.reset(token);
+        retrieveVideoFrame(planes, pFrame, frame_info, true, true);
         setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
     } else  {
         if(decodeCtx_->eos())

@@ -67,13 +67,18 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
     CV_PROP_RW int fourccConvert; ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none)
     CV_PROP_RW int maxFrames;     ///< Maximum number of frames to decode, 0 for unlimited
     CV_PROP_RW BitDepth bitDepth; ///< Specify output bit depth (first, alloc, stream, 8, 10, 12)
-    CV_PROP_RW int szReturnQueue; ///< Return queue size when returning frames by reference.
-                                  ///< Minimum/Default (0), when set to 0 frames cannot be returned
-                                  ///< by reference.
+    CV_PROP_RW int extraFrames;   ///< Number of extra frame buffers to allocate for processing,
+                                  ///< including the ones held at display side.
 
     /// Constructor to initialize decoder parameters with default values.
     CV_WRAP DecoderInitParams(Codec codec = Codec::HEVC, int fourcc = VCU_FOURCC_AUTO,
         int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC);
+};
+
+class CV_EXPORTS_W FrameToken
+{
+public:
+    virtual ~FrameToken() {};
 };
 
 /// @brief Class Decoder is the interface for decoding video streams.
@@ -94,14 +99,23 @@ public:
     ) = 0;
 
     /// Decode the next frame from the stream into separate planes.
-    /// When called to get frame n by reference, frame n - szReturnQueue is unreferenced.
     /// @return true if a frame was successfully decoded, false if no frames are available (yet)
     //          or if an error occurred.
     CV_WRAP virtual bool nextFramePlanes(
         CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame
+        CV_OUT RawInfo& frameInfo   ///< Output parameter with information about the decoded frame
+    ) = 0;
+
+
+    /// Decode the next frame from the stream into separate planes and return by reference.
+    /// As long as the client holds on to returned frameToken, the frame is not released and
+    /// put back on the decoder queue. Holding on to frames too long may block the decoding process.
+    /// @return true if a frame was successfully decoded, false if no frames are available (yet)
+    //          or if an error occurred.
+    CV_WRAP virtual bool nextFramePlanesRef(
+        CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame
         CV_OUT RawInfo& frameInfo,  ///< Output parameter with information about the decoded frame
-        bool byRef = false   ///< Return frame by reference instead of a copy.
-                             ///< When set to true, szReturnQueue must be >= 1.
+        CV_OUT Ptr<FrameToken>& frameToken ///< Output token to manage frame reference
     ) = 0;
 
 
@@ -429,7 +443,7 @@ CV_EXPORTS_W Ptr<Encoder> createEncoder(
 inline DecoderInitParams::DecoderInitParams(Codec _codec, int _fourcc, int _fourccConvert,
                                             int _maxFrames, BitDepth _bitDepth)
     : codec(_codec), fourcc(_fourcc), fourccConvert(_fourccConvert), maxFrames(_maxFrames),
-      bitDepth(_bitDepth), szReturnQueue(0) {}
+      bitDepth(_bitDepth), extraFrames(0) {}
 
 inline RCSettings::RCSettings(RCMode _mode, Entropy _entropy, int _bitrate, int _maxBitrate,
     int _cpbSize, int _initialDelay, bool _fillerData, int _maxQualityTarget,

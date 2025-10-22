@@ -238,13 +238,6 @@ FrameQueue::FrameQueue() {}
 
 FrameQueue::~FrameQueue() {}
 
-void FrameQueue::setReturnQueueSize(int size)
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    returnQueueSize_ = std::max(size, 0);
-    resizeReturnQueue();
-}
-
 void FrameQueue::enqueue(Ptr<Frame> frame)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -260,11 +253,6 @@ Ptr<Frame> FrameQueue::dequeue(std::chrono::milliseconds timeout)
     {
         Ptr<Frame> frame = queue_.front();
         queue_.pop();
-        if (returnQueueSize_ > 0)
-        {
-            returnQueue_.push(frame);
-            resizeReturnQueue();
-        }
         return frame;
     }
     return nullptr;
@@ -279,23 +267,12 @@ bool FrameQueue::empty()
 void FrameQueue::clear()
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    while (!returnQueue_.empty())
-    {
-        returnQueue_.pop();
-    }
     while (!queue_.empty())
     {
         queue_.pop();
     }
 }
 
-void FrameQueue::resizeReturnQueue()
-{ // call when mutex_ is locked;
-    while (returnQueue_.size() > returnQueueSize_)
-    {
-        returnQueue_.pop();
-    }
-}
 
 } // namespace vcucodec
 } // namespace cv

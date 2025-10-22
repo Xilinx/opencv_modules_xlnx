@@ -480,8 +480,7 @@ DecoderContext::DecoderContext(DecContext::Config &config, AL_TAllocator *pAlloc
     pDecSettings_ = &config.tDecSettings;
     pUserOutputSettings_ = &config.tUserOutputSettings;
     uNumBuffersHeldByNextComponent_ = config.uNumBuffersHeldByNextComponent;
-    rawOutput_->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames,
-        config.enableByRef ? uNumBuffersHeldByNextComponent_: 0);
+    rawOutput_->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames);
     running_ = false;
     eos_ = false;
     await_eos_ = false;

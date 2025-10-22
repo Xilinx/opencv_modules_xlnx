@@ -49,7 +49,7 @@ class RawOutputImpl : public RawOutput
 {
 public:
     ~RawOutputImpl() override = default;
-    void configure(int fourcc, unsigned int bitDepth, int max_frames, int szReturnQueue) override;
+    void configure(int fourcc, unsigned int bitDepth, int max_frames) override;
 
     bool process(Ptr<Frame> frame, int32_t iBitDepthAlloc,
                  bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists) override;
@@ -79,7 +79,7 @@ private:
 };
 
 
-void RawOutputImpl::configure(int fourcc, unsigned int bitDepth, int max_frames, int szReturnQueue)
+void RawOutputImpl::configure(int fourcc, unsigned int bitDepth, int max_frames)
 {
     tOutputFourCC = fourcc;
     if(tOutputFourCC != FOURCC(NULL)) {
@@ -95,7 +95,6 @@ void RawOutputImpl::configure(int fourcc, unsigned int bitDepth, int max_frames,
 
     iBitDepth = bitDepth;
     uMaxFrames = max_frames;
-    frame_queue_.setReturnQueueSize(szReturnQueue);
 }
 
 

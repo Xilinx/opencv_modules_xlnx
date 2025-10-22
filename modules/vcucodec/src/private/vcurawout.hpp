@@ -28,8 +28,7 @@ public:
     virtual ~RawOutput() = default;
 
     /// Configure the raw output with the specified fourcc and bit depth.
-    virtual void configure(int fourcc, unsigned int bitDepth, int max_frames,
-                           int szReturnQueue) = 0;
+    virtual void configure(int fourcc, unsigned int bitDepth, int max_frames) = 0;
 
     /// Process a frame and enqueue it for output.
     virtual bool process(Ptr<Frame> frame, int32_t iBitDepthAlloc,

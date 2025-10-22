@@ -93,16 +93,12 @@ public:
     FrameQueue();
     ~FrameQueue();
     /// Set the size of the return queue, when the size is reduced, frames are popped.
-    void setReturnQueueSize(int size);
     void enqueue(Ptr<Frame> frame);
     Ptr<Frame> dequeue(std::chrono::milliseconds timeout);
     bool empty();
     void clear();
 private:
-    void resizeReturnQueue();
     std::queue<Ptr<Frame>> queue_;
-    std::queue<Ptr<Frame>> returnQueue_;
-    size_t returnQueueSize_ = 0;
     std::mutex mutex_;
     std::condition_variable cv_;
 };
