@@ -3,6 +3,11 @@ import cv2
 import sys
 import argparse
 from formats import *
+
+GREEN = '\033[92m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
+
 text = "AVC/HEVC Decoder\n"
 text += "\n\nExample usage:\n"
 text += "  ./decode.py -avc --input input.h264 --output output.yuv --output-format NV12\n"
@@ -19,7 +24,10 @@ parser.add_argument("--convert", type=str, default="NULL", help="Color space con
 parser.add_argument("--max-frames", type=int, default=0, help="Maximum number of frames to decode")
 parser.add_argument("--bitdepth","-bd", type=str, choices=["8", "10", "12", "alloc", "stream", "first"], default="first",
     help="Output YUV bitdepth (8, 10, 12, alloc : force prealloc if present, if not fallback to first, stream: use current frame bitdepth, first: always use bitdepth of the first decoded frame)")
-parser.add_argument('--planes', action='store_true', help='Use nextFramePlanes() instead of nextFrame()')
+parser.add_argument("--no-yuv", action="store_true", help="Disable YUV output")
+planes_group = parser.add_mutually_exclusive_group(required=False)
+planes_group.add_argument('--planes', action='store_true', help='Use nextFramePlanes() instead of nextFrame()')
+planes_group.add_argument('--planesref', action='store_true', help='Use nextFramePlanesRef() instead of nextFrame()')
 
 args = parser.parse_args()
 
@@ -40,7 +48,7 @@ decoderInitParams = cv2.vcucodec.DecoderInitParams(
     maxFrames=args.max_frames,
     bitDepth=user_bitdepth)
 
-#decoderInitParams.szReturnQueue = 1
+#decoderInitParams.extraFrames = 2
 
 dec = cv2.vcucodec.createDecoder(args.input, decoderInitParams)
 info = cv2.vcucodec.RawInfo()
@@ -61,6 +69,8 @@ while True:
     frame = None
     if args.planes:
         ret, planes, info = dec.nextFramePlanes()
+    elif args.planesref:
+        ret, planes, info, token = dec.nextFramePlanesRef()
     else:
         ret, frame, info = dec.nextFrame()
 
@@ -72,14 +82,16 @@ while True:
         frame_nr += 1
         if once :
             print()
-            print("Stream Info:\n", dec.streamInfo())
+            print(f"Stream Info:\n{BLUE}{dec.streamInfo()}{RESET}")
             once = False
 
         print(f"\rDecoded {frame_nr}", end='')
+        #print(f"Decoded {frame_nr}")
         #print(members_str(info))
-        write2file(convert, file, frame, planes, info)
-
-print (f'Output written to "{filename}"')
-print ("Statistics:\n", dec.statistics())
+        if not args.no_yuv:
+            write2file(convert, file, frame, planes, info)
+if not args.no_yuv:
+    print (f'Output written to {GREEN}{filename}{RESET}')
+print (f"Statistics:\n{BLUE}{dec.statistics()}{RESET}")
 del dec
 
