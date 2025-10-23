@@ -174,7 +174,6 @@ private:
     EDecErrorLevel eExitCondition = DEC_ERROR;
     AL_EVENT hExitMain_ = nullptr;
     std::mutex hDisplayMutex_;
-    uint32_t uNumBuffersHeldByNextComponent_ = 1;
     String streamInfo_;
     String stats_;
 };
@@ -252,9 +251,9 @@ std::string sequencePictureToString(AL_ESequenceMode sequencePicture)
     return "max enum";
 }
 
-String getStreamInfo(int32_t BufferNumber, int32_t BufferSize,
-                          AL_TStreamSettings const *pStreamSettings, AL_TCropInfo const *pCropInfo,
-                          TFourCC tFourCC, AL_TDimension outputDim)
+String getStreamInfo(int32_t BufferNumber, int32_t BufferSize, int32_t extraBuffers,
+                     AL_TStreamSettings const *pStreamSettings, AL_TCropInfo const *pCropInfo,
+                     TFourCC tFourCC, AL_TDimension outputDim)
 {
     int32_t iWidth = outputDim.iWidth;
     int32_t iHeight = outputDim.iHeight;
@@ -282,7 +281,8 @@ String getStreamInfo(int32_t BufferNumber, int32_t BufferSize,
     }
     ss << "Sequence picture: " << sequencePictureToString(pStreamSettings->eSequenceMode)
        << std::endl;
-    ss << "Buffers needed: " << BufferNumber << " of size " << BufferSize << std::endl;
+    ss << "Buffers needed: " << BufferNumber << "(+" << extraBuffers << ") of size " << BufferSize
+       << std::endl;
 
     return ss.str();
 }
@@ -479,7 +479,6 @@ DecoderContext::DecoderContext(DecContext::Config &config, AL_TAllocator *pAlloc
     pAllocator_ = pAlloc;
     pDecSettings_ = &config.tDecSettings;
     pUserOutputSettings_ = &config.tUserOutputSettings;
-    uNumBuffersHeldByNextComponent_ = config.uNumBuffersHeldByNextComponent;
     rawOutput_->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames);
     running_ = false;
     eos_ = false;
@@ -573,15 +572,16 @@ AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
 
     {
         auto lock = std::lock_guard(mutex_);
-        streamInfo_ = getStreamInfo(iBufferNumber, iBufferSize, pStreamSettings, &pUserCropInfo,
-                                    AL_GetFourCC(pUserOutputSettings_->tPicFormat), outputDim);
+        streamInfo_ = getStreamInfo(iBufferNumber, iBufferSize,
+                pDecSettings_->uNumBuffersHeldByNextComponent, pStreamSettings, &pUserCropInfo,
+                AL_GetFourCC(pUserOutputSettings_->tPicFormat), outputDim);
     }
 
     if (baseBufPool_.IsInit())
         return AL_SUCCESS;
 
     /* Create the buffers */
-    int32_t iNumBuf = iBufferNumber + uNumBuffersHeldByNextComponent_;
+    int32_t iNumBuf = iBufferNumber + pDecSettings_->uNumBuffersHeldByNextComponent;
 
     if (!baseBufPool_.Init(pAllocator_, iNumBuf, "decoded picture buffer"))
         return AL_ERR_NO_MEMORY;

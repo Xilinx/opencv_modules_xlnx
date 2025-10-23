@@ -90,7 +90,7 @@ public:
     /// Virtual destructor for the Decoder interface.
     virtual ~Decoder() {}
 
-    /// Decode the next frame from the stream.
+    /// Decode the next frame from the stream, return a cop6 as a single plane.
     /// @return true if a frame was successfully decoded, false if no frames are available (yet)
     //          or if an error occurred.
     CV_WRAP virtual bool nextFrame(
@@ -98,7 +98,7 @@ public:
         CV_OUT RawInfo& frameInfo ///< Output parameter with information about the decoded frame
     ) = 0;
 
-    /// Decode the next frame from the stream into separate planes.
+    /// Decode the next frame from the stream into separate planes, copies are made of each frame.
     /// @return true if a frame was successfully decoded, false if no frames are available (yet)
     //          or if an error occurred.
     CV_WRAP virtual bool nextFramePlanes(

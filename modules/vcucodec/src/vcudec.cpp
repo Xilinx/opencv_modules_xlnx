@@ -57,9 +57,7 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     std::shared_ptr<DecContext::Config> pDecConfig
             = std::shared_ptr<DecContext::Config>(new DecContext::Config());
     pDecConfig->sIn = (std::string)filename;
-    if (params_.extraFrames > 0) {
-        pDecConfig->uNumBuffersHeldByNextComponent = params_.extraFrames;
-    }
+    pDecConfig->tDecSettings.uNumBuffersHeldByNextComponent = std::max(1, params_.extraFrames);
 
     switch(params_.codec)
     {

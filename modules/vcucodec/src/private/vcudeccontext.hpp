@@ -124,7 +124,6 @@ struct DecContext::Config
     int32_t iMaxFrames = INT32_MAX;
     bool bUsePreAlloc = false;
     EDecErrorLevel eExitCondition = DEC_ERROR;
-    uint32_t uNumBuffersHeldByNextComponent = 1;
 };
 
 struct DecContext::WorkerConfig
