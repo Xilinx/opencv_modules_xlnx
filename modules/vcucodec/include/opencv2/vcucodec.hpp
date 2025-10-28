@@ -149,6 +149,21 @@ public:
     static CV_WRAP String getFourCCs();
 };
 
+/// Structure PictureSettings
+struct CV_EXPORTS_W_SIMPLE PictureEncSettings
+{
+    CV_PROP_RW Codec codec;     ///< Codec of the picture (HEVC, AVC, JPEG)
+    CV_PROP_RW int   fourcc;    ///< FourCC code of the picture
+    CV_PROP_RW int   width;     ///< Width of the picture
+    CV_PROP_RW int   height;    ///< Height of the picture
+    CV_PROP_RW int   framerate; ///< Framerate of the picture
+
+    CV_WRAP PictureEncSettings(Codec codec = Codec::HEVC,
+        int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'),
+        int width = 1280, int height = 720, int framerate = 30
+    );
+};
+
 /// Struct RCSettings provides Rate Control Settings.
 struct CV_EXPORTS_W_SIMPLE RCSettings
 {
@@ -193,7 +208,7 @@ struct CV_EXPORTS_W_SIMPLE GOPSettings
                                   ///< multiple of the GOP length.
                                   ///< -1 disables, 0 (default) first frame is IDR
     CV_WRAP GOPSettings(GOPMode mode = GOPMode::BASIC, GDRMode gdrMode = GDRMode::DISABLE,
-        int gopLength = 30, int nrBFrames = 0, bool longTermRef = false,
+        int gopLength = 60, int nrBFrames = 0, bool longTermRef = false,
         int longTermFreq = 0, int periodIDR = 0);
 };
 
@@ -217,24 +232,17 @@ struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
 };
 
 /// Struct EncoderInitParams contains encoder parameters and statistics
-struct CV_EXPORTS_W_SIMPLE EncoderInitParams {
-    CV_PROP_RW Codec codec;    ///< Codec type (AVC, HEVC), JPEG not supported for encoding
-    CV_PROP_RW int fourcc;     ///< Format of the raw data as FOURCC code
-    CV_PROP_RW RCMode rcMode;  ///< Rate control mode (CONST_QP, CBR, VBR, LOW_LATENCY, CAPPED_VBR)
-    CV_PROP_RW int bitrate;    ///< Target bitrate in kbits per second
-    CV_PROP_RW int pictWidth;  ///< Picture width
-    CV_PROP_RW int pictHeight; ///< Picture height
-    CV_PROP_RW int frameRate;  ///< Frame rate
-    CV_PROP_RW int gopLength;  ///< GOP (Group of Pictures) length
-    CV_PROP_RW int nrBFrames;  ///< GOP (Group of Pictures) Number of B-frames between two consecutive P-frames
+struct CV_EXPORTS_W_SIMPLE EncoderInitParams
+{
+    CV_PROP_RW Ptr<PictureEncSettings> pictureEncSettings;
+    CV_PROP_RW Ptr<RCSettings>         rcSettings;
+    CV_PROP_RW Ptr<GOPSettings>        gopSettings;
+    CV_PROP_RW Ptr<ProfileSettings>    profileSettings;
+    CV_PROP_RW Ptr<GlobalMotionVector> globalMotionVector;
 
-    CV_PROP_RW ProfileSettings profileSettings; ///< Encoder profile, level and tier settings
-
-    /// Constructor to initialize encoder parameters with default values.
-    CV_WRAP EncoderInitParams(Codec codec = Codec::HEVC,
-        int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'), RCMode rcMode = RCMode::CBR,
-        int bitrate = 4000, int pictWidth = 1280, int pictHeight = 720, int frameRate = 30,
-        int gopLength = 60, int nrBFrames = 0);
+    CV_WRAP EncoderInitParams(Ptr<PictureEncSettings> = nullptr, Ptr<RCSettings> = nullptr,
+        Ptr<GOPSettings> = nullptr, Ptr<ProfileSettings> = nullptr,
+        Ptr<GlobalMotionVector> = nullptr);
 };
 
 /// @brief Class EncoderCallback reports encoder progress (not supported in Python).
@@ -445,6 +453,10 @@ inline DecoderInitParams::DecoderInitParams(Codec _codec, int _fourcc, int _four
     : codec(_codec), fourcc(_fourcc), fourccConvert(_fourccConvert), maxFrames(_maxFrames),
       bitDepth(_bitDepth), extraFrames(0) {}
 
+inline PictureEncSettings::PictureEncSettings(Codec _codec, int _fourcc, int _width, int _height,
+                                              int _framerate)
+    : codec(_codec), fourcc(_fourcc), width(_width), height(_height), framerate(_framerate) {}
+
 inline RCSettings::RCSettings(RCMode _mode, Entropy _entropy, int _bitrate, int _maxBitrate,
     int _cpbSize, int _initialDelay, bool _fillerData, int _maxQualityTarget,
     int _maxPictureSizeI, int _maxPictureSizeP, int _maxPictureSizeB, bool _skipFrame, int _maxSkip)
@@ -464,11 +476,12 @@ inline ProfileSettings::ProfileSettings(String _profile, String _level, Tier _ti
 inline GlobalMotionVector::GlobalMotionVector(int _frameIndex, int _gmVectorX, int _gmVectorY)
     : frameIndex(_frameIndex), gmVectorX(_gmVectorX), gmVectorY(_gmVectorY) {}
 
-inline EncoderInitParams::EncoderInitParams(Codec _codec, int _fourcc, RCMode _rcMode, int _bitrate,
-    int _pictWidth, int _pictHeight, int _frameRate, int _gopLength, int _nrBFrames)
-    : codec(_codec), fourcc(_fourcc), rcMode(_rcMode), bitrate(_bitrate), pictWidth(_pictWidth),
-      pictHeight(_pictHeight), frameRate(_frameRate), gopLength(_gopLength), nrBFrames(_nrBFrames) {}
-
+inline EncoderInitParams::EncoderInitParams(Ptr<PictureEncSettings> _pictureEncSettings,
+        Ptr<RCSettings> _rcSettings, Ptr<GOPSettings> _gopSettings,
+        Ptr<ProfileSettings> _profileSettings, Ptr<GlobalMotionVector> _globalMotionVector)
+        : pictureEncSettings(_pictureEncSettings), rcSettings(_rcSettings),
+          gopSettings(_gopSettings), profileSettings(_profileSettings),
+          globalMotionVector(_globalMotionVector) {}
 
 //! @endcond
 

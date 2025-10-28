@@ -236,19 +236,20 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
                        Ptr<EncoderCallback> callback)
 : filename_(filename), params_(params), callback_(callback), currentFrameIndex_(0), hEnc_(nullptr)
 {
-    if (!validateParams(params))
+    initSettings(params);
+    if (!validateSettings())
         return;
 
-    AL_EProfile profile = getProfile(params.codec, params.profileSettings.profile);
+    AL_EProfile profile = getProfile(currentSettings_.pic_.codec, currentSettings_.profile_.profile);
     (void) profile; // TODO
-    uint8_t level = getLevel(params.codec, params.profileSettings.level);
+    uint8_t level = getLevel(currentSettings_.pic_.codec, currentSettings_.profile_.level);
     (void) level; // TODO
     cfg_.reset(new EncContext::Config);
     EncContext::Config& cfg = *cfg_;
     setDefaults(cfg);
     cfg.eSrcFormat = AL_SRC_FORMAT_RASTER;
     cfg.MainInput.YUVFileName = "../video/Crowd_Run_1280_720_Y800.yuv";
-    cfg.MainInput.FileInfo.FourCC = params.fourcc;
+    cfg.MainInput.FileInfo.FourCC = currentSettings_.pic_.fourcc;
     if(cfg.MainInput.FileInfo.FourCC == FOURCC(NV12))
         cfg.Settings.tChParam[0].ePicFormat = AL_420_8BITS;
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(P010))
@@ -264,12 +265,12 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y800))
         cfg.Settings.tChParam[0].ePicFormat = AL_400_8BITS;
     cfg.MainInput.FileInfo.FrameRate = 60;
-    cfg.MainInput.FileInfo.PictHeight = params.pictHeight;
-    cfg.MainInput.FileInfo.PictWidth = params.pictWidth;
-    cfg.Settings.tChParam[0].tRCParam.eRCMode = (AL_ERateCtrlMode)params.rcMode;
-    cfg.Settings.tChParam[0].tRCParam.uTargetBitRate = params.bitrate * 1000;
-    cfg.Settings.tChParam[0].tGopParam.uGopLength = params.gopLength;
-    cfg.Settings.tChParam[0].tGopParam.uNumB = params.nrBFrames;
+    cfg.MainInput.FileInfo.PictHeight = currentSettings_.pic_.height;
+    cfg.MainInput.FileInfo.PictWidth = currentSettings_.pic_.width;
+    cfg.Settings.tChParam[0].tRCParam.eRCMode = (AL_ERateCtrlMode)currentSettings_.rc_.mode;
+    cfg.Settings.tChParam[0].tRCParam.uTargetBitRate = currentSettings_.rc_.bitrate;
+    cfg.Settings.tChParam[0].tGopParam.uGopLength = currentSettings_.gop_.gopLength;
+    cfg.Settings.tChParam[0].tGopParam.uNumB = currentSettings_.gop_.nrBFrames;
     setCodingResolution(cfg);
     if (!callback_)
     {
@@ -736,29 +737,47 @@ void VCUEncoder::setHDRIndex(int32_t frameIdx, int32_t iHDRIdx)
     commandQueue_.push(cmd);
 }
 
-bool VCUEncoder::validateParams(const EncoderInitParams& params)
+bool VCUEncoder::validateSettings()
 {
     bool valid;
-    valid = params.codec == Codec::HEVC || params.codec == Codec::AVC;
+    const PictureEncSettings& pic = currentSettings_.pic_;
+    const RCSettings& rc = currentSettings_.rc_;
+    const GOPSettings& gop = currentSettings_.gop_;
+
+    valid = pic.codec == Codec::HEVC || pic.codec == Codec::AVC;
     if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported codec");
 
-    auto fi = FormatInfo(params.fourcc);
+    auto fi = FormatInfo(pic.fourcc);
     valid = fi.encodeable;
     if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported input fourcc");
-    valid = params.rcMode >= RCMode::CONST_QP && params.rcMode <= RCMode::VBR;
+    valid = rc.mode >= RCMode::CONST_QP && rc.mode <= RCMode::VBR;
     if (!valid) CV_Error(Error::StsBadArg, "Unsupported rate control mode");
-    valid = params.bitrate > 0;
+    valid = rc.bitrate > 0;
     if (!valid) CV_Error(Error::StsBadArg, "Bitrate must be greater than 0");
-    valid = params.gopLength > 0;
+    valid = gop.gopLength > 0;
     if (!valid) CV_Error(Error::StsBadArg, "GOP length must be greater than 0");
-    valid = params.nrBFrames >= 0;
+    valid = gop.nrBFrames >= 0;
     if (!valid) CV_Error(Error::StsBadArg, "Number of B-frames must be non-negative");
-    valid = params.pictWidth > 0 && params.pictWidth <= 8192; // Max width 8K
+    valid = pic.width > 0 && pic.width <= 8192; // Max width 8K
     if (!valid) CV_Error(Error::StsBadArg, "Width must be in the range [1, 8192]");
-    valid = params.pictHeight > 0 && params.pictHeight <= 2160; // Max height 4K
+    valid = pic.height > 0 && pic.height <= 2160; // Max height 4K
     if (!valid) CV_Error(Error::StsBadArg, "Height must be in the range [1, 2160]");
 
     return valid;
+}
+
+void VCUEncoder::initSettings(const EncoderInitParams& params)
+{
+    if (params.pictureEncSettings)
+        currentSettings_.pic_ = *params.pictureEncSettings;
+    if (params.rcSettings)
+        currentSettings_.rc_ = *params.rcSettings;
+    if (params.gopSettings)
+        currentSettings_.gop_ = *params.gopSettings;
+    if (params.profileSettings)
+        currentSettings_.profile_ = *params.profileSettings;
+    if (params.globalMotionVector)
+        currentSettings_.gmv_ = *params.globalMotionVector;
 }
 
 // Static functions

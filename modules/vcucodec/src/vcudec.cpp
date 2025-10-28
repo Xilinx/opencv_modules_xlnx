@@ -469,6 +469,8 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
 void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
                                     bool vector_output, bool by_reference)
 {
+    // Formats added must also be added to vcuutils.cpp
+
     AL_TBuffer* pFrame = frame->getBuffer();
     frame->rawInfo(frame_info);
     //for 1080p HEVC decode, output height is 1080 with zero crop numbers
@@ -533,6 +535,11 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
                           by_reference, 16);
         break;
     }
+    case (FOURCC(P012)):
+    {
+        CV_Error(Error::StsUnsupportedFormat, "TODO P012 pixel format");
+        break;
+    }
     case (FOURCC(NV16)):
     {
         Size szY = Size(frame_info.width, frame_info.height);
@@ -547,6 +554,32 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
                           by_reference, 8);
         break;
     }
+    case (FOURCC(P210)):
+    {
+        CV_Error(Error::StsUnsupportedFormat, "TODO P210 pixel format");
+        break;
+    }
+    case (FOURCC(P212)):
+    {
+        CV_Error(Error::StsUnsupportedFormat, "TODO P212 pixel format");
+        break;
+    }
+    case (FOURCC(I444)):
+    {
+        CV_Error(Error::StsUnsupportedFormat, "TODO I444 pixel format");
+        break;
+    }
+    case (FOURCC(I4AL)):
+    {
+        CV_Error(Error::StsUnsupportedFormat, "TODO I4AL pixel format");
+        break;
+    }
+    case (FOURCC(I4CL)):
+    {
+        CV_Error(Error::StsUnsupportedFormat, "TODO I4CL pixel format");
+        break;
+    }
+
     default:
         CV_Error(Error::StsUnsupportedFormat, "Unsupported pixel format");
         break;

@@ -30,6 +30,7 @@ class VCUEncoder : public Encoder
 {
 public:
     struct Settings {
+        PictureEncSettings pic_;
         RCSettings rc_;
         GOPSettings gop_;
         GlobalMotionVector gmv_;
@@ -95,7 +96,8 @@ public:
     virtual void setSAO(int32_t frameIdx, bool bSAOEnabled) override;
 
 private:
-    bool   validateParams(const EncoderInitParams& params);
+    bool validateSettings();
+    void initSettings(const EncoderInitParams& params);
 
     String filename_;
     EncoderInitParams params_;
