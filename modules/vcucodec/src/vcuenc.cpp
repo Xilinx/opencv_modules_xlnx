@@ -147,31 +147,6 @@ uint8_t getLevel(Codec codec, String level)
     return codecVal;
 }
 
-void setDefaults(EncContext::Config& cfg)
-{
-    cfg.RecFourCC = FOURCC(NULL);
-    AL_Settings_SetDefaults(&cfg.Settings);
-    cfg.MainInput.FileInfo.FourCC = FOURCC(I420);
-    cfg.MainInput.FileInfo.FrameRate = 0;
-    cfg.MainInput.FileInfo.PictHeight = 0;
-    cfg.MainInput.FileInfo.PictWidth = 0;
-    cfg.RunInfo.encDevicePaths = {};
-#ifdef HAVE_VCU2_CTRLSW
-    cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
-    cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
-#elif defined(HAVE_VCU_CTRLSW)
-    cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
-    cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU;
-#endif
-    cfg.RunInfo.bLoop = false;
-    cfg.RunInfo.iMaxPict = INT32_MAX; // ALL
-    cfg.RunInfo.iFirstPict = 0;
-    cfg.RunInfo.iScnChgLookAhead = 3;
-    cfg.RunInfo.ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
-    cfg.RunInfo.uInputSleepInMilliseconds = 0;
-    cfg.iForceStreamBufSize = 0;
-}
-
 void setCodingResolution(EncContext::Config& cfg)
 {
     int32_t iMaxSrcWidth = cfg.MainInput.FileInfo.PictWidth;
@@ -241,15 +216,41 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
         return;
 
     AL_EProfile profile = getProfile(currentSettings_.pic_.codec, currentSettings_.profile_.profile);
-    (void) profile; // TODO
     uint8_t level = getLevel(currentSettings_.pic_.codec, currentSettings_.profile_.level);
-    (void) level; // TODO
     cfg_.reset(new EncContext::Config);
     EncContext::Config& cfg = *cfg_;
-    setDefaults(cfg);
+
+    // Initialize defaults
+    cfg.RecFourCC = FOURCC(NULL);
+    AL_Settings_SetDefaults(&cfg.Settings);
+
+    // Set codec-specific defaults (QP bounds, codec parameters)
+    AL_Settings_SetDefaultParam(&cfg.Settings);
+
+    cfg.RunInfo.encDevicePaths = ENCODER_DEVICES;
+#ifdef HAVE_VCU2_CTRLSW
+    cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
+    cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_CPU;
+#elif defined(HAVE_VCU_CTRLSW)
+    cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_BOARD;
+    cfg.RunInfo.eSchedulerType = AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU;
+#endif
+    cfg.RunInfo.bLoop = false;
+    cfg.RunInfo.iMaxPict = INT32_MAX; // ALL
+    cfg.RunInfo.iFirstPict = 0;
+    cfg.RunInfo.iScnChgLookAhead = 3;
+    cfg.RunInfo.ipCtrlMode = AL_EIpCtrlMode::AL_IPCTRL_MODE_STANDARD;
+    cfg.RunInfo.uInputSleepInMilliseconds = 0;
+    cfg.iForceStreamBufSize = 0;
+
     cfg.eSrcFormat = AL_SRC_FORMAT_RASTER;
     cfg.MainInput.YUVFileName = "../video/Crowd_Run_1280_720_Y800.yuv";
     cfg.MainInput.FileInfo.FourCC = currentSettings_.pic_.fourcc;
+    cfg.MainInput.FileInfo.FrameRate = currentSettings_.pic_.framerate;
+    cfg.MainInput.FileInfo.PictHeight = currentSettings_.pic_.height;
+    cfg.MainInput.FileInfo.PictWidth = currentSettings_.pic_.width;
+
+    // Set picture format based on FourCC
     if(cfg.MainInput.FileInfo.FourCC == FOURCC(NV12))
         cfg.Settings.tChParam[0].ePicFormat = AL_420_8BITS;
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(P010))
@@ -258,19 +259,98 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
         AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 10);
         cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
         cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN10;
-        //cfg.Settings.tChParam[0].uLevel = 51;
     }
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(NV16))
         cfg.Settings.tChParam[0].ePicFormat = AL_422_8BITS;
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y800))
         cfg.Settings.tChParam[0].ePicFormat = AL_400_8BITS;
-    cfg.MainInput.FileInfo.FrameRate = 60;
-    cfg.MainInput.FileInfo.PictHeight = currentSettings_.pic_.height;
-    cfg.MainInput.FileInfo.PictWidth = currentSettings_.pic_.width;
+
+    // Apply profile and level if specified
+    if (profile != AL_PROFILE_UNKNOWN)
+        cfg.Settings.tChParam[0].eProfile = profile;
+    if (level != 0)
+        cfg.Settings.tChParam[0].uLevel = level;
+
+    // Rate Control settings from currentSettings_.rc_
     cfg.Settings.tChParam[0].tRCParam.eRCMode = (AL_ERateCtrlMode)currentSettings_.rc_.mode;
-    cfg.Settings.tChParam[0].tRCParam.uTargetBitRate = currentSettings_.rc_.bitrate;
+    cfg.Settings.tChParam[0].tRCParam.uTargetBitRate = currentSettings_.rc_.bitrate * 1000; // Convert kbps to bps
+    cfg.Settings.tChParam[0].tRCParam.uMaxBitRate = currentSettings_.rc_.maxBitrate * 1000; // Convert kbps to bps
+    cfg.Settings.tChParam[0].tRCParam.uCPBSize = currentSettings_.rc_.cpbSize;
+    cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay = currentSettings_.rc_.initialDelay;
+    // Note: iMaxQuality is not part of AL_TRCParam, maxQualityTarget not directly mappable
+
+    // GOP settings from currentSettings_.gop_
     cfg.Settings.tChParam[0].tGopParam.uGopLength = currentSettings_.gop_.gopLength;
     cfg.Settings.tChParam[0].tGopParam.uNumB = currentSettings_.gop_.nrBFrames;
+    cfg.Settings.tChParam[0].tGopParam.eMode = (AL_EGopCtrlMode)currentSettings_.gop_.mode;
+    cfg.Settings.tChParam[0].tGopParam.eGdrMode = (AL_EGdrMode)currentSettings_.gop_.gdrMode;
+    cfg.Settings.tChParam[0].tGopParam.bEnableLT = currentSettings_.gop_.longTermRef;
+    cfg.Settings.tChParam[0].tGopParam.uFreqLT = currentSettings_.gop_.longTermFreq;
+    cfg.Settings.tChParam[0].tGopParam.uFreqIDR = currentSettings_.gop_.periodIDR;
+
+    // Override filler data setting from RCSettings
+    cfg.Settings.eEnableFillerData = currentSettings_.rc_.fillerData ? AL_FILLER_ENC : AL_FILLER_DISABLE;
+
+    // Override AUD setting - disable by default (can be made configurable later)
+    cfg.Settings.bEnableAUD = false;
+
+    // Frame rate fallback
+    if (cfg.MainInput.FileInfo.FrameRate == 0)
+        cfg.MainInput.FileInfo.FrameRate = cfg.Settings.tChParam[0].tRCParam.uFrameRate;
+
+    // Calculate reconstruction FourCC if not set
+    if (cfg.RecFourCC == FOURCC(NULL))
+    {
+        cfg.RecFourCC = cfg.MainInput.FileInfo.FourCC;
+
+        // Adjust based on picture format
+        auto picFormat = cfg.Settings.tChParam[0].ePicFormat;
+        auto chromaMode = AL_GET_CHROMA_MODE(picFormat);
+        auto bitDepth = AL_GET_BITDEPTH(picFormat);
+
+        if (chromaMode == AL_CHROMA_4_2_0 && bitDepth == 8)
+            cfg.RecFourCC = FOURCC(NV12);
+        else if (chromaMode == AL_CHROMA_4_2_0 && bitDepth == 10)
+            cfg.RecFourCC = FOURCC(P010);
+        else if (chromaMode == AL_CHROMA_4_2_2 && bitDepth == 8)
+            cfg.RecFourCC = FOURCC(NV16);
+        else if (chromaMode == AL_CHROMA_4_0_0 && bitDepth == 8)
+            cfg.RecFourCC = FOURCC(Y800);
+    }
+
+    // Validate reconstruction format storage mode
+    auto recStorageMode = AL_GetStorageMode(cfg.RecFourCC);
+    if (recStorageMode != AL_FB_RASTER)
+        throw std::runtime_error("Reconstruction format must be raster");
+
+    // Convert source format to source mode and set for all layers
+    AL_ESrcMode eSrcMode;
+    switch(cfg.eSrcFormat)
+    {
+    case AL_SRC_FORMAT_RASTER:
+        eSrcMode = AL_SRC_RASTER;
+        break;
+#ifdef HAVE_VCU2_CTRLSW
+    case AL_SRC_FORMAT_RASTER_MSB:
+        eSrcMode = AL_SRC_RASTER_MSB;
+        break;
+    case AL_SRC_FORMAT_TILE_64x4:
+        eSrcMode = AL_SRC_TILE_64x4;
+        break;
+    case AL_SRC_FORMAT_TILE_32x4:
+        eSrcMode = AL_SRC_TILE_32x4;
+        break;
+#endif
+    default:
+        throw std::runtime_error("Unsupported source format.");
+    }
+
+    for (uint8_t uLayer = 0; uLayer < cfg.Settings.NumLayer; uLayer++)
+        cfg.Settings.tChParam[uLayer].eSrcMode = eSrcMode;
+
+    // Enable reconstruction output if RecFileName is set (will be set later when creating context)
+    // Note: RecFileName is empty at this point, so AL_OPT_FORCE_REC will be set in EncoderContext if needed
+
     setCodingResolution(cfg);
     if (!callback_)
     {
@@ -285,6 +365,14 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
     if (enc_)
     {
         hEnc_ = enc_->hEnc();
+
+        // Apply initial global motion vector if provided
+        if (currentSettings_.gmv_.frameIndex >= 0)
+        {
+            enc_->notifyGMV(currentSettings_.gmv_.frameIndex,
+                           currentSettings_.gmv_.gmVectorX,
+                           currentSettings_.gmv_.gmVectorY);
+        }
     }
 }
 

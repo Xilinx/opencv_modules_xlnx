@@ -614,53 +614,6 @@ void ValidateConfig(Config& cfg)
     }
 }
 
-void SetMoreDefaults(Config& cfg)
-{
-    auto& FileInfo = cfg.MainInput.FileInfo;
-    auto& Settings = cfg.Settings;
-    auto& RecFourCC = cfg.RecFourCC;
-    auto& RunInfo = cfg.RunInfo;
-
-    if (RunInfo.encDevicePaths.empty())
-        RunInfo.encDevicePaths = ENCODER_DEVICES;
-
-    if (FileInfo.FrameRate == 0)
-        FileInfo.FrameRate = Settings.tChParam[0].tRCParam.uFrameRate;
-
-    if (RecFourCC == FOURCC(NULL))
-    {
-        AL_TPicFormat tOutPicFormat;
-
-        if (AL_GetPicFormat(FileInfo.FourCC, &tOutPicFormat))
-        {
-            if (tOutPicFormat.eComponentOrder != AL_COMPONENT_ORDER_RGB &&
-                    tOutPicFormat.eComponentOrder != AL_COMPONENT_ORDER_BGR)
-                tOutPicFormat.eChromaMode = AL_GET_CHROMA_MODE(Settings.tChParam[0].ePicFormat);
-
-            tOutPicFormat.ePlaneMode = tOutPicFormat.eChromaMode == AL_CHROMA_MONO ?
-                    AL_PLANE_MODE_MONOPLANE : tOutPicFormat.ePlaneMode;
-            tOutPicFormat.uBitDepth = AL_GET_BITDEPTH(Settings.tChParam[0].ePicFormat);
-            RecFourCC = AL_GetFourCC(tOutPicFormat);
-        }
-        else
-        {
-            RecFourCC = FileInfo.FourCC;
-        }
-    }
-
-    AL_TPicFormat tRecPicFormat;
-
-    if (AL_GetPicFormat(RecFourCC, &tRecPicFormat))
-    {
-        auto& RecFileName = cfg.RecFileName;
-
-        if (!RecFileName.empty())
-            if (tRecPicFormat.eStorageMode != AL_FB_RASTER && !tRecPicFormat.bCompressed)
-                throw std::runtime_error(
-                        "Reconstructed storage format can only be tiled if compressed.");
-    }
-}
-
 /*****************************************************************************/
 std::shared_ptr<AL_TBuffer> AllocateConversionBuffer(int32_t iWidth, int32_t iHeight,
                                                             TFourCC tFourCC)
@@ -1211,19 +1164,14 @@ EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallbac
         auto& Settings = cfg->Settings;
         auto& RecFileName = cfg->RecFileName;
 
-        AL_Settings_SetDefaultParam(&Settings);
-        SetMoreDefaults(*cfg);
+        // Note: AL_Settings_SetDefaultParam, SetMoreDefaults, and eSrcMode settings
+        // are now called in vcuenc.cpp VCUEncoder constructor before creating EncoderContext
 
         if (!RecFileName.empty())
         {
             Settings.tChParam[0].eEncOptions = (AL_EChEncOption)(Settings.tChParam[0].eEncOptions
                                                | AL_OPT_FORCE_REC);
         }
-
-        AL_ESrcMode eSrcMode = SrcFormatToSrcMode(cfg->eSrcFormat);
-
-        for (uint8_t uLayer = 0; uLayer < cfg->Settings.NumLayer; uLayer++)
-            Settings.tChParam[uLayer].eSrcMode = eSrcMode;
 
         ValidateConfig(*cfg);
     }
