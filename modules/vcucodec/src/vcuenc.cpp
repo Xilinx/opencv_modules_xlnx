@@ -374,6 +374,8 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
                            currentSettings_.gmv_.gmVectorY);
         }
     }
+    settingsString_ = currentSettingsString();
+    //printf("VCUEncoder created with settings:\n%s\n", currentSettingsString().c_str());
 }
 
 void VCUEncoder::write(InputArray frame)
@@ -441,6 +443,11 @@ bool VCUEncoder::eos()
 
     // Wait for encoding to complete (max 1 second)
     return enc_->waitForCompletion();
+}
+
+String VCUEncoder::settings() const
+{
+    return settingsString_;
 }
 
 String VCUEncoder::statistics() const
@@ -866,6 +873,50 @@ void VCUEncoder::initSettings(const EncoderInitParams& params)
         currentSettings_.profile_ = *params.profileSettings;
     if (params.globalMotionVector)
         currentSettings_.gmv_ = *params.globalMotionVector;
+}
+
+String VCUEncoder::currentSettingsString() const
+{
+    std::lock_guard lock(settingsMutex_);
+
+    std::string result;
+    result += "Picture: codec=" + toString(currentSettings_.pic_.codec);
+    result += ", fourcc=" + toString(currentSettings_.pic_.fourcc);
+    result += ", width=" + toString(currentSettings_.pic_.width);
+    result += ", height=" + toString(currentSettings_.pic_.height);
+    result += ", framerate=" + toString(currentSettings_.pic_.framerate);
+
+    result += "\nRate Control: mode=" + toString(currentSettings_.rc_.mode);
+    result += ", entropy=" + toString(currentSettings_.rc_.entropy);
+    result += ", bitrate=" + toString(currentSettings_.rc_.bitrate);
+    result += ", maxBitrate=" + toString(currentSettings_.rc_.maxBitrate);
+    result += ", cpbSize=" + toString(currentSettings_.rc_.cpbSize);
+    result += ", initialDelay=" + toString(currentSettings_.rc_.initialDelay);
+    result += ", fillerData=" + toString(currentSettings_.rc_.fillerData);
+    result += ", maxQualityTarget=" + toString(currentSettings_.rc_.maxQualityTarget);
+    result += ", maxPictureSizeI=" + toString(currentSettings_.rc_.maxPictureSizeI);
+    result += ", maxPictureSizeP=" + toString(currentSettings_.rc_.maxPictureSizeP);
+    result += ", maxPictureSizeB=" + toString(currentSettings_.rc_.maxPictureSizeB);
+    result += ", skipFrame=" + toString(currentSettings_.rc_.skipFrame);
+    result += ", maxSkip=" + toString(currentSettings_.rc_.maxSkip);
+
+    result += "\nGOP: mode=" + toString(currentSettings_.gop_.mode);
+    result += ", gdrMode=" + toString(currentSettings_.gop_.gdrMode);
+    result += ", gopLength=" + toString(currentSettings_.gop_.gopLength);
+    result += ", nrBFrames=" + toString(currentSettings_.gop_.nrBFrames);
+    result += ", longTermRef=" + toString(currentSettings_.gop_.longTermRef);
+    result += ", longTermFreq=" + toString(currentSettings_.gop_.longTermFreq);
+    result += ", periodIDR=" + toString(currentSettings_.gop_.periodIDR);
+
+    result += "\nProfile: profile=" + currentSettings_.profile_.profile;
+    result += ", level=" + currentSettings_.profile_.level;
+    result += ", tier=" + toString(currentSettings_.profile_.tier);
+
+    result += "\nGMV: frameIndex=" + toString(currentSettings_.gmv_.frameIndex);
+    result += ", gmVectorX=" + toString(currentSettings_.gmv_.gmVectorX);
+    result += ", gmVectorY=" + toString(currentSettings_.gmv_.gmVectorY);
+
+    return result;
 }
 
 // Static functions

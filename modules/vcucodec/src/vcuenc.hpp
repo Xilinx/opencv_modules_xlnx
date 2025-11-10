@@ -42,6 +42,7 @@ public:
 
     virtual void write(InputArray frame) override;
     virtual bool eos() override;
+    virtual String settings() const override;
     virtual String statistics() const override;
 
     virtual bool set(int propId, double value) override;
@@ -98,6 +99,7 @@ public:
 private:
     bool validateSettings();
     void initSettings(const EncoderInitParams& params);
+    String currentSettingsString() const;
 
     String filename_;
     EncoderInitParams params_;
@@ -107,6 +109,7 @@ private:
     Ptr<EncContext::Config> cfg_;
     mutable std::mutex settingsMutex_;
     Settings currentSettings_;
+    String settingsString_;
     CommandQueue commandQueue_;
     int32_t currentFrameIndex_;
     AL_HEncoder hEnc_;

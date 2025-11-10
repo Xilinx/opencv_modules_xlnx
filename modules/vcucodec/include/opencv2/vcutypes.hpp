@@ -273,6 +273,21 @@ struct CV_EXPORTS_W_SIMPLE HDRSEIs
     DynamicMeta_ST2094_40 st2094_40;   ///< Dynamic Metadata ST 2094-40 SEI
 };
 
+template<typename T>
+String toString(const T& value);
+
+template<typename T>
+String toString(const std::vector<T>& vec)
+{
+    std::string result = "[";
+    for (size_t i = 0; i < vec.size(); ++i) {
+        if (i > 0) result += ",";
+        result += toString(vec[i]);
+    }
+    result += "]";
+    return result;
+}
+
 //! @}
 }  // namespace vcucodec
 }  // namespace cv
