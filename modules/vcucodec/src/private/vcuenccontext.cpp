@@ -1129,6 +1129,7 @@ void LayerResources::ChangeInput(Config& cfg, int32_t iInputIdx, AL_HEncoder hEn
 
 } // anonymous namespace
 
+
 class EncoderContext : public EncContext
 {
 public:
@@ -1143,21 +1144,59 @@ public:
     virtual AL_HEncoder hEnc() override { return enc_->hEnc; }
 
 private:
+    class EncLibInitter
+    {
+        EncLibInitter() {}
+
+        void init()
+        {
+
+            AL_ELibEncoderArch eArch = AL_LIB_ENCODER_ARCH_HOST;
+#ifdef HAVE_VCU2_CTRLSW
+            eArch = AL_LIB_ENCODER_ARCH_RISCV;
+#endif
+            if (!AL_IS_SUCCESS_CODE(AL_Lib_Encoder_Init(eArch)))
+                throw std::runtime_error("Can't setup encode library");
+        }
+
+    public:
+        ~EncLibInitter()
+        {
+            AL_Lib_Encoder_DeInit();
+        }
+
+        static std::shared_ptr<EncLibInitter> getInstance()
+        {
+            static std::weak_ptr<EncLibInitter> instance;
+            static std::mutex mutex;
+
+            std::lock_guard<std::mutex> lock(mutex);
+            auto ptr = instance.lock();
+            if (!ptr)
+            {
+                ptr = std::shared_ptr<EncLibInitter>(new EncLibInitter());
+                instance = ptr;
+            }
+            ptr->init(); // init is called each time, even if instance already exists
+                         // AL_Lib_Encoder_DeInit is called only when the last instance is destroyed
+            return ptr;
+        }
+    };
+
     std::unique_ptr<EncoderSink> channelMain(Config& cfg,
         std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
         Ptr<Device> device, int32_t chanId, DataCallback dataCallback);
 
+    std::shared_ptr<EncLibInitter> libInit_;
     std::unique_ptr<EncoderSink> enc_;
     std::vector<std::unique_ptr<LayerResources>> layerResources_;
 };
 
 
-static int32_t numChan = 0;
 EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback)
 {
     layerResources_.emplace_back(std::make_unique<LayerResources>());
 
-    numChan++;
     InitializePlateform();
 
     {
@@ -1176,14 +1215,7 @@ EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallbac
         ValidateConfig(*cfg);
     }
 
-    AL_ELibEncoderArch eArch = AL_LIB_ENCODER_ARCH_HOST;
-
-#ifdef HAVE_VCU2_CTRLSW
-    eArch = AL_LIB_ENCODER_ARCH_RISCV;
-#endif
-
-    if (!AL_IS_SUCCESS_CODE(AL_Lib_Encoder_Init(eArch)))
-        throw std::runtime_error("Can't setup encode library");
+    libInit_ = EncLibInitter::getInstance();
 
     device = Device::create(Device::ENCODER);
     enc_ = channelMain(*cfg, layerResources_, device, 0, dataCallback);
@@ -1193,8 +1225,6 @@ EncoderContext::~EncoderContext()
 {
     enc_.reset();
     layerResources_[0].reset();
-    if(numChan == 1)
-        AL_Lib_Encoder_DeInit();
 }
 
 void EncoderContext::writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer)
