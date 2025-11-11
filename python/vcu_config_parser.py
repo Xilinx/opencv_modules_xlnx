@@ -46,6 +46,12 @@ class VCUConfigParser:
         self.sections = {}
         self.current_section = None
 
+    def parse(self, config_file_path):
+        """Parse configuration from a file"""
+        with open(config_file_path, 'r') as f:
+            config_string = f.read()
+        return self.parse_string(config_string)
+
     def parse_string(self, config_string):
         lines = config_string.strip().split('\n')
         self.sections = {}
@@ -98,9 +104,9 @@ class VCUConfigParser:
             if 'Height' in input_data:
                 picture_settings.height = int(input_data['Height'])
             if 'FrameRate' in input_data:
-                picture_settings.frameRate = int(input_data['FrameRate'])
+                picture_settings.framerate = int(input_data['FrameRate'])
             if 'Format' in input_data:
-                picture_settings.format = self._parse_format(input_data['Format'])
+                picture_settings.fourcc = self._parse_format(input_data['Format'])
 
         # Configure RATE_CONTROL section parameters
         if 'RATE_CONTROL' in self.sections:
@@ -153,13 +159,9 @@ class VCUConfigParser:
 
             if 'Gop.Length' in gop_data:
                 gop_settings.gopLength = int(gop_data['Gop.Length'])
-            elif 'GOPLength' in gop_data:
-                gop_settings.gopLength = int(gop_data['GOPLength'])
 
             if 'Gop.NumB' in gop_data:
                 gop_settings.nrBFrames = int(gop_data['Gop.NumB'])
-            elif 'NrBFrames' in gop_data:
-                gop_settings.nrBFrames = int(gop_data['NrBFrames'])
 
             # Additional GOP parameters
             if 'GDRMode' in gop_data:
@@ -174,6 +176,8 @@ class VCUConfigParser:
         # Configure SETTINGS section parameters
         if 'SETTINGS' in self.sections:
             settings_data = self.sections['SETTINGS']
+            if 'Codec' in settings_data:
+                picture_settings.codec = self._parse_codec(settings_data['Codec'])
             if 'Profile' in settings_data:
                 profile_settings.profile = self._parse_profile(settings_data['Profile'])
             if 'Level' in settings_data:
@@ -201,6 +205,16 @@ class VCUConfigParser:
         encoder_params.globalMotionVector = motion_vector
 
         return encoder_params
+
+    def _parse_codec(self, codec_str):
+        """Parse codec string to VCU codec enum"""
+        codec_str = codec_str.upper()
+        if 'AVC' in codec_str or 'H264' in codec_str or 'H.264' in codec_str:
+            return vcu.CODEC_AVC
+        elif 'HEVC' in codec_str or 'H265' in codec_str or 'H.265' in codec_str:
+            return vcu.CODEC_HEVC
+        else:
+            return vcu.CODEC_AVC  # Default to AVC
 
     def _parse_format(self, format_str):
         """Parse video format string to VCU format"""
@@ -250,20 +264,9 @@ class VCUConfigParser:
             return vcu.GOPMode_BASIC  # Default
 
     def _parse_profile(self, profile_str):
-        """Parse profile string to VCU enum"""
-        profile_str = profile_str.upper()
-        if 'HEVC_MAIN' in profile_str:
-            return vcu.Profile_HEVC_MAIN
-        elif 'HEVC_MAIN10' in profile_str:
-            return vcu.Profile_HEVC_MAIN10
-        elif 'AVC_MAIN' in profile_str:
-            return vcu.Profile_AVC_MAIN
-        elif 'AVC_HIGH' in profile_str:
-            return vcu.Profile_AVC_HIGH
-        elif 'AVC_BASELINE' in profile_str:
-            return vcu.Profile_AVC_BASELINE
-        else:
-            return vcu.Profile_HEVC_MAIN  # Default
+        """Return profile string as-is for firmware parsing"""
+        # Profile is passed as a string to the firmware and parsed in C++ code
+        return str(profile_str)
 
     def _parse_entropy(self, entropy_str):
         """Parse entropy string to VCU enum"""
