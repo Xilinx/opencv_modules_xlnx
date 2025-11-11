@@ -39,6 +39,7 @@ extern "C" {
 #include "vcudevice.hpp"
 #include "vcuenccontext.hpp"
 #include "vcuutils.hpp"
+#include "vcuframe.hpp"
 
 #include <condition_variable>
 #include <iostream>
@@ -1136,7 +1137,7 @@ public:
     EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback);
     virtual ~EncoderContext();
 
-    virtual void writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer) override;
+    virtual void writeFrame(Ptr<Frame> frame) override;
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
     virtual bool waitForCompletion() override;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) override;
@@ -1227,9 +1228,12 @@ EncoderContext::~EncoderContext()
     layerResources_[0].reset();
 }
 
-void EncoderContext::writeFrame(std::shared_ptr<AL_TBuffer> sourceBuffer)
+void EncoderContext::writeFrame(Ptr<Frame> frame)
 {
-    enc_->ProcessFrame(sourceBuffer.get());
+    if (frame)
+        enc_->ProcessFrame(frame->getBuffer());
+    else
+        enc_->ProcessFrame(nullptr);
 }
 
 
@@ -1362,6 +1366,30 @@ Ptr<EncContext> EncContext::create(Ptr<Config> cfg, Ptr<Device>& device, DataCal
 {
     Ptr<EncoderContext> ctx(new EncoderContext(cfg, device, dataCallback));
     return ctx;
+}
+
+template<>
+String toString<AL_TPicFormat>(AL_TPicFormat const& format)
+{
+    String str = "chroma=";
+    str += AL_ChromaModeToString(format.eChromaMode);
+    str += ", alpha=";
+    str += AL_AlphaModeToString(format.eAlphaMode);
+    str += ", bitDepth=";
+    str += std::to_string(static_cast<int>(format.uBitDepth));
+    str += ", storage=";
+    str += AL_FbStorageModeToString(format.eStorageMode);
+    str += ", plane=";
+    str += AL_PlaneModeToString(format.ePlaneMode);
+    str += ", componentOrder=";
+    str += AL_ComponentOrderToString(format.eComponentOrder);
+    str += ", samplePack=";
+    str += AL_SamplePackModeToString(format.eSamplePackMode);
+    str += ", compressed=";
+    str += AL_CompressedToString(format.bCompressed);
+    str += ", msb=";
+    str += AL_MsbToString(format.bMSB);
+    return str;
 }
 
 } // namespace vcucodec

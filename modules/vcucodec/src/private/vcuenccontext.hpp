@@ -41,6 +41,7 @@ namespace cv {
 namespace vcucodec {
 
 class Device;
+class Frame;
 
 using DataCallback = std::function<void(std::vector<std::string_view>&)>;
 
@@ -50,7 +51,7 @@ public:
     class Config;
 
     virtual ~EncContext() = default;
-    virtual void writeFrame(std::shared_ptr<AL_TBuffer> frame) = 0;
+    virtual void writeFrame(Ptr<Frame> frame) = 0;
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() = 0;
     virtual bool waitForCompletion() = 0;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) = 0;

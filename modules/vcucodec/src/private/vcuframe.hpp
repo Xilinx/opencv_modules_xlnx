@@ -33,6 +33,8 @@ typedef struct AL_TDimension AL_TDimension;
 }
 
 namespace cv {
+class Mat;
+
 namespace vcucodec {
 
 class RawInfo;
@@ -49,12 +51,16 @@ class Frame
 
     Frame(Size const &size, int fourcc); ///< Constructor for YUV conversion buffer
 
+    /// Construct frame from shared buffer by copying Mat data into it
+    Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimension& dimension);
+
 public:
     ~Frame();
 
     void invalidate();
     void rawInfo(RawInfo& rawInfo) const;
     AL_TBuffer *getBuffer() const;
+    std::shared_ptr<AL_TBuffer> getSharedBuffer() const;
     AL_TInfoDecode const & getInfo() const;
     bool isMainOutput() const;
     unsigned int bitDepthY() const;
@@ -74,9 +80,12 @@ public:
     /// Create a new frame for YUV input/output with specified size and fourcc.
     static Ptr<Frame> createYuvIO(Size const &size, int fourcc);
 
+    /// Create frame from shared buffer by copying Mat data
+    static Ptr<Frame> createFromMat(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat,
+                                    const AL_TDimension& dimension);
 
 private:
-    AL_TBuffer* frame_ = nullptr;
+    std::shared_ptr<AL_TBuffer> frame_;
     std::unique_ptr<AL_TInfoDecode> info_;
     Ptr<Frame> linkedFrame_;
     FrameCB callback_;

@@ -19,6 +19,7 @@
 #include "vcucommand.hpp"
 #include "vcudevice.hpp"
 #include "vcuenccontext.hpp"
+#include "vcuframe.hpp"
 
 extern "C" {
 #include "lib_common/PixMapBuffer.h"
@@ -387,50 +388,13 @@ void VCUEncoder::write(InputArray frame)
     // Execute any pending commands for this frame
     commandQueue_.execute(currentFrameIndex_);
 
-    cv::Size size = frame.size();
+    cv::Mat mat = frame.getMat();
     AL_TDimension tUpdatedDim = AL_TDimension { AL_GetSrcWidth(cfg_->Settings.tChParam[0]),
-                                                AL_GetSrcHeight(cfg_->Settings.tChParam[0])};
-    std::shared_ptr<AL_TBuffer> sourceBuffer = enc_->getSharedBuffer();
-    AL_PixMapBuffer_SetDimension(sourceBuffer.get(), tUpdatedDim);
-    if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(Y800))
-    {
-        char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
-                                                                           AL_PLANE_Y));
-        int32_t ySize = size.width * size.height;
-        memcpy(pY, (char*)frame.getMat().data, ySize);
-    }
-    else if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(NV12))
-    {
-        char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
-                                                                           AL_PLANE_Y));
-        int32_t ySize = size.width * size.height * 2 / 3;
-        memcpy(pY, (char*)frame.getMat().data, ySize);
-        char* pUV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
-                                                                            AL_PLANE_UV));
-        memcpy(pUV, (char*)frame.getMat().data + ySize, ySize / 2);
-    }
-    else if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(P010))
-    {
-        //to do convertion case later
-        char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
-                                                                           AL_PLANE_Y));
-        int32_t ySize = size.width * size.height * 2 / 3 * 2;
-        memcpy(pY, (char*)frame.getMat().data, ySize);
-        char* pUV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
-                                                                            AL_PLANE_UV));
-        memcpy(pUV, (char*)frame.getMat().data + ySize, ySize / 2);
-    }
-    else if(AL_PixMapBuffer_GetFourCC(sourceBuffer.get()) == FOURCC(NV16))
-    {
-        char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
-                                                                           AL_PLANE_Y));
-        int32_t ySize = size.width * size.height / 2;
-        memcpy(pY, (char*)frame.getMat().data, ySize);
-        char* pUV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(sourceBuffer.get(),
-                                                                            AL_PLANE_UV));
-        memcpy(pUV, (char*)frame.getMat().data + ySize, ySize);
-    }
-    enc_->writeFrame(sourceBuffer);
+                                                AL_GetSrcHeight(cfg_->Settings.tChParam[0]) };
+    auto sourceBuffer = enc_->getSharedBuffer();
+    Ptr<Frame> vcuFrame = Frame::createFromMat(sourceBuffer, mat, tUpdatedDim);
+
+    enc_->writeFrame(vcuFrame);
 
     // Increment frame index for next frame
     currentFrameIndex_++;

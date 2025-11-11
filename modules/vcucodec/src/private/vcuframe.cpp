@@ -16,6 +16,7 @@
 #include "vcuframe.hpp"
 
 #include "opencv2/vcucodec.hpp"
+#include <opencv2/core/mat.hpp>
 
 extern "C" {
 #include "lib_common/BufferAPI.h"
@@ -29,6 +30,7 @@ extern "C" {
 }
 
 #include <functional>
+#include <cstring>
 
 namespace cv {
 namespace vcucodec {
@@ -49,40 +51,43 @@ void sDestroyFrame(AL_TBuffer *buffer)
 } // namespace anonymous
 
 Frame::Frame(AL_TBuffer* frame, AL_TInfoDecode const * info, FrameCB cb/* = FrameCB()*/)
-    : frame_(frame), info_(new AL_TInfoDecode(*info)), callback_(cb)
+    : frame_(frame, [](AL_TBuffer* buf) { if(buf) AL_Buffer_Unref(buf); })
+    , info_(new AL_TInfoDecode(*info)), callback_(cb)
 {
-    AL_Buffer_Ref(frame_);
+    AL_Buffer_Ref(frame);
 }
 
 Frame::Frame(Frame const &frame) // shallow copy constructor
     : info_(new AL_TInfoDecode(*frame.info_))
 {
-    frame_ = AL_Buffer_ShallowCopy(frame.frame_, &sFreeWithoutDestroyingMemory);
-    if (!frame_)
+    AL_TBuffer* shallowCopy = AL_Buffer_ShallowCopy(frame.frame_.get(), &sFreeWithoutDestroyingMemory);
+    if (!shallowCopy)
         throw std::runtime_error("Failed to create shallow copy of buffer");
+
+    frame_ = std::shared_ptr<AL_TBuffer>(shallowCopy, [](AL_TBuffer* buf) { if(buf) AL_Buffer_Unref(buf); });
 
     AL_TMetaData *pMetaD;
     AL_TPixMapMetaData *pPixMeta = (AL_TPixMapMetaData *)AL_Buffer_GetMetaData(
-        frame.frame_, AL_META_TYPE_PIXMAP);
+        frame.frame_.get(), AL_META_TYPE_PIXMAP);
     if (!pPixMeta) throw std::runtime_error("PixMapMetaData is NULL");
     AL_TDisplayInfoMetaData *pDispMeta = (AL_TDisplayInfoMetaData *)AL_Buffer_GetMetaData(
-        frame.frame_, AL_META_TYPE_DISPLAY_INFO);
+        frame.frame_.get(), AL_META_TYPE_DISPLAY_INFO);
     if (!pDispMeta) throw std::runtime_error("DisplayInfoMetaData is NULL");
     pMetaD = (AL_TMetaData *)AL_PixMapMetaData_Clone(pPixMeta);
     if (!pMetaD) throw std::runtime_error("Clone of PixMapMetaData was not created!");
-    if (!AL_Buffer_AddMetaData(frame_, pMetaD))
+    if (!AL_Buffer_AddMetaData(frame_.get(), pMetaD))
     {
         AL_MetaData_Destroy(pMetaD);
         throw std::runtime_error("Cloned PixMapMetaData did not get added!\n");
     }
     pMetaD = (AL_TMetaData *)AL_DisplayInfoMetaData_Clone(pDispMeta);
     if (!pMetaD) throw std::runtime_error("Clone of DisplayInfoMetaData was not created!");
-    if (!AL_Buffer_AddMetaData(frame_, pMetaD))
+    if (!AL_Buffer_AddMetaData(frame_.get(), pMetaD))
     {
         AL_MetaData_Destroy(pMetaD);
         throw std::runtime_error("Cloned DisplayInfoMetaData did not get added!\n");
     }
-    AL_Buffer_Ref(frame_);
+    AL_Buffer_Ref(frame_.get());
 }
 
 Frame::Frame(Size const &size, int fourcc)
@@ -97,14 +102,15 @@ Frame::Frame(Size const &size, int fourcc)
     AL_GetPicFormat(fourcc, &tPicFormat);
     AL_TDimension tDim = {size.width, size.height};
     AL_TDimension tRoundedDim = {(size.width + 7) & ~7, (size.height + 7) & ~7};
-    frame_ = AL_PixMapBuffer_Create_And_AddPlanes(AL_GetDefaultAllocator(), sDestroyFrame, tDim,
+    AL_TBuffer* rawBuffer = AL_PixMapBuffer_Create_And_AddPlanes(AL_GetDefaultAllocator(), sDestroyFrame, tDim,
                                                    tRoundedDim, tPicFormat, 1, "IO frame buffer");
-    if (!frame_)
+    if (!rawBuffer)
     {
         throw std::runtime_error("Failed to create buffer");
     }
-    AL_Buffer_Ref(frame_);
-    AL_PixMapBuffer_SetDimension(frame_, tDim);
+    frame_ = std::shared_ptr<AL_TBuffer>(rawBuffer, [](AL_TBuffer* buf) { if(buf) AL_Buffer_Unref(buf); });
+    AL_Buffer_Ref(frame_.get());
+    AL_PixMapBuffer_SetDimension(frame_.get(), tDim);
     info_->tDim = tRoundedDim;
     bool bCropped = tDim.iWidth != tRoundedDim.iWidth || tDim.iHeight != tRoundedDim.iHeight;
     info_->eChromaMode = tPicFormat.eChromaMode;
@@ -120,6 +126,52 @@ Frame::Frame(Size const &size, int fourcc)
     info_->tPos = {0, 0};
 }
 
+Frame::Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimension& dimension)
+    : frame_(buffer), info_(new AL_TInfoDecode())
+{
+    if (!buffer)
+        throw std::invalid_argument("Frame buffer must not be null");
+
+    AL_PixMapBuffer_SetDimension(frame_.get(), dimension);
+
+    const cv::Size size = mat.size();
+    const uint8_t* srcData = mat.ptr<uint8_t>();
+    if (!srcData)
+        throw std::invalid_argument("Input matrix data must not be null");
+
+    char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(frame_.get(), AL_PLANE_Y));
+    char* pUV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(frame_.get(), AL_PLANE_UV));
+    int fourcc = AL_PixMapBuffer_GetFourCC(frame_.get());
+
+    if (fourcc == FOURCC(Y800))
+    {
+        int32_t ySize = size.width * size.height;
+        std::memcpy(pY, srcData, ySize);
+    }
+    else if (fourcc == FOURCC(NV12))
+    {
+        int32_t ySize = size.width * size.height * 2 / 3;
+        std::memcpy(pY, srcData, ySize);
+        std::memcpy(pUV, srcData + ySize, ySize / 2);
+    }
+    else if (fourcc == FOURCC(P010))
+    {
+        int32_t ySize = size.width * size.height * 2 / 3 * 2;
+        std::memcpy(pY, srcData, ySize);
+        std::memcpy(pUV, srcData + ySize, ySize / 2);
+    }
+    else if (fourcc == FOURCC(NV16))
+    {
+        int32_t ySize = size.width * size.height / 2;
+        std::memcpy(pY, srcData, ySize);
+        std::memcpy(pUV, srcData + ySize, ySize);
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported input fourcc");
+    }
+}
+
 Frame::~Frame()
 {
     if (frame_)
@@ -128,8 +180,8 @@ Frame::~Frame()
         {
             callback_(*this);
         }
-        AL_Buffer_Unref(frame_);
-        frame_ = nullptr;
+        // shared_ptr will handle AL_Buffer_Unref automatically
+        frame_.reset();
     }
 }
 
@@ -137,7 +189,7 @@ void Frame::invalidate()
 {
     if (frame_)
     {
-        AL_Buffer_InvalidateMemory(frame_);
+        AL_Buffer_InvalidateMemory(frame_.get());
     }
 }
 
@@ -172,7 +224,9 @@ void Frame::rawInfo(RawInfo& rawInfo) const {
 }
 
 
-AL_TBuffer *Frame::getBuffer() const { return frame_; }
+AL_TBuffer *Frame::getBuffer() const { return frame_.get(); }
+
+std::shared_ptr<AL_TBuffer> Frame::getSharedBuffer() const { return frame_; }
 
 AL_TInfoDecode const &Frame::getInfo() const { return *info_; }
 
@@ -203,7 +257,7 @@ AL_TDimension const &Frame::getDimension() const
 
 int Frame::getFourCC() const
 {
-    return AL_PixMapBuffer_GetFourCC(frame_);
+    return AL_PixMapBuffer_GetFourCC(frame_.get());
 }
 
 /*static*/ Ptr<Frame>
@@ -224,6 +278,13 @@ Frame::create(AL_TBuffer *pFrame, AL_TInfoDecode const *pInfo, FrameCB cb /*= Fr
         return Ptr<Frame>();
     }
     return Ptr<Frame>(new Frame(*frame));
+}
+
+/*static*/ Ptr<Frame> Frame::createFromMat(std::shared_ptr<AL_TBuffer> buffer,
+                                           const Mat& mat,
+                                           const AL_TDimension& dimension)
+{
+    return Ptr<Frame>(new Frame(buffer, mat, dimension));
 }
 
 /// Link the life cycle of this frame to another frame.
