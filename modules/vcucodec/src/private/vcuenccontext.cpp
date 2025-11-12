@@ -53,6 +53,30 @@ namespace vcucodec {
 #define MAX_NUM_REC_OUTPUT (MAX_NUM_LAYER > NUM_PASS_OUTPUT ? MAX_NUM_LAYER : NUM_PASS_OUTPUT)
 #define MAX_NUM_BITSTREAM_OUTPUT NUM_PASS_OUTPUT
 
+// Template specialization for AL_TPicFormat toString
+template<>
+String toString<AL_TPicFormat>(AL_TPicFormat const& format)
+{
+    String str = "chroma=";
+    str += AL_ChromaModeToString(format.eChromaMode);
+    str += ", alpha=";
+    str += AL_AlphaModeToString(format.eAlphaMode);
+    str += ", bitDepth=";
+    str += std::to_string(static_cast<int>(format.uBitDepth));
+    str += ", storage=";
+    str += AL_FbStorageModeToString(format.eStorageMode);
+    str += ", plane=";
+    str += AL_PlaneModeToString(format.ePlaneMode);
+    str += ", componentOrder=";
+    str += AL_ComponentOrderToString(format.eComponentOrder);
+    str += ", samplePack=";
+    str += AL_SamplePackModeToString(format.eSamplePackMode);
+    str += ", compressed=";
+    str += AL_CompressedToString(format.bCompressed);
+    str += ", msb=";
+    str += AL_MsbToString(format.bMSB);
+    return str;
+}
 
 namespace { // anonymous
 
@@ -799,7 +823,12 @@ SrcBufDesc GetSrcBufDescription(AL_TDimension tDimension, uint8_t uBitDepth,
 
     AL_EPlaneId usedPlanes[AL_MAX_BUFFER_PLANES];
     int32_t iNbPlanes = AL_Plane_GetBufferPixelPlanes(tPicFormat, usedPlanes);
-
+#if 0
+    printf("Picture Format: \n%s\n", toString(tPicFormat).c_str());
+    printf("Dimensions: %dx%d \n", tDimension.iWidth, tDimension.iHeight);
+    printf("Strides: %d(Y) %d(UV) %d(vert)\n",
+            iPitchY, AL_GetChromaPitch(srcBufDesc.tFourCC, iPitchY), iStrideHeight);
+#endif
     for (int32_t iPlane = 0; iPlane < iNbPlanes; iPlane++)
     {
         int32_t iPitch = usedPlanes[iPlane] == AL_PLANE_Y ?
@@ -1366,30 +1395,6 @@ Ptr<EncContext> EncContext::create(Ptr<Config> cfg, Ptr<Device>& device, DataCal
 {
     Ptr<EncoderContext> ctx(new EncoderContext(cfg, device, dataCallback));
     return ctx;
-}
-
-template<>
-String toString<AL_TPicFormat>(AL_TPicFormat const& format)
-{
-    String str = "chroma=";
-    str += AL_ChromaModeToString(format.eChromaMode);
-    str += ", alpha=";
-    str += AL_AlphaModeToString(format.eAlphaMode);
-    str += ", bitDepth=";
-    str += std::to_string(static_cast<int>(format.uBitDepth));
-    str += ", storage=";
-    str += AL_FbStorageModeToString(format.eStorageMode);
-    str += ", plane=";
-    str += AL_PlaneModeToString(format.ePlaneMode);
-    str += ", componentOrder=";
-    str += AL_ComponentOrderToString(format.eComponentOrder);
-    str += ", samplePack=";
-    str += AL_SamplePackModeToString(format.eSamplePackMode);
-    str += ", compressed=";
-    str += AL_CompressedToString(format.bCompressed);
-    str += ", msb=";
-    str += AL_MsbToString(format.bMSB);
-    return str;
 }
 
 } // namespace vcucodec
