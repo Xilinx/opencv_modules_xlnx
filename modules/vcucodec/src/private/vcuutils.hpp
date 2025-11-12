@@ -23,7 +23,6 @@ extern "C" {
 #include "lib_common/Error.h"
 #include "lib_common/FourCC.h"
 #include "lib_common/HDR.h"
-#include "lib_common/PicFormat.h"
 }
 
 #include <fstream>
@@ -64,9 +63,6 @@ template <typename T, typename F>
 void convert(T& to, const F& from);
 
 template <> void convert(HDRSEIs& to, const AL_THDRSEIs& from);
-
-// Template specialization for AL_TPicFormat toString
-template<> String toString<AL_TPicFormat>(AL_TPicFormat const& format);
 
 struct FormatInfo
 {

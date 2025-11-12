@@ -29,8 +29,6 @@ extern "C" {
 #include "lib_common_dec/DecInfo.h"
 }
 
-#include "lib_app/RasterInputLoader.hpp"
-
 #include <functional>
 #include <cstring>
 
@@ -104,14 +102,13 @@ Frame::Frame(Size const &size, int fourcc)
     AL_GetPicFormat(fourcc, &tPicFormat);
     AL_TDimension tDim = {size.width, size.height};
     AL_TDimension tRoundedDim = {(size.width + 7) & ~7, (size.height + 7) & ~7};
-    AL_TBuffer* rawBuffer = AL_PixMapBuffer_Create_And_AddPlanes(AL_GetDefaultAllocator(),
-            sDestroyFrame, tDim, tRoundedDim, tPicFormat, 1, "IO frame buffer");
+    AL_TBuffer* rawBuffer = AL_PixMapBuffer_Create_And_AddPlanes(AL_GetDefaultAllocator(), sDestroyFrame, tDim,
+                                                   tRoundedDim, tPicFormat, 1, "IO frame buffer");
     if (!rawBuffer)
     {
         throw std::runtime_error("Failed to create buffer");
     }
-    frame_ = std::shared_ptr<AL_TBuffer>(rawBuffer,
-                                         [](AL_TBuffer* buf) { if(buf) AL_Buffer_Unref(buf); });
+    frame_ = std::shared_ptr<AL_TBuffer>(rawBuffer, [](AL_TBuffer* buf) { if(buf) AL_Buffer_Unref(buf); });
     AL_Buffer_Ref(frame_.get());
     AL_PixMapBuffer_SetDimension(frame_.get(), tDim);
     info_->tDim = tRoundedDim;
@@ -142,60 +139,37 @@ Frame::Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimen
     if (!srcData)
         throw std::invalid_argument("Input matrix data must not be null");
 
+    char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(frame_.get(), AL_PLANE_Y));
+    char* pUV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(frame_.get(), AL_PLANE_UV));
     int fourcc = AL_PixMapBuffer_GetFourCC(frame_.get());
 
-    // Get Mat pitch and determine bit depth
-    int32_t srcPitch = static_cast<int32_t>(mat.step[0]);
-    AL_TPicFormat tPicFormat;
-    AL_GetPicFormat(fourcc, &tPicFormat);
-    int32_t pixelSize = tPicFormat.uBitDepth > 8 ? sizeof(uint16_t) : sizeof(uint8_t);
-
-    // Calculate plane pointers based on format
-    const uint8_t* pSrcY = srcData;
-    const uint8_t* pSrcU = nullptr;
-    const uint8_t* pSrcV = nullptr;
-    int32_t srcPitchU = srcPitch;
-    int32_t srcPitchV = srcPitch;
-
-    AL_EChromaMode chromaMode = tPicFormat.eChromaMode;
-
-    if (chromaMode == AL_CHROMA_MONO)
+    if (fourcc == FOURCC(Y800))
     {
-        // Y800: Only Y plane
-        pSrcU = nullptr;
-        pSrcV = nullptr;
+        int32_t ySize = size.width * size.height;
+        std::memcpy(pY, srcData, ySize);
     }
-    else if (chromaMode == AL_CHROMA_4_2_0)
+    else if (fourcc == FOURCC(NV12))
     {
-        // NV12/P010: Y plane followed by interleaved UV
-        int32_t yPlaneSize = size.height * srcPitch;
-        pSrcU = srcData + yPlaneSize;
-        pSrcV = pSrcU + pixelSize;  // V is interleaved after U
-        srcPitchU = srcPitch;
-        srcPitchV = srcPitch;
+        int32_t ySize = size.width * size.height * 2 / 3;
+        std::memcpy(pY, srcData, ySize);
+        std::memcpy(pUV, srcData + ySize, ySize / 2);
     }
-    else if (chromaMode == AL_CHROMA_4_2_2)
+    else if (fourcc == FOURCC(P010))
     {
-        // NV16: Y plane followed by interleaved UV (full height)
-        int32_t yPlaneSize = size.height * srcPitch;
-        pSrcU = srcData + yPlaneSize;
-        pSrcV = pSrcU + pixelSize;
-        srcPitchU = srcPitch;
-        srcPitchV = srcPitch;
+        int32_t ySize = size.width * size.height * 2 / 3 * 2;
+        std::memcpy(pY, srcData, ySize);
+        std::memcpy(pUV, srcData + ySize, ySize / 2);
+    }
+    else if (fourcc == FOURCC(NV16))
+    {
+        int32_t ySize = size.width * size.height / 2;
+        std::memcpy(pY, srcData, ySize);
+        std::memcpy(pUV, srcData + ySize, ySize);
     }
     else
     {
-        throw std::runtime_error("Unsupported chroma mode");
+        throw std::runtime_error("Unsupported input fourcc");
     }
-
-    // Build TFrameInfo for StorePictureInRaster
-    TFrameInfo frameInfo;
-    frameInfo.tDimension = dimension;
-    frameInfo.eCMode = chromaMode;
-    frameInfo.iBitDepth = tPicFormat.uBitDepth;
-
-    // Call the reference implementation
-    StorePictureInRaster(pSrcY, pSrcU, pSrcV, srcPitch, srcPitchU, srcPitchV, frameInfo, frame_.get());
 }
 
 Frame::~Frame()
