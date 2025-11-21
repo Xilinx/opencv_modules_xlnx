@@ -141,6 +141,8 @@ Frame::Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimen
 
     char* pY = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(frame_.get(), AL_PLANE_Y));
     char* pUV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(frame_.get(), AL_PLANE_UV));
+    char* pU = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(frame_.get(), AL_PLANE_U));
+    char* pV = reinterpret_cast<char*>(AL_PixMapBuffer_GetPlaneAddress(frame_.get(), AL_PLANE_V));
     int fourcc = AL_PixMapBuffer_GetFourCC(frame_.get());
 
     if (fourcc == FOURCC(Y800))
@@ -171,6 +173,13 @@ Frame::Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimen
         int32_t ySize = size.width * size.height;
         std::memcpy(pY, srcData, ySize);
         std::memcpy(pUV, srcData + ySize, ySize);
+    }
+    else if (fourcc == FOURCC(I444))
+    {
+        int32_t ySize = size.width * size.height / 3;
+        std::memcpy(pY, srcData, ySize);
+        std::memcpy(pU, srcData + ySize, ySize);
+        std::memcpy(pV, srcData + ySize + ySize, ySize);
     }
     else
     {

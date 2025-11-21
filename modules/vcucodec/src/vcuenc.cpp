@@ -286,6 +286,11 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
     }
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y800))
         cfg.Settings.tChParam[0].ePicFormat = AL_400_8BITS;
+    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(I444))
+    {
+        cfg.Settings.tChParam[0].ePicFormat = AL_444_8BITS;
+        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN_444;
+    }
 
     // Apply profile and level if specified
     if (profile != AL_PROFILE_UNKNOWN)
@@ -344,6 +349,8 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
             cfg.RecFourCC = FOURCC(P212);
         else if (chromaMode == AL_CHROMA_4_0_0 && bitDepth == 8)
             cfg.RecFourCC = FOURCC(Y800);
+        else if (chromaMode == AL_CHROMA_4_4_4 && bitDepth == 8)
+            cfg.RecFourCC = FOURCC(I444);
     }
 
     // Validate reconstruction format storage mode
