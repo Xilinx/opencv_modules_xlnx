@@ -154,7 +154,7 @@ Frame::Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimen
         std::memcpy(pY, srcData, ySize);
         std::memcpy(pUV, srcData + ySize, ySize / 2);
     }
-    else if (fourcc == FOURCC(P010))
+    else if (fourcc == FOURCC(P010) || fourcc == FOURCC(P012))
     {
         int32_t ySize = size.width * size.height * 2 / 3 * 2;
         std::memcpy(pY, srcData, ySize);
