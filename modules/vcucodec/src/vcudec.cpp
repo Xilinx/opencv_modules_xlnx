@@ -551,6 +551,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         break;
     }
     case (FOURCC(P210)):
+    case (FOURCC(P212)):
     {
         Size szY = Size(frame_info.width, frame_info.height);
         Size szUV = Size(frame_info.width / 2, frame_info.height);
@@ -562,11 +563,6 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
                           by_reference, 16);
-        break;
-    }
-    case (FOURCC(P212)):
-    {
-        CV_Error(Error::StsUnsupportedFormat, "TODO P212 pixel format");
         break;
     }
     case (FOURCC(I444)):
