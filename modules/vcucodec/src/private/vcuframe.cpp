@@ -166,6 +166,12 @@ Frame::Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimen
         std::memcpy(pY, srcData, ySize);
         std::memcpy(pUV, srcData + ySize, ySize);
     }
+    else if (fourcc == FOURCC(P210))
+    {
+        int32_t ySize = size.width * size.height;
+        std::memcpy(pY, srcData, ySize);
+        std::memcpy(pUV, srcData + ySize, ySize);
+    }
     else
     {
         throw std::runtime_error("Unsupported input fourcc");

@@ -552,7 +552,16 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
     }
     case (FOURCC(P210)):
     {
-        CV_Error(Error::StsUnsupportedFormat, "TODO P210 pixel format");
+        Size szY = Size(frame_info.width, frame_info.height);
+        Size szUV = Size(frame_info.width / 2, frame_info.height);
+        size_t stepY = frame_info.stride;
+        size_t stepUV = frame_info.stride;
+        std::vector<Mat> src =
+            { Mat(szY,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
+              Mat(szUV, CV_16UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
+        bool single_output_buffer = !vector_output;
+        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
+                          by_reference, 16);
         break;
     }
     case (FOURCC(P212)):
