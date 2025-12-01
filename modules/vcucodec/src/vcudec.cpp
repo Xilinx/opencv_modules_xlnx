@@ -587,7 +587,19 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
     }
     case (FOURCC(I4AL)):
     {
-        CV_Error(Error::StsUnsupportedFormat, "TODO I4AL pixel format");
+        Size szY = Size(frame_info.width, frame_info.height);
+        Size szU = szY;
+        Size szV = szY;
+        size_t stepY = frame_info.stride;
+        size_t stepU = stepY;
+        size_t stepV = stepY;
+        std::vector<Mat> src =
+            { Mat(szY,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
+              Mat(szU,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepU),
+              Mat(szV,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepV) };
+        bool single_output_buffer = !vector_output;
+        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
+                          by_reference, 16);
         break;
     }
     case (FOURCC(I4CL)):
