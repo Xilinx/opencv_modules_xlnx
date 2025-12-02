@@ -439,7 +439,10 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
             }
             else if (single_output_buffer)
             {
-                planeYUV.create(Size(szY.width, szY.height * 3), CV_8UC1);
+                if(bit_depth == 8)
+                    planeYUV.create(Size(szY.width, szY.height * 3), CV_8UC1);
+                else if(bit_depth == 16)
+                    planeYUV.create(Size(szY.width, szY.height * 3), CV_16UC1);
                 srcY.copyTo(planeYUV(Rect(0, 0, szY.width, szY.height)));
                 srcU.copyTo(planeYUV(Rect(0, szY.height, szU.width, szU.height)));
                 srcV.copyTo(planeYUV(Rect(0, szY.height + szU.height, szV.width, szV.height)));
