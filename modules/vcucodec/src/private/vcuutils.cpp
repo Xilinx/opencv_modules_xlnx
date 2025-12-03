@@ -280,8 +280,8 @@ std::map<int, _FormatInfo> const formatInfos =
 #ifdef HAVE_VCU2_CTRLSW
     {FOURCC(P212), {FOURCC(P212), D, E}},
     {FOURCC(I444), {FOURCC(I444), D, E}},
-    {FOURCC(I4CL), {FOURCC(I4CL), D, E}},
     {FOURCC(I4AL), {FOURCC(I4AL), D, E}},
+    {FOURCC(I4CL), {FOURCC(I4CL), D, E}},
 #endif
 };
 

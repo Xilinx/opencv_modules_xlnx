@@ -586,6 +586,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         break;
     }
     case (FOURCC(I4AL)):
+    case (FOURCC(I4CL)):
     {
         Size szY = Size(frame_info.width, frame_info.height);
         Size szU = szY;
@@ -600,11 +601,6 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
                           by_reference, 16);
-        break;
-    }
-    case (FOURCC(I4CL)):
-    {
-        CV_Error(Error::StsUnsupportedFormat, "TODO I4CL pixel format");
         break;
     }
 
