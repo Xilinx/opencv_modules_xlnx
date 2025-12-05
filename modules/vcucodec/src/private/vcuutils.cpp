@@ -259,40 +259,53 @@ template <> void convert(HDRSEIs& to, const AL_THDRSEIs& from)
 
 namespace { // anonymous
 
-struct _FormatInfo { int fourcc; bool decodeable; bool encodeable; };
+struct _FormatInfo { int fourcc; bool decodeable; bool encodeable; AL_TPicFormat format; };
 const bool E = true;
 const bool D = true;
 const bool d = false;
 const bool e = false;
 std::map<int, _FormatInfo> const formatInfos =
 {
-    {FOURCC(NULL), {FOURCC(NULL), D, E}},
-    {FOURCC(AUTO), {FOURCC(AUTO), D, E}},
-    {FOURCC(Y800), {FOURCC(Y800), D, E}},
-    {FOURCC(Y010), {FOURCC(Y010), D, E}},
+    {FOURCC(NULL), {FOURCC(NULL), D, E, {}}},
+    {FOURCC(AUTO), {FOURCC(AUTO), D, E, {}}},
+    {FOURCC(Y800), {FOURCC(Y800), D, E, {}}},
+    {FOURCC(Y010), {FOURCC(Y010), D, E, {}}},
 #ifdef HAVE_VCU2_CTRLSW
-    {FOURCC(Y012), {FOURCC(Y012), D, E}},
+    {FOURCC(Y012), {FOURCC(Y012), D, E, {}}},
 #endif
-    {FOURCC(NV12), {FOURCC(NV12), D, E}},
-    {FOURCC(I420), {FOURCC(I420), D, e}},
-    {FOURCC(P010), {FOURCC(P010), D, E}},
+    {FOURCC(NV12), {FOURCC(NV12), D, E, {}}},
+    {FOURCC(I420), {FOURCC(I420), D, e, {}}},
+    {FOURCC(P010), {FOURCC(P010), D, E, {}}},
 #ifdef HAVE_VCU2_CTRLSW
-    {FOURCC(P012), {FOURCC(P012), D, E}},
+    {FOURCC(P012), {FOURCC(P012), D, E, {}}},
 #endif
-    {FOURCC(NV16), {FOURCC(NV16), D, E}},
-    {FOURCC(P210), {FOURCC(P210), D, E}},
+    {FOURCC(NV16), {FOURCC(NV16), D, E, {}}},
+    {FOURCC(P210), {FOURCC(P210), D, E, {}}},
 #ifdef HAVE_VCU2_CTRLSW
-    {FOURCC(P212), {FOURCC(P212), D, E}},
-    {FOURCC(I444), {FOURCC(I444), D, E}},
-    {FOURCC(I4AL), {FOURCC(I4AL), D, E}},
-    {FOURCC(I4CL), {FOURCC(I4CL), D, E}},
+    {FOURCC(P212), {FOURCC(P212), D, E, {}}},
+    {FOURCC(I444), {FOURCC(I444), D, E, {}}},
+    {FOURCC(I4AL), {FOURCC(I4AL), D, E, {}}},
+    {FOURCC(I4CL), {FOURCC(I4CL), D, E, {}}},
 #endif
 };
 
 } // anonymous namespace
 
-FormatInfo::FormatInfo(int fourcc_)
+FormatInfo::FormatInfo(int fourcc_) : format(formatInfos.at(fourcc_).format)
 {
+    static std::once_flag once;
+    std::call_once(once,
+        []()
+        {
+            for (auto& f : formatInfos)
+            {
+                const struct _FormatInfo& fi = f.second;
+                if (fi.fourcc == FOURCC(NULL) || fi.fourcc == FOURCC(AUTO))
+                    continue;
+                AL_GetPicFormat(fi.fourcc, const_cast<AL_TPicFormat*>(&fi.format));
+            }
+        });
+
     fourcc = (fourcc_ == 0) ? FOURCC(NULL) : fourcc_;
     auto it = formatInfos.find(fourcc_);
     if (it != formatInfos.end())

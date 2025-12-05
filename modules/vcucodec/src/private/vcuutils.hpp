@@ -23,6 +23,7 @@ extern "C" {
 #include "lib_common/Error.h"
 #include "lib_common/FourCC.h"
 #include "lib_common/HDR.h"
+#include "lib_common/PicFormat.h"
 }
 
 #include <fstream>
@@ -64,6 +65,9 @@ void convert(T& to, const F& from);
 
 template <> void convert(HDRSEIs& to, const AL_THDRSEIs& from);
 
+// Template specialization for AL_TPicFormat toString
+template<> String toString<AL_TPicFormat>(AL_TPicFormat const& format);
+
 struct FormatInfo
 {
     FormatInfo(int fourcc);
@@ -71,6 +75,8 @@ struct FormatInfo
     int fourcc;
     bool decodeable;
     bool encodeable;
+
+    AL_TPicFormat const& format;
 
     static String getFourCCs(bool decoder); // false for encoder
 };

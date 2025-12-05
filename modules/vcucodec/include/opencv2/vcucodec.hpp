@@ -430,7 +430,7 @@ public:
 
 /// Factory function to create a decoder instance.
 CV_EXPORTS_W Ptr<Decoder> createDecoder(
-    const String& filename,         ///< Onput video file name or stream URL
+    const String& filename,         ///< Input video file name or stream URL
     const DecoderInitParams& params ///< Decoder initialization parameters
 );
 

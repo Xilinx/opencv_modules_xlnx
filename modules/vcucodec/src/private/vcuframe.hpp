@@ -52,7 +52,8 @@ class Frame
     Frame(Size const &size, int fourcc); ///< Constructor for YUV conversion buffer
 
     /// Construct frame from shared buffer by copying Mat data into it
-    Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimension& dimension);
+    Frame(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat, const AL_TDimension& dimension,
+          const class FormatInfo& formatInfo);
 
 public:
     ~Frame();
@@ -82,7 +83,8 @@ public:
 
     /// Create frame from shared buffer by copying Mat data
     static Ptr<Frame> createFromMat(std::shared_ptr<AL_TBuffer> buffer, const Mat& mat,
-                                    const AL_TDimension& dimension);
+                                    const AL_TDimension& dimension,
+                                    const class FormatInfo& formatInfo);
 
 private:
     std::shared_ptr<AL_TBuffer> frame_;

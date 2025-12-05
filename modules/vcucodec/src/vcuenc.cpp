@@ -437,6 +437,11 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
     {
         hEnc_ = enc_->hEnc();
 
+        // Cache source buffer format info to avoid repeated AL_GetPicFormat calls
+        auto sourceBuffer = enc_->getSharedBuffer();
+        int fourcc = AL_PixMapBuffer_GetFourCC(sourceBuffer.get());
+        srcFormatInfo_.reset(new FormatInfo(fourcc));
+
         // Apply initial global motion vector if provided
         if (currentSettings_.gmv_.frameIndex >= 0)
         {
@@ -462,7 +467,7 @@ void VCUEncoder::write(InputArray frame)
     AL_TDimension tUpdatedDim = AL_TDimension { AL_GetSrcWidth(cfg_->Settings.tChParam[0]),
                                                 AL_GetSrcHeight(cfg_->Settings.tChParam[0]) };
     auto sourceBuffer = enc_->getSharedBuffer();
-    Ptr<Frame> vcuFrame = Frame::createFromMat(sourceBuffer, mat, tUpdatedDim);
+    Ptr<Frame> vcuFrame = Frame::createFromMat(sourceBuffer, mat, tUpdatedDim, *srcFormatInfo_);
 
     enc_->writeFrame(vcuFrame);
 

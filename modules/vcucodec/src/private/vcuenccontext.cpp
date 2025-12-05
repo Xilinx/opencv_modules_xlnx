@@ -759,25 +759,6 @@ std::shared_ptr<AL_TBuffer> GetSrcFrame(int& iReadCount, int32_t iPictCount,
     return frame;
 }
 
-AL_ESrcMode SrcFormatToSrcMode(AL_ESrcFormat eSrcFormat)
-{
-    switch(eSrcFormat)
-    {
-    case AL_SRC_FORMAT_RASTER:
-        return AL_SRC_RASTER;
-#ifdef HAVE_VCU2_CTRLSW
-    case AL_SRC_FORMAT_RASTER_MSB:
-        return AL_SRC_RASTER_MSB;
-    case AL_SRC_FORMAT_TILE_64x4:
-        return AL_SRC_TILE_64x4;
-    case AL_SRC_FORMAT_TILE_32x4:
-        return AL_SRC_TILE_32x4;
-#endif
-    default:
-        throw std::runtime_error("Unsupported source format.");
-    }
-}
-
 /*****************************************************************************/
 SrcBufDesc GetSrcBufDescription(AL_TDimension tDimension, uint8_t uBitDepth,
         AL_EChromaMode eCMode, AL_ESrcMode eSrcMode, AL_ECodec eCodec)

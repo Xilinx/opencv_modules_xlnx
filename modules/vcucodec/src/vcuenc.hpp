@@ -17,6 +17,7 @@
 
 #include "vcuenccontext.hpp"
 #include "vcucommand.hpp"
+#include "vcuutils.hpp"
 
 extern "C"
 {
@@ -107,6 +108,7 @@ private:
     Ptr<EncContext> enc_;
     Ptr<Device> device_;
     Ptr<EncContext::Config> cfg_;
+    std::unique_ptr<FormatInfo> srcFormatInfo_;
     mutable std::mutex settingsMutex_;
     Settings currentSettings_;
     String settingsString_;
