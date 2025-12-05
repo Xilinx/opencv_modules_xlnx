@@ -223,6 +223,7 @@ class VCUConfigParser:
         format_map = {
             'Y800': 0x30303859,  # fourcc('Y', '8', '0', '0')
             'Y010': 0x30313059,  # fourcc('Y', '0', '1', '0')
+            'Y012': 0x32313059,  # fourcc('Y', '0', '1', '2')
             'I420': 0x30323449,  # fourcc('I', '4', '2', '0')
             'NV12': 0x3231564E,  # fourcc('N', 'V', '1', '2')
             'P010': 0x30313050,  # fourcc('P', '0', '1', '0')
@@ -326,4 +327,4 @@ class VCUConfigParser:
 
     @staticmethod
     def get_supported_formats():
-        return ['Y800', 'Y010', 'I420', 'NV12', 'P010', 'P012', 'P210', 'P212', 'I444', 'I4AL', 'I4CL', 'HEVC_MAIN', 'AVC_MAIN']
+        return ['Y800', 'Y010', 'Y012', 'I420', 'NV12', 'P010', 'P012', 'P210', 'P212', 'I444', 'I4AL', 'I4CL', 'HEVC_MAIN', 'AVC_MAIN']

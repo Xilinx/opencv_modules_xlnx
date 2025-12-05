@@ -498,6 +498,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
         break;
     }
     case FOURCC(Y010):
+    case FOURCC(Y012):
     {
         Size sz = Size(frame_info.width, frame_info.height);
         size_t step = frame_info.stride;

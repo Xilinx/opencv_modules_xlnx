@@ -293,6 +293,13 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
         cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
         cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MONO10;
     }
+    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y012))
+    {
+        cfg.Settings.tChParam[0].ePicFormat = AL_400_12BITS;
+        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 12);
+        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
+        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MONO12;
+    }
     else if(cfg.MainInput.FileInfo.FourCC == FOURCC(I444))
     {
         cfg.Settings.tChParam[0].ePicFormat = AL_444_8BITS;
@@ -372,6 +379,8 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
             cfg.RecFourCC = FOURCC(Y800);
         else if (chromaMode == AL_CHROMA_4_0_0 && bitDepth == 10)
             cfg.RecFourCC = FOURCC(Y010);
+        else if (chromaMode == AL_CHROMA_4_0_0 && bitDepth == 12)
+            cfg.RecFourCC = FOURCC(Y012);
         else if (chromaMode == AL_CHROMA_4_4_4 && bitDepth == 8)
             cfg.RecFourCC = FOURCC(I444);
         else if (chromaMode == AL_CHROMA_4_4_4 && bitDepth == 10)

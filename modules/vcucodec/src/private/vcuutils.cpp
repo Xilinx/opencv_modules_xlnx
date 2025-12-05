@@ -270,6 +270,9 @@ std::map<int, _FormatInfo> const formatInfos =
     {FOURCC(AUTO), {FOURCC(AUTO), D, E}},
     {FOURCC(Y800), {FOURCC(Y800), D, E}},
     {FOURCC(Y010), {FOURCC(Y010), D, E}},
+#ifdef HAVE_VCU2_CTRLSW
+    {FOURCC(Y012), {FOURCC(Y012), D, E}},
+#endif
     {FOURCC(NV12), {FOURCC(NV12), D, E}},
     {FOURCC(I420), {FOURCC(I420), D, e}},
     {FOURCC(P010), {FOURCC(P010), D, E}},
