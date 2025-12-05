@@ -362,6 +362,8 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
             }
             else
             {
+                if(bit_depth == 16)
+                    planeY.create(Size(szY.width, szY.height), CV_16UC1);
                 srcY.copyTo(planeY);
             }
         }
@@ -487,12 +489,23 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
     case FOURCC(Y800):
     {
         Size sz = Size(frame_info.width, frame_info.height);
-        size_t step = frame_info.width;
+        size_t step = frame_info.stride;
         std::vector<Mat> src =
             { Mat(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
         bool single_output_buffer = true;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
                           by_reference, 8);
+        break;
+    }
+    case FOURCC(Y010):
+    {
+        Size sz = Size(frame_info.width, frame_info.height);
+        size_t step = frame_info.stride;
+        std::vector<Mat> src =
+            { Mat(sz, CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
+        bool single_output_buffer = true;
+        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
+                          by_reference, 16);
         break;
     }
     case (FOURCC(NV12)):
