@@ -325,8 +325,7 @@ void VCUDecoder::cleanup()
 }
 
 void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
-    int fourccConvert, bool vector_output, bool single_output_buffer, bool by_reference,
-    int bit_depth)
+    int fourccConvert, bool vector_output, bool single_output_buffer, bool by_reference)
 {
     int nr_components = src.size();
     if (fourccConvert == fourcc_BGR || fourccConvert == fourcc_BGRA)
@@ -343,6 +342,7 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
     if (nr_components == 1) {
         Mat& srcY = src[0];
         Size szY = src[0].size();
+        int depth = CV_MAT_DEPTH(srcY.type());
 
         if (fourccConvert == fourcc_BGR)
         {
@@ -362,9 +362,11 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
             }
             else
             {
-                if(bit_depth == 16)
+                if(depth == CV_8U)
+                    planeY.create(Size(szY.width, szY.height), CV_8UC1);
+                else if(depth == CV_16U)
                     planeY.create(Size(szY.width, szY.height), CV_16UC1);
-                srcY.copyTo(planeY);
+                srcY.copyTo(planeY(Rect(0, 0, szY.width, szY.height)));
             }
         }
     }
@@ -374,6 +376,8 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
         Mat& srcUV = src[1];
         Size szY = src[0].size();
         Size szUV = src[1].size();
+        int depth = CV_MAT_DEPTH(srcY.type());
+
         if (fourccConvert == fourcc_BGR)
         {
             planeRGB.create(szY, CV_8UC3);
@@ -393,9 +397,9 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
             }
             else if (single_output_buffer)
             {
-                if(bit_depth == 8)
+                if(depth == CV_8U)
                     planeYUV.create(Size(szY.width, szY.height + szUV.height), CV_8UC1);
-                else if(bit_depth == 16)
+                else if(depth == CV_16U)
                     planeYUV.create(Size(szY.width, szY.height + szUV.height), CV_16UC1);
                 srcY.copyTo(planeYUV(Rect(0, 0, szY.width, szY.height)));
                 srcUV.reshape(1, srcUV.rows).copyTo(planeYUV(Rect(0, szY.height, szUV.width*2,
@@ -414,6 +418,8 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
         Size szY = src[0].size();
         Size szU = src[1].size();
         Size szV = src[2].size();
+        int depth = CV_MAT_DEPTH(srcY.type());
+
         if (fourccConvert == fourcc_BGR)
         {
             planeRGB.create(szY, CV_8UC3);
@@ -441,9 +447,9 @@ void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
             }
             else if (single_output_buffer)
             {
-                if(bit_depth == 8)
+                if(depth == CV_8U)
                     planeYUV.create(Size(szY.width, szY.height * 3), CV_8UC1);
-                else if(bit_depth == 16)
+                else if(depth == CV_16U)
                     planeYUV.create(Size(szY.width, szY.height * 3), CV_16UC1);
                 srcY.copyTo(planeYUV(Rect(0, 0, szY.width, szY.height)));
                 srcU.copyTo(planeYUV(Rect(0, szY.height, szU.width, szU.height)));
@@ -494,7 +500,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
             { Mat(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
         bool single_output_buffer = true;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 8);
+                          by_reference);
         break;
     }
     case FOURCC(Y010):
@@ -506,7 +512,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
             { Mat(sz, CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
         bool single_output_buffer = true;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 16);
+                          by_reference);
         break;
     }
     case (FOURCC(NV12)):
@@ -520,7 +526,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
               Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 8);
+                          by_reference);
         break;
     }
     case (FOURCC(I420)):
@@ -535,7 +541,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
               Mat(szUV, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 8);
+                          by_reference);
         break;
     }
     case (FOURCC(P010)):
@@ -550,7 +556,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
               Mat(szUV, CV_16UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 16);
+                          by_reference);
         break;
     }
     case (FOURCC(NV16)):
@@ -564,7 +570,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
               Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 8);
+                          by_reference);
         break;
     }
     case (FOURCC(P210)):
@@ -579,7 +585,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
               Mat(szUV, CV_16UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 16);
+                          by_reference);
         break;
     }
     case (FOURCC(I444)):
@@ -596,7 +602,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
               Mat(szV,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 8);
+                          by_reference);
         break;
     }
     case (FOURCC(I4AL)):
@@ -614,7 +620,7 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
               Mat(szV,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepV) };
         bool single_output_buffer = !vector_output;
         copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference, 16);
+                          by_reference);
         break;
     }
 

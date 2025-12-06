@@ -43,7 +43,7 @@ private:
     bool   validateParams(const DecoderInitParams& params);
     void   cleanup();
     void   copyToDestination(OutputArray dst, std::vector<Mat>& src, int fourccConvert,
-                             bool vector_output, bool single_output_buffer, bool by_reference, int bit_depth);
+                             bool vector_output, bool single_output_buffer, bool by_reference);
     void   retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
                               bool vector_output, bool by_reference);
     void   updateRawInfo(RawInfo& frame_info);
