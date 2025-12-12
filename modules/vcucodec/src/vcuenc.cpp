@@ -252,72 +252,72 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
     cfg.MainInput.FileInfo.PictWidth = currentSettings_.pic_.width;
 
     // Set picture format based on FourCC
-    if(cfg.MainInput.FileInfo.FourCC == FOURCC(NV12))
-        cfg.Settings.tChParam[0].ePicFormat = AL_420_8BITS;
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(P010))
+    auto& chn = cfg.Settings.tChParam[0];
+    switch(cfg.MainInput.FileInfo.FourCC)
     {
-        cfg.Settings.tChParam[0].ePicFormat = AL_420_10BITS;
-        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 10);
-        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN10;
-    }
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(P012))
-    {
-        cfg.Settings.tChParam[0].ePicFormat = AL_420_12BITS;
-        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 12);
-        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN12;
-    }
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(NV16))
-        cfg.Settings.tChParam[0].ePicFormat = AL_422_8BITS;
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(P210))
-    {
-        cfg.Settings.tChParam[0].ePicFormat = AL_422_10BITS;
-        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 10);
-        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN_422_10;
-    }
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(P212))
-    {
-        cfg.Settings.tChParam[0].ePicFormat = AL_422_12BITS;
-        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 12);
-        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN_422_12;
-    }
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y800))
-        cfg.Settings.tChParam[0].ePicFormat = AL_400_8BITS;
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y010))
-    {
-        cfg.Settings.tChParam[0].ePicFormat = AL_400_10BITS;
-        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 10);
-        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MONO10;
-    }
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(Y012))
-    {
-        cfg.Settings.tChParam[0].ePicFormat = AL_400_12BITS;
-        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 12);
-        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MONO12;
-    }
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(I444))
-    {
-        cfg.Settings.tChParam[0].ePicFormat = AL_444_8BITS;
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN_444;
-    }
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(I4AL))
-    {
-        cfg.Settings.tChParam[0].ePicFormat = AL_444_10BITS;
-        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 10);
-        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN_444_10;
-    }
-    else if(cfg.MainInput.FileInfo.FourCC == FOURCC(I4CL))
-    {
-        cfg.Settings.tChParam[0].ePicFormat = AL_444_12BITS;
-        AL_SET_BITDEPTH(&cfg.Settings.tChParam[0].ePicFormat, 12);
-        cfg.Settings.tChParam[0].uSrcBitDepth = AL_GET_BITDEPTH(cfg.Settings.tChParam[0].ePicFormat);
-        cfg.Settings.tChParam[0].eProfile = AL_PROFILE_HEVC_MAIN_444_12;
+    case FOURCC(NV12):
+        chn.ePicFormat = AL_420_8BITS;
+        break;
+    case FOURCC(P010):
+        chn.ePicFormat = AL_420_10BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 10);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        chn.eProfile = AL_PROFILE_HEVC_MAIN10;
+        break;
+    case FOURCC(P012):
+        chn.ePicFormat = AL_420_12BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 12);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        chn.eProfile = AL_PROFILE_HEVC_MAIN12;
+        break;
+    case FOURCC(NV16):
+        chn.ePicFormat = AL_422_8BITS;
+        break;
+    case FOURCC(P210):
+        chn.ePicFormat = AL_422_10BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 10);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        chn.eProfile = AL_PROFILE_HEVC_MAIN_422_10;
+        break;
+    case FOURCC(P212):
+        chn.ePicFormat = AL_422_12BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 12);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        chn.eProfile = AL_PROFILE_HEVC_MAIN_422_12;
+        break;
+    case FOURCC(Y800):
+        chn.ePicFormat = AL_400_8BITS;
+        break;
+    case FOURCC(Y010):
+        chn.ePicFormat = AL_400_10BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 10);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        chn.eProfile = AL_PROFILE_HEVC_MONO10;
+        break;
+    case FOURCC(Y012):
+        chn.ePicFormat = AL_400_12BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 12);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        chn.eProfile = AL_PROFILE_HEVC_MONO12;
+        break;
+    case FOURCC(I444):
+        chn.ePicFormat = AL_444_8BITS;
+        chn.eProfile = AL_PROFILE_HEVC_MAIN_444;
+        break;
+    case FOURCC(I4AL):
+        chn.ePicFormat = AL_444_10BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 10);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        chn.eProfile = AL_PROFILE_HEVC_MAIN_444_10;
+        break;
+    case FOURCC(I4CL):
+        chn.ePicFormat = AL_444_12BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 12);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        chn.eProfile = AL_PROFILE_HEVC_MAIN_444_12;
+        break;
+    default:
+        throw std::runtime_error("Unsupported input FourCC");
     }
 
     // Apply profile and level if specified
