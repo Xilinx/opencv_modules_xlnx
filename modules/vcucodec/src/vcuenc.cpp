@@ -212,6 +212,14 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
                        Ptr<EncoderCallback> callback)
 : filename_(filename), params_(params), callback_(callback), currentFrameIndex_(0), hEnc_(nullptr)
 {
+    if (!callback_)
+        callback_.reset(new DefaultEncoderCallback(filename_));
+    init(params, callback_);
+}
+
+void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> callback)
+{
+    callback_ = callback;
     initSettings(params);
     if (!validateSettings())
         return;
@@ -423,10 +431,6 @@ VCUEncoder::VCUEncoder(const String& filename, const EncoderInitParams& params,
     // Note: RecFileName is empty at this point, so AL_OPT_FORCE_REC will be set in EncoderContext if needed
 
     setCodingResolution(cfg);
-    if (!callback_)
-    {
-        callback_.reset(new DefaultEncoderCallback(filename_));
-    }
 
     enc_ = EncContext::create(cfg_, device_,
         [this](std::vector<std::string_view>& data)
@@ -460,6 +464,12 @@ void VCUEncoder::write(InputArray frame)
         return;
     }
 
+    // Enforce mutual exclusivity between write() and writeFile()
+    if (inputMode_ == InputMode::FILE) {
+        CV_Error(cv::Error::StsError, "Cannot use write() after writeFile() - they are mutually exclusive");
+    }
+    inputMode_ = InputMode::FRAME;
+
     // Execute any pending commands for this frame
     commandQueue_.execute(currentFrameIndex_);
 
@@ -475,10 +485,27 @@ void VCUEncoder::write(InputArray frame)
     currentFrameIndex_++;
 }
 
+void  VCUEncoder::writeFile(const String& filename, int startFrame, int numFrames)
+{
+    // Enforce mutual exclusivity between write() and writeFile()
+    if (inputMode_ == InputMode::FRAME) {
+        CV_Error(cv::Error::StsError, "Cannot use writeFile() after write() - they are mutually exclusive");
+    }
+    inputMode_ = InputMode::FILE;
+
+    // Queue the file for processing
+    enc_->writeFile(filename, startFrame, numFrames);
+}
+
 bool VCUEncoder::eos()
 {
-    // Trigger end of stream by sending nullptr (flush signal)
-    enc_->writeFrame(nullptr);
+    // Handle file mode - signal eos to the context which will join the worker thread
+    if (inputMode_ == InputMode::FILE) {
+        enc_->eos();
+    } else {
+        // Frame mode - trigger end of stream by sending nullptr (flush signal)
+        enc_->writeFrame(nullptr);
+    }
 
     // Wait for encoding to complete (max 1 second)
     return enc_->waitForCompletion();

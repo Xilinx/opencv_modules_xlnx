@@ -41,9 +41,12 @@ extern "C" {
 #include "vcuutils.hpp"
 #include "vcuframe.hpp"
 
+#include <atomic>
 #include <condition_variable>
 #include <iostream>
+#include <queue>
 #include <regex>
+#include <thread>
 
 namespace cv {
 namespace vcucodec {
@@ -1119,6 +1122,8 @@ public:
     virtual ~EncoderContext();
 
     virtual void writeFrame(Ptr<Frame> frame) override;
+    virtual void writeFile(const String& filename, int startFrame, int numFrames) override;
+    virtual void eos() override;
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
     virtual bool waitForCompletion() override;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) override;
@@ -1169,13 +1174,34 @@ private:
         std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
         Ptr<Device> device, int32_t chanId, DataCallback dataCallback);
 
+    // File queue processing
+    void processFileQueue();
+
+    // File request structure for queuing
+    struct FileRequest {
+        String filename;
+        int startFrame;
+        int numFrames;
+    };
+
     std::shared_ptr<EncLibInitter> libInit_;
     std::unique_ptr<EncoderSink> enc_;
     std::vector<std::unique_ptr<LayerResources>> layerResources_;
+    Ptr<Config> cfg_;  // Store config for file processing
+
+    // File queue members
+    std::queue<FileRequest> fileQueue_;
+    std::mutex fileQueueMutex_;
+    std::condition_variable fileQueueCV_;
+    std::thread fileWorkerThread_;
+    std::atomic<bool> stopProcessing_{false};
+    std::atomic<bool> fileWorkerStarted_{false};
+    std::exception_ptr fileWorkerException_;
 };
 
 
 EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback)
+    : cfg_(cfg)
 {
     layerResources_.emplace_back(std::make_unique<LayerResources>());
 
@@ -1205,6 +1231,18 @@ EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallbac
 
 EncoderContext::~EncoderContext()
 {
+    // Stop file worker thread if running
+    if (fileWorkerStarted_.load()) {
+        {
+            std::lock_guard<std::mutex> lock(fileQueueMutex_);
+            stopProcessing_.store(true);
+        }
+        fileQueueCV_.notify_one();
+        if (fileWorkerThread_.joinable()) {
+            fileWorkerThread_.join();
+        }
+    }
+
     enc_.reset();
     layerResources_[0].reset();
 }
@@ -1217,6 +1255,163 @@ void EncoderContext::writeFrame(Ptr<Frame> frame)
         enc_->ProcessFrame(nullptr);
 }
 
+void EncoderContext::writeFile(const String& filename, int startFrame, int numFrames)
+{
+    // Validate file exists before queueing
+    std::ifstream testFile(filename, std::ios::binary);
+    if (!testFile.is_open()) {
+        CV_Error(cv::Error::StsError, "Cannot open input file: " + filename);
+    }
+    testFile.close();
+
+    // Queue the file request
+    {
+        std::lock_guard<std::mutex> lock(fileQueueMutex_);
+        fileQueue_.push({filename, startFrame, numFrames});
+    }
+    fileQueueCV_.notify_one();
+
+    // Start worker thread on first call
+    if (!fileWorkerStarted_.exchange(true)) {
+        fileWorkerThread_ = std::thread(&EncoderContext::processFileQueue, this);
+    }
+}
+
+void EncoderContext::eos()
+{
+    // Signal stop and wait for worker thread to finish processing all queued files
+    if (fileWorkerStarted_.load()) {
+        {
+            std::lock_guard<std::mutex> lock(fileQueueMutex_);
+            stopProcessing_.store(true);
+        }
+        fileQueueCV_.notify_one();
+
+        if (fileWorkerThread_.joinable()) {
+            fileWorkerThread_.join();
+        }
+
+        // Re-throw any exception from worker thread
+        if (fileWorkerException_) {
+            std::rethrow_exception(fileWorkerException_);
+        }
+    }
+
+    // Send EOS to encoder
+    enc_->ProcessFrame(nullptr);
+}
+
+void EncoderContext::processFileQueue()
+{
+    try {
+        LayerResources& layer = *layerResources_[0];
+        AL_TYUVFileInfo& fileInfo = cfg_->MainInput.FileInfo;
+
+        while (true) {
+            FileRequest request;
+
+            // Wait for work or stop signal
+            {
+                std::unique_lock<std::mutex> lock(fileQueueMutex_);
+                fileQueueCV_.wait(lock, [this] {
+                    return !fileQueue_.empty() || stopProcessing_.load();
+                });
+
+                // If stop requested and queue is empty, exit
+                if (stopProcessing_.load() && fileQueue_.empty()) {
+                    break;
+                }
+
+                // Get next file to process
+                if (!fileQueue_.empty()) {
+                    request = std::move(fileQueue_.front());
+                    fileQueue_.pop();
+                } else {
+                    continue;
+                }
+            }
+
+            // Open the YUV file
+            std::ifstream yuvFile;
+            OpenInput(yuvFile, request.filename);
+
+            if (!yuvFile.is_open()) {
+                throw std::runtime_error("Failed to open input file: " + request.filename);
+            }
+
+            // Create frame reader using the encoder's configured format
+            std::unique_ptr<FrameReader> frameReader(
+                new UnCompFrameReader(yuvFile, fileInfo, false /* no loop */));
+
+            // Seek to start frame if specified
+            if (request.startFrame > 0) {
+                frameReader->SeekAbsolute(request.startFrame);
+            }
+
+            // Determine number of frames to process
+            int framesToProcess = request.numFrames;
+            if (framesToProcess <= 0) {
+                framesToProcess = INT32_MAX;  // Process all frames
+            }
+
+            // Setup conversion if needed
+            const AL_TPicFormat tSrcPicFmt = GetSrcPicFormat(cfg_->Settings.tChParam[0]);
+            SrcConverterParams tSrcConverterParams = {
+                { AL_GetSrcWidth(cfg_->Settings.tChParam[0]),
+                  AL_GetSrcHeight(cfg_->Settings.tChParam[0]) },
+                fileInfo.FourCC,
+                tSrcPicFmt,
+                cfg_->eSrcFormat,
+            };
+
+            std::unique_ptr<IConvSrc> pSrcConv;
+            std::shared_ptr<AL_TBuffer> srcYuv;
+            if (IsConversionNeeded(tSrcConverterParams)) {
+                pSrcConv = AllocateSrcConverter(tSrcConverterParams, srcYuv);
+            }
+
+            AL_TDimension tUpdatedDim = {
+                AL_GetSrcWidth(cfg_->Settings.tChParam[0]),
+                AL_GetSrcHeight(cfg_->Settings.tChParam[0])
+            };
+
+            // Process frames from this file
+            int framesProcessed = 0;
+            while (framesProcessed < framesToProcess) {
+                // Check for early stop (but finish current file on stop)
+                // Actually, per design: stop on error, but process queue until eos()
+                // stopProcessing_ is set by eos(), so we should drain queue first
+
+                // Get source buffer from pool
+                std::shared_ptr<AL_TBuffer> sourceBuffer = layer.SrcBufPool.GetSharedBuffer();
+                if (!sourceBuffer) {
+                    throw std::runtime_error("Failed to get source buffer from pool");
+                }
+
+                // Read frame
+                bool frameRead = ReadSourceFrameBuffer(
+                    sourceBuffer.get(),
+                    srcYuv.get(),
+                    frameReader,
+                    tUpdatedDim,
+                    pSrcConv.get());
+
+                if (!frameRead) {
+                    // End of file reached
+                    break;
+                }
+
+                // Send frame to encoder
+                enc_->ProcessFrame(sourceBuffer.get());
+                framesProcessed++;
+            }
+
+            yuvFile.close();
+        }
+    } catch (...) {
+        fileWorkerException_ = std::current_exception();
+    }
+}
 
 std::shared_ptr<AL_TBuffer> EncoderContext::getSharedBuffer()
 {

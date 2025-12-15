@@ -52,6 +52,8 @@ public:
 
     virtual ~EncContext() = default;
     virtual void writeFrame(Ptr<Frame> frame) = 0;
+    virtual void writeFile(const String& filename, int startFrame, int numFrames) = 0;
+    virtual void eos() = 0;  // Signal end of stream for file mode
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() = 0;
     virtual bool waitForCompletion() = 0;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) = 0;

@@ -30,6 +30,9 @@ class Device;
 class VCUEncoder : public Encoder
 {
 public:
+    // Input mode tracking - write() and writeFile() are mutually exclusive
+    enum class InputMode { NONE, FRAME, FILE };
+
     struct Settings {
         PictureEncSettings pic_;
         RCSettings rc_;
@@ -39,9 +42,14 @@ public:
     };
 
     virtual ~VCUEncoder();
-    VCUEncoder(const String& filename, const EncoderInitParams& params, Ptr<EncoderCallback> callback);
+    VCUEncoder(const String& filename, const EncoderInitParams& params,
+               Ptr<EncoderCallback> callback = nullptr);
+
+
+    void init(const EncoderInitParams& params, Ptr<EncoderCallback> callback);
 
     virtual void write(InputArray frame) override;
+    virtual void writeFile(const String& filename, int startFrame = 0, int numFrames = 0) override;
     virtual bool eos() override;
     virtual String settings() const override;
     virtual String statistics() const override;
@@ -115,6 +123,7 @@ private:
     CommandQueue commandQueue_;
     int32_t currentFrameIndex_;
     AL_HEncoder hEnc_;
+    InputMode inputMode_{InputMode::NONE};
 };
 
 }  // namespace vcucodec

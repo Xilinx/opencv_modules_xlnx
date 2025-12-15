@@ -265,6 +265,13 @@ public:
     /// Encode a video frame.
     CV_WRAP virtual void write(InputArray frame) = 0;
 
+    // Get frames from RAW YUV input file and encode them; when numFrames=0, encode until EOF
+    CV_WRAP virtual void writeFile(
+        const String& filename, ///< Input RAW YUV file name
+        int startFrame = 0,     ///< Start frame index in the input file
+        int numFrames = 0       ///< Number of frames to encode, 0 for all frames until EOF
+    ) = 0;
+
     /// Signal the end of the stream to the encoder and wait until final frame is encoded.
     /// @return true if encoding completed successfully, false if timeout or error occurred
     CV_WRAP virtual bool eos() = 0;
