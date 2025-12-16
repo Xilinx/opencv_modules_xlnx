@@ -262,15 +262,17 @@ public:
     /// Virtual destructor for the Encoder interface.
     virtual ~Encoder() {}
 
-    /// Encode a video frame.
+    /// Encode a video frame; either write() or writeFile() can be used, not both.
     CV_WRAP virtual void write(InputArray frame) = 0;
 
     // Get frames from RAW YUV input file and encode them; when numFrames=0, encode until EOF
+    // Either write() or writeFile() can be used, not both.
     CV_WRAP virtual void writeFile(
         const String& filename, ///< Input RAW YUV file name
         int startFrame = 0,     ///< Start frame index in the input file
         int numFrames = 0,      ///< Number of frames to encode, 0 for all frames until EOF
-        Ptr<PictureEncSettings> picSettings = nullptr ///< Optional per-file picture settings (resolution must be <= initial)
+        Ptr<PictureEncSettings> picSettings = nullptr ///< Optional per-file picture settings
+                                                      ///< (resolution must be <= initial)
     ) = 0;
 
     /// Signal the end of the stream to the encoder and wait until final frame is encoded.

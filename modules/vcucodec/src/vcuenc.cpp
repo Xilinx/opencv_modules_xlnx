@@ -233,7 +233,12 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     cfg.RecFourCC = FOURCC(NULL);
     AL_Settings_SetDefaults(&cfg.Settings);
 
-    // Set codec-specific defaults (QP bounds, codec parameters)
+    // Set profile BEFORE calling AL_Settings_SetDefaultParam so codec-specific defaults
+    // (like Log2MaxCuSize for AVC vs HEVC) are set correctly
+    if (profile != AL_PROFILE_UNKNOWN)
+        cfg.Settings.tChParam[0].eProfile = profile;
+
+    // Set codec-specific defaults (QP bounds, codec parameters) based on profile
     AL_Settings_SetDefaultParam(&cfg.Settings);
 
     cfg.RunInfo.encDevicePaths = ENCODER_DEVICES;
