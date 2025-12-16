@@ -323,7 +323,7 @@ class VCUConfigParser:
             'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
             'HARDWARE': ['LookAheadDepth', 'NumSlices', 'EnableConstrainedIntraPrediction'],
             'QUALITY': ['QP', 'MinQP', 'MaxQP', 'QualityLevel'],
-            'RUN': ['Loop', 'MaxPicture', 'RateCtrlStats']
+            'RUN': ['Loop', 'FirstPicture', 'MaxPicture', 'RateCtrlStats']
         }
 
     @staticmethod
