@@ -18,6 +18,7 @@
 #define OPENCV_VCUCODEC_VCUENCCONTEXT_HPP
 
 #include <opencv2/core.hpp>
+#include <opencv2/vcucodec.hpp>
 
 #include "lib_app/InputFiles.hpp"
 #include "lib_app/utils.hpp"
@@ -52,7 +53,8 @@ public:
 
     virtual ~EncContext() = default;
     virtual void writeFrame(Ptr<Frame> frame) = 0;
-    virtual void writeFile(const String& filename, int startFrame, int numFrames) = 0;
+    virtual void writeFile(const String& filename, int startFrame, int numFrames,
+                           Ptr<PictureEncSettings> picSettings) = 0;
     virtual void eos() = 0;  // Signal end of stream for file mode
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() = 0;
     virtual bool waitForCompletion() = 0;

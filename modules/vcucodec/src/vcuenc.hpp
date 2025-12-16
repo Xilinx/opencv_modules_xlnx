@@ -49,7 +49,8 @@ public:
     void init(const EncoderInitParams& params, Ptr<EncoderCallback> callback);
 
     virtual void write(InputArray frame) override;
-    virtual void writeFile(const String& filename, int startFrame = 0, int numFrames = 0) override;
+    virtual void writeFile(const String& filename, int startFrame = 0, int numFrames = 0,
+                           Ptr<PictureEncSettings> picSettings = nullptr) override;
     virtual bool eos() override;
     virtual String settings() const override;
     virtual String statistics() const override;

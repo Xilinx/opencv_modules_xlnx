@@ -485,7 +485,8 @@ void VCUEncoder::write(InputArray frame)
     currentFrameIndex_++;
 }
 
-void  VCUEncoder::writeFile(const String& filename, int startFrame, int numFrames)
+void VCUEncoder::writeFile(const String& filename, int startFrame, int numFrames,
+                           Ptr<PictureEncSettings> picSettings)
 {
     // Enforce mutual exclusivity between write() and writeFile()
     if (inputMode_ == InputMode::FRAME) {
@@ -493,8 +494,14 @@ void  VCUEncoder::writeFile(const String& filename, int startFrame, int numFrame
     }
     inputMode_ = InputMode::FILE;
 
+    // Use encoder's current settings as default
+    Ptr<PictureEncSettings> effectiveSettings = picSettings;
+    if (!effectiveSettings) {
+        effectiveSettings = makePtr<PictureEncSettings>(currentSettings_.pic_);
+    }
+
     // Queue the file for processing
-    enc_->writeFile(filename, startFrame, numFrames);
+    enc_->writeFile(filename, startFrame, numFrames, effectiveSettings);
 }
 
 bool VCUEncoder::eos()

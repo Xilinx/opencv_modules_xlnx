@@ -269,7 +269,8 @@ public:
     CV_WRAP virtual void writeFile(
         const String& filename, ///< Input RAW YUV file name
         int startFrame = 0,     ///< Start frame index in the input file
-        int numFrames = 0       ///< Number of frames to encode, 0 for all frames until EOF
+        int numFrames = 0,      ///< Number of frames to encode, 0 for all frames until EOF
+        Ptr<PictureEncSettings> picSettings = nullptr ///< Optional per-file picture settings (resolution must be <= initial)
     ) = 0;
 
     /// Signal the end of the stream to the encoder and wait until final frame is encoded.

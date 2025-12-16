@@ -1122,7 +1122,8 @@ public:
     virtual ~EncoderContext();
 
     virtual void writeFrame(Ptr<Frame> frame) override;
-    virtual void writeFile(const String& filename, int startFrame, int numFrames) override;
+    virtual void writeFile(const String& filename, int startFrame, int numFrames,
+                           Ptr<PictureEncSettings> picSettings) override;
     virtual void eos() override;
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
     virtual bool waitForCompletion() override;
@@ -1182,12 +1183,12 @@ private:
         String filename;
         int startFrame;
         int numFrames;
+        Ptr<PictureEncSettings> picSettings;  // Always valid - VCUEncoder provides default
     };
 
     std::shared_ptr<EncLibInitter> libInit_;
     std::unique_ptr<EncoderSink> enc_;
     std::vector<std::unique_ptr<LayerResources>> layerResources_;
-    Ptr<Config> cfg_;  // Store config for file processing
 
     // File queue members
     std::queue<FileRequest> fileQueue_;
@@ -1201,7 +1202,6 @@ private:
 
 
 EncoderContext::EncoderContext(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback)
-    : cfg_(cfg)
 {
     layerResources_.emplace_back(std::make_unique<LayerResources>());
 
@@ -1255,7 +1255,8 @@ void EncoderContext::writeFrame(Ptr<Frame> frame)
         enc_->ProcessFrame(nullptr);
 }
 
-void EncoderContext::writeFile(const String& filename, int startFrame, int numFrames)
+void EncoderContext::writeFile(const String& filename, int startFrame, int numFrames,
+                               Ptr<PictureEncSettings> picSettings)
 {
     // Validate file exists before queueing
     std::ifstream testFile(filename, std::ios::binary);
@@ -1264,10 +1265,12 @@ void EncoderContext::writeFile(const String& filename, int startFrame, int numFr
     }
     testFile.close();
 
+    // picSettings is always valid - VCUEncoder provides default from currentSettings_
+
     // Queue the file request
     {
         std::lock_guard<std::mutex> lock(fileQueueMutex_);
-        fileQueue_.push({filename, startFrame, numFrames});
+        fileQueue_.push({filename, startFrame, numFrames, picSettings});
     }
     fileQueueCV_.notify_one();
 
@@ -1305,7 +1308,6 @@ void EncoderContext::processFileQueue()
 {
     try {
         LayerResources& layer = *layerResources_[0];
-        AL_TYUVFileInfo& fileInfo = cfg_->MainInput.FileInfo;
 
         while (true) {
             FileRequest request;
@@ -1331,6 +1333,20 @@ void EncoderContext::processFileQueue()
                 }
             }
 
+            // picSettings is always valid (VCUEncoder provides default)
+            const PictureEncSettings& pic = *request.picSettings;
+
+            // Build file info from PictureEncSettings
+            AL_TYUVFileInfo fileInfo;
+            fileInfo.FourCC = pic.fourcc;
+            fileInfo.PictWidth = pic.width;
+            fileInfo.PictHeight = pic.height;
+            fileInfo.FrameRate = pic.framerate;
+
+            // Notify encoder of resolution change
+            AL_TDimension tNewDim = { fileInfo.PictWidth, fileInfo.PictHeight };
+            AL_Encoder_SetInputResolution(enc_->hEnc, tNewDim);
+
             // Open the YUV file
             std::ifstream yuvFile;
             OpenInput(yuvFile, request.filename);
@@ -1339,7 +1355,7 @@ void EncoderContext::processFileQueue()
                 throw std::runtime_error("Failed to open input file: " + request.filename);
             }
 
-            // Create frame reader using the encoder's configured format
+            // Create frame reader using the file's format
             std::unique_ptr<FrameReader> frameReader(
                 new UnCompFrameReader(yuvFile, fileInfo, false /* no loop */));
 
@@ -1355,13 +1371,13 @@ void EncoderContext::processFileQueue()
             }
 
             // Setup conversion if needed
-            const AL_TPicFormat tSrcPicFmt = GetSrcPicFormat(cfg_->Settings.tChParam[0]);
+            AL_TPicFormat tSrcPicFmt;
+            AL_GetPicFormat(fileInfo.FourCC, &tSrcPicFmt);
             SrcConverterParams tSrcConverterParams = {
-                { AL_GetSrcWidth(cfg_->Settings.tChParam[0]),
-                  AL_GetSrcHeight(cfg_->Settings.tChParam[0]) },
+                { fileInfo.PictWidth, fileInfo.PictHeight },
                 fileInfo.FourCC,
                 tSrcPicFmt,
-                cfg_->eSrcFormat,
+                AL_SRC_FORMAT_RASTER,
             };
 
             std::unique_ptr<IConvSrc> pSrcConv;
@@ -1370,18 +1386,11 @@ void EncoderContext::processFileQueue()
                 pSrcConv = AllocateSrcConverter(tSrcConverterParams, srcYuv);
             }
 
-            AL_TDimension tUpdatedDim = {
-                AL_GetSrcWidth(cfg_->Settings.tChParam[0]),
-                AL_GetSrcHeight(cfg_->Settings.tChParam[0])
-            };
+            AL_TDimension tUpdatedDim = { fileInfo.PictWidth, fileInfo.PictHeight };
 
             // Process frames from this file
             int framesProcessed = 0;
             while (framesProcessed < framesToProcess) {
-                // Check for early stop (but finish current file on stop)
-                // Actually, per design: stop on error, but process queue until eos()
-                // stopProcessing_ is set by eos(), so we should drain queue first
-
                 // Get source buffer from pool
                 std::shared_ptr<AL_TBuffer> sourceBuffer = layer.SrcBufPool.GetSharedBuffer();
                 if (!sourceBuffer) {
