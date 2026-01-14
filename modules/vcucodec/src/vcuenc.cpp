@@ -241,6 +241,10 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     // Set codec-specific defaults (QP bounds, codec parameters) based on profile
     AL_Settings_SetDefaultParam(&cfg.Settings);
 
+    if (level != 0)
+        cfg.Settings.tChParam[0].uLevel = level;
+    cfg.Settings.tChParam[0].uTier = currentSettings_.profile_.tier;
+
     cfg.RunInfo.encDevicePaths = ENCODER_DEVICES;
 #ifdef HAVE_VCU2_CTRLSW
     cfg.RunInfo.eDeviceType = AL_EDeviceType::AL_DEVICE_TYPE_EMBEDDED;
@@ -332,12 +336,6 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     default:
         throw std::runtime_error("Unsupported input FourCC");
     }
-
-    // Apply profile and level if specified
-    if (profile != AL_PROFILE_UNKNOWN)
-        cfg.Settings.tChParam[0].eProfile = profile;
-    if (level != 0)
-        cfg.Settings.tChParam[0].uLevel = level;
 
     // Rate Control settings from currentSettings_.rc_
     cfg.Settings.tChParam[0].tRCParam.eRCMode = (AL_ERateCtrlMode)currentSettings_.rc_.mode;

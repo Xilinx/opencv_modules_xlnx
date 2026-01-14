@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--output", "-o", help="Output bitstream file (overrides config BitstreamFile)")
     parser.add_argument("--first-picture", "-f", type=int, help="First picture index (overrides config FirstPicture)")
     parser.add_argument("--max-picture", "-m", help="Max pictures to encode, or 'ALL' (overrides config MaxPicture)")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output messages")
 
     args = parser.parse_args()
 
@@ -83,15 +84,16 @@ def main():
     rc = encoder_params.rcSettings
     gop = encoder_params.gopSettings
 
-    print(f"\n{GREEN}VCU Encoder{RESET}")
-    print(f"  Input:   {input_file}")
-    print(f"  Output:  {output_file}")
-    print(f"  Size:    {pic.width}x{pic.height}")
-    print(f"  Codec:   {'HEVC' if pic.codec == vcu.CODEC_HEVC else 'AVC'}")
-    print(f"  Bitrate: {rc.bitrate // 1000} kbps")
-    print(f"  GOP:     {gop.gopLength}")
-    print(f"  Range:   first={first_picture}, max={max_picture if max_picture > 0 else 'ALL'}")
-    print()
+    if not args.quiet:
+        print(f"\n{GREEN}VCU Encoder{RESET}")
+        print(f"  Input:   {input_file}")
+        print(f"  Output:  {output_file}")
+        print(f"  Size:    {pic.width}x{pic.height}")
+        print(f"  Codec:   {'HEVC' if pic.codec == vcu.CODEC_HEVC else 'AVC'}")
+        print(f"  Bitrate: {rc.bitrate // 1000} kbps")
+        print(f"  GOP:     {gop.gopLength}")
+        print(f"  Range:   first={first_picture}, max={max_picture if max_picture > 0 else 'ALL'}")
+        print()
 
     # Create encoder
     try:
@@ -101,7 +103,8 @@ def main():
         sys.exit(1)
 
     # Encode the file
-    print(f"Encoding {input_file}...")
+    if not args.quiet:
+        print(f"Encoding {input_file}...")
     try:
         encoder.writeFile(input_file, first_picture, max_picture)
     except Exception as e:
@@ -111,7 +114,8 @@ def main():
     # Signal end of stream and wait for completion
     encoder.eos()
 
-    print(f"{GREEN}Encoding complete: {output_file}{RESET}")
+    if not args.quiet:
+        print(f"{GREEN}Encoding complete: {output_file}{RESET}")
 
 
 if __name__ == "__main__":
