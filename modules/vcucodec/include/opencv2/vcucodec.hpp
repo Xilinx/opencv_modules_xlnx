@@ -215,11 +215,11 @@ struct CV_EXPORTS_W_SIMPLE GOPSettings
 /// @brief Struct ProfileSettings specifies the encoder profile, level and tier.
 struct CV_EXPORTS_W_SIMPLE ProfileSettings
 {
-    CV_PROP_RW String profile; ///< Encoder profile (e.g., "main", "high")
-    CV_PROP_RW String level;   ///< Encoder level (e.g., 4.1, 5.0)
-    CV_PROP_RW Tier   tier;    ///< Encoder tier (e.g., Main, High)
+    CV_PROP_RW String profile; ///< Encoder profile (e.g., "main", "high"). Empty = auto-detect from FourCC.
+    CV_PROP_RW String level;   ///< Encoder level (e.g., "4.1", "5.0"). Empty = library default.
+    CV_PROP_RW Tier   tier;    ///< Encoder tier (e.g., Tier::MAIN, Tier::HIGH)
 
-    CV_WRAP ProfileSettings(String profile = "MAIN", String level = "5.2", Tier tier = Tier::MAIN);
+    CV_WRAP ProfileSettings(String profile = "", String level = "", Tier tier = Tier::MAIN);
 };
 
 struct CV_EXPORTS_W_SIMPLE GlobalMotionVector

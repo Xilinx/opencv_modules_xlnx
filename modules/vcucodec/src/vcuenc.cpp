@@ -40,51 +40,50 @@ namespace { // anonymous
 
 std::map<String, AL_EProfile> hevcProfiles =
 {
-    {"MONO12", AL_PROFILE_HEVC_MONO12},
-    {"MONO10", AL_PROFILE_HEVC_MONO10},
-    {"MONO", AL_PROFILE_HEVC_MONO},
-    {"MAIN_444_STILL", AL_PROFILE_HEVC_MAIN_444_STILL},
-    {"MAIN_444_10_INTRA", AL_PROFILE_HEVC_MAIN_444_10_INTRA},
-    {"MAIN_444_INTRA", AL_PROFILE_HEVC_MAIN_444_INTRA},
-    {"MAIN_444_10", AL_PROFILE_HEVC_MAIN_444_10},
-    {"MAIN_444", AL_PROFILE_HEVC_MAIN_444},
-    {"MAIN_444_12", AL_PROFILE_HEVC_MAIN_444_12},
-    {"MAIN_422_10_INTRA", AL_PROFILE_HEVC_MAIN_422_10_INTRA},
-    {"MAIN_422_10", AL_PROFILE_HEVC_MAIN_422_10},
-    {"MAIN_422_12", AL_PROFILE_HEVC_MAIN_422_12},
-    {"MAIN_422", AL_PROFILE_HEVC_MAIN_422},
-    {"MAIN_INTRA", AL_PROFILE_HEVC_MAIN_INTRA},
-    {"MAIN_STILL", AL_PROFILE_HEVC_MAIN_STILL},
-    {"MAIN10_INTRA", AL_PROFILE_HEVC_MAIN10_INTRA},
-    {"MAIN10", AL_PROFILE_HEVC_MAIN10},
-    {"MAIN12", AL_PROFILE_HEVC_MAIN12},
-    {"MAIN", AL_PROFILE_HEVC_MAIN}
+    {"main", AL_PROFILE_HEVC_MAIN},
+    {"main-10", AL_PROFILE_HEVC_MAIN10},
+    {"main-12", AL_PROFILE_HEVC_MAIN12},
+    {"main-still-picture", AL_PROFILE_HEVC_MAIN_STILL},
+    {"main-intra", AL_PROFILE_HEVC_MAIN_INTRA},
+    {"main-10-intra", AL_PROFILE_HEVC_MAIN10_INTRA},
+    {"monochrome", AL_PROFILE_HEVC_MONO},
+    {"monochrome-10", AL_PROFILE_HEVC_MONO10},
+    {"monochrome-12", AL_PROFILE_HEVC_MONO12},
+    {"main-422", AL_PROFILE_HEVC_MAIN_422},
+    {"main-422-10", AL_PROFILE_HEVC_MAIN_422_10},
+    {"main-422-12", AL_PROFILE_HEVC_MAIN_422_12},
+    {"main-422-10-intra", AL_PROFILE_HEVC_MAIN_422_10_INTRA},
+    {"main-444", AL_PROFILE_HEVC_MAIN_444},
+    {"main-444-10", AL_PROFILE_HEVC_MAIN_444_10},
+    {"main-444-12", AL_PROFILE_HEVC_MAIN_444_12},
+    {"main-444-still", AL_PROFILE_HEVC_MAIN_444_STILL},
+    {"main-444-intra", AL_PROFILE_HEVC_MAIN_444_INTRA},
+    {"main-444-10-intra", AL_PROFILE_HEVC_MAIN_444_10_INTRA}
 };
 
 std::map<String, AL_EProfile> avcProfiles =
 {
-    {"BASELINE", AL_PROFILE_AVC_BASELINE},
-    {"C_BASELINE", AL_PROFILE_AVC_C_BASELINE},
-    {"MAIN", AL_PROFILE_AVC_MAIN},
-    {"HIGH10_INTRA", AL_PROFILE_AVC_HIGH10_INTRA},
-    {"HIGH10", AL_PROFILE_AVC_HIGH10},
-    {"HIGH_422_INTRA", AL_PROFILE_AVC_HIGH_422_INTRA},
-    {"HIGH_422", AL_PROFILE_AVC_HIGH_422},
-    {"HIGH", AL_PROFILE_AVC_HIGH},
-    {"C_HIGH", AL_PROFILE_AVC_C_HIGH},
-    {"PROG_HIGH", AL_PROFILE_AVC_PROG_HIGH},
-    {"CAVLC_444_INTRA", AL_PROFILE_AVC_CAVLC_444_INTRA},
-    {"CAVLC_444", AL_PROFILE_AVC_CAVLC_444_INTRA},
-    {"HIGH_444_INTRA", AL_PROFILE_AVC_HIGH_444_INTRA},
-    {"HIGH_444_PRED", AL_PROFILE_AVC_HIGH_444_PRED},
-    {"X_HIGH10_INTRA_CBG", AL_PROFILE_XAVC_HIGH10_INTRA_CBG},
-    {"X_HIGH10_INTRA_VBR", AL_PROFILE_XAVC_HIGH10_INTRA_VBR},
-    {"X_HIGH_422_INTRA_CBG", AL_PROFILE_XAVC_HIGH_422_INTRA_CBG},
-    {"X_HIGH_422_INTRA_VBR", AL_PROFILE_XAVC_HIGH_422_INTRA_VBR},
-    {"X_LONG_GOP_MAIN_MP4", AL_PROFILE_XAVC_LONG_GOP_MAIN_MP4},
-    {"X_LONG_GOP_HIGH_MP4", AL_PROFILE_XAVC_LONG_GOP_HIGH_MP4},
-    {"X_LONG_GOP_HIGH_MXF", AL_PROFILE_XAVC_LONG_GOP_HIGH_MXF},
-    {"X_LONG_GOP_HIGH_422_MXF", AL_PROFILE_XAVC_LONG_GOP_HIGH_422_MXF}
+    {"baseline", AL_PROFILE_AVC_BASELINE},
+    {"constrained-baseline", AL_PROFILE_AVC_C_BASELINE},
+    {"main", AL_PROFILE_AVC_MAIN},
+    {"high", AL_PROFILE_AVC_HIGH},
+    {"high-10", AL_PROFILE_AVC_HIGH10},
+    {"high-10-intra", AL_PROFILE_AVC_HIGH10_INTRA},
+    {"high-4:2:2", AL_PROFILE_AVC_HIGH_422},
+    {"high-4:2:2-intra", AL_PROFILE_AVC_HIGH_422_INTRA},
+    {"high-4:4:4", AL_PROFILE_AVC_HIGH_444_PRED},
+    {"high-4:4:4-intra", AL_PROFILE_AVC_HIGH_444_INTRA},
+    {"progressive-high", AL_PROFILE_AVC_PROG_HIGH},
+    {"constrained-high", AL_PROFILE_AVC_C_HIGH},
+    {"cavlc-4:4:4-intra", AL_PROFILE_AVC_CAVLC_444_INTRA},
+    {"xavc-high-10-intra-cbg", AL_PROFILE_XAVC_HIGH10_INTRA_CBG},
+    {"xavc-high-10-intra-vbr", AL_PROFILE_XAVC_HIGH10_INTRA_VBR},
+    {"xavc-high-4:2:2-intra-cbg", AL_PROFILE_XAVC_HIGH_422_INTRA_CBG},
+    {"xavc-high-4:2:2-intra-vbr", AL_PROFILE_XAVC_HIGH_422_INTRA_VBR},
+    {"xavc-long-gop-main-mp4", AL_PROFILE_XAVC_LONG_GOP_MAIN_MP4},
+    {"xavc-long-gop-high-mp4", AL_PROFILE_XAVC_LONG_GOP_HIGH_MP4},
+    {"xavc-long-gop-high-mxf", AL_PROFILE_XAVC_LONG_GOP_HIGH_MXF},
+    {"xavc-long-gop-high-4:2:2-mxf", AL_PROFILE_XAVC_LONG_GOP_HIGH_422_MXF}
 };
 
 std::map<String, uint8_t> levelsAvc =
@@ -159,16 +158,17 @@ void setCodingResolution(EncContext::Config& cfg)
         iMaxSrcHeight = max(input.FileInfo.PictHeight, iMaxSrcHeight);
     }
 
-    cfg.Settings.tChParam[0].uSrcWidth = iMaxSrcWidth;
-    cfg.Settings.tChParam[0].uSrcHeight = iMaxSrcHeight;
+    auto& chn = cfg.Settings.tChParam[0];
+    chn.uSrcWidth = iMaxSrcWidth;
+    chn.uSrcHeight = iMaxSrcHeight;
 
-    cfg.Settings.tChParam[0].uEncWidth = cfg.Settings.tChParam[0].uSrcWidth;
-    cfg.Settings.tChParam[0].uEncHeight = cfg.Settings.tChParam[0].uSrcHeight;
+    chn.uEncWidth = chn.uSrcWidth;
+    chn.uEncHeight = chn.uSrcHeight;
 
-    if(cfg.Settings.tChParam[0].bEnableSrcCrop)
+    if(chn.bEnableSrcCrop)
     {
-        cfg.Settings.tChParam[0].uEncWidth = cfg.Settings.tChParam[0].uSrcCropWidth;
-        cfg.Settings.tChParam[0].uEncHeight = cfg.Settings.tChParam[0].uSrcCropHeight;
+        chn.uEncWidth = chn.uSrcCropWidth;
+        chn.uEncHeight = chn.uSrcCropHeight;
     }
 }
 
@@ -233,17 +233,24 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     cfg.RecFourCC = FOURCC(NULL);
     AL_Settings_SetDefaults(&cfg.Settings);
 
+    // Create reference to channel params for convenience
+    auto& chn = cfg.Settings.tChParam[0];
+
     // Set profile BEFORE calling AL_Settings_SetDefaultParam so codec-specific defaults
     // (like Log2MaxCuSize for AVC vs HEVC) are set correctly
     if (profile != AL_PROFILE_UNKNOWN)
-        cfg.Settings.tChParam[0].eProfile = profile;
+        chn.eProfile = profile;
 
     // Set codec-specific defaults (QP bounds, codec parameters) based on profile
     AL_Settings_SetDefaultParam(&cfg.Settings);
 
+    // Apply level if specified (override library default)
     if (level != 0)
-        cfg.Settings.tChParam[0].uLevel = level;
-    cfg.Settings.tChParam[0].uTier = currentSettings_.profile_.tier;
+        chn.uLevel = level;
+
+    // Tier only applies to HEVC
+    if (currentSettings_.pic_.codec == Codec::HEVC)
+        chn.uTier = static_cast<uint8_t>(currentSettings_.profile_.tier);
 
     cfg.RunInfo.encDevicePaths = ENCODER_DEVICES;
 #ifdef HAVE_VCU2_CTRLSW
@@ -269,7 +276,6 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     cfg.MainInput.FileInfo.PictWidth = currentSettings_.pic_.width;
 
     // Set picture format based on FourCC
-    auto& chn = cfg.Settings.tChParam[0];
     switch(cfg.MainInput.FileInfo.FourCC)
     {
     case FOURCC(NV12):
@@ -279,13 +285,15 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         chn.ePicFormat = AL_420_10BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 10);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
-        chn.eProfile = AL_PROFILE_HEVC_MAIN10;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN10;
         break;
     case FOURCC(P012):
         chn.ePicFormat = AL_420_12BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 12);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
-        chn.eProfile = AL_PROFILE_HEVC_MAIN12;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN12;
         break;
     case FOURCC(NV16):
         chn.ePicFormat = AL_422_8BITS;
@@ -294,13 +302,15 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         chn.ePicFormat = AL_422_10BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 10);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
-        chn.eProfile = AL_PROFILE_HEVC_MAIN_422_10;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN_422_10;
         break;
     case FOURCC(P212):
         chn.ePicFormat = AL_422_12BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 12);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
-        chn.eProfile = AL_PROFILE_HEVC_MAIN_422_12;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN_422_12;
         break;
     case FOURCC(Y800):
         chn.ePicFormat = AL_400_8BITS;
@@ -309,50 +319,55 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         chn.ePicFormat = AL_400_10BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 10);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
-        chn.eProfile = AL_PROFILE_HEVC_MONO10;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MONO10;
         break;
     case FOURCC(Y012):
         chn.ePicFormat = AL_400_12BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 12);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
-        chn.eProfile = AL_PROFILE_HEVC_MONO12;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MONO12;
         break;
     case FOURCC(I444):
         chn.ePicFormat = AL_444_8BITS;
-        chn.eProfile = AL_PROFILE_HEVC_MAIN_444;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN_444;
         break;
     case FOURCC(I4AL):
         chn.ePicFormat = AL_444_10BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 10);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
-        chn.eProfile = AL_PROFILE_HEVC_MAIN_444_10;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN_444_10;
         break;
     case FOURCC(I4CL):
         chn.ePicFormat = AL_444_12BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 12);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
-        chn.eProfile = AL_PROFILE_HEVC_MAIN_444_12;
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN_444_12;
         break;
     default:
         throw std::runtime_error("Unsupported input FourCC");
     }
 
     // Rate Control settings from currentSettings_.rc_
-    cfg.Settings.tChParam[0].tRCParam.eRCMode = (AL_ERateCtrlMode)currentSettings_.rc_.mode;
-    cfg.Settings.tChParam[0].tRCParam.uTargetBitRate = currentSettings_.rc_.bitrate * 1000; // Convert kbps to bps
-    cfg.Settings.tChParam[0].tRCParam.uMaxBitRate = currentSettings_.rc_.maxBitrate * 1000; // Convert kbps to bps
-    cfg.Settings.tChParam[0].tRCParam.uCPBSize = currentSettings_.rc_.cpbSize;
-    cfg.Settings.tChParam[0].tRCParam.uInitialRemDelay = currentSettings_.rc_.initialDelay;
+    chn.tRCParam.eRCMode = (AL_ERateCtrlMode)currentSettings_.rc_.mode;
+    chn.tRCParam.uTargetBitRate = currentSettings_.rc_.bitrate * 1000; // Convert kbps to bps
+    chn.tRCParam.uMaxBitRate = currentSettings_.rc_.maxBitrate * 1000; // Convert kbps to bps
+    chn.tRCParam.uCPBSize = currentSettings_.rc_.cpbSize;
+    chn.tRCParam.uInitialRemDelay = currentSettings_.rc_.initialDelay;
     // Note: iMaxQuality is not part of AL_TRCParam, maxQualityTarget not directly mappable
 
     // GOP settings from currentSettings_.gop_
-    cfg.Settings.tChParam[0].tGopParam.uGopLength = currentSettings_.gop_.gopLength;
-    cfg.Settings.tChParam[0].tGopParam.uNumB = currentSettings_.gop_.nrBFrames;
-    cfg.Settings.tChParam[0].tGopParam.eMode = (AL_EGopCtrlMode)currentSettings_.gop_.mode;
-    cfg.Settings.tChParam[0].tGopParam.eGdrMode = (AL_EGdrMode)currentSettings_.gop_.gdrMode;
-    cfg.Settings.tChParam[0].tGopParam.bEnableLT = currentSettings_.gop_.longTermRef;
-    cfg.Settings.tChParam[0].tGopParam.uFreqLT = currentSettings_.gop_.longTermFreq;
-    cfg.Settings.tChParam[0].tGopParam.uFreqIDR = currentSettings_.gop_.periodIDR;
+    chn.tGopParam.uGopLength = currentSettings_.gop_.gopLength;
+    chn.tGopParam.uNumB = currentSettings_.gop_.nrBFrames;
+    chn.tGopParam.eMode = (AL_EGopCtrlMode)currentSettings_.gop_.mode;
+    chn.tGopParam.eGdrMode = (AL_EGdrMode)currentSettings_.gop_.gdrMode;
+    chn.tGopParam.bEnableLT = currentSettings_.gop_.longTermRef;
+    chn.tGopParam.uFreqLT = currentSettings_.gop_.longTermFreq;
+    chn.tGopParam.uFreqIDR = currentSettings_.gop_.periodIDR;
 
     // Override filler data setting from RCSettings
     cfg.Settings.eEnableFillerData = currentSettings_.rc_.fillerData ? AL_FILLER_ENC : AL_FILLER_DISABLE;
@@ -362,7 +377,7 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
 
     // Frame rate fallback
     if (cfg.MainInput.FileInfo.FrameRate == 0)
-        cfg.MainInput.FileInfo.FrameRate = cfg.Settings.tChParam[0].tRCParam.uFrameRate;
+        cfg.MainInput.FileInfo.FrameRate = chn.tRCParam.uFrameRate;
 
     // Calculate reconstruction FourCC if not set
     if (cfg.RecFourCC == FOURCC(NULL))
@@ -370,7 +385,7 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         cfg.RecFourCC = cfg.MainInput.FileInfo.FourCC;
 
         // Adjust based on picture format
-        auto picFormat = cfg.Settings.tChParam[0].ePicFormat;
+        auto picFormat = chn.ePicFormat;
         auto chromaMode = AL_GET_CHROMA_MODE(picFormat);
         auto bitDepth = AL_GET_BITDEPTH(picFormat);
 
