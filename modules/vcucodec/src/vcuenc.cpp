@@ -130,20 +130,38 @@ AL_EProfile getProfile(Codec codec, String profile)
 
 uint8_t getLevel(Codec codec, String level)
 {
+    // Empty level string means auto-detect (return 0)
+    if (level.empty())
+        return 0;
+
     uint8_t codecVal = 0;
+    bool found = false;
     switch (codec)
     {
     case Codec::HEVC:
         if (auto it = levelsHevc.find(level); it != levelsHevc.end())
+        {
             codecVal = it->second;
+            found = true;
+        }
         break;
     case Codec::AVC:
         if (auto it = levelsAvc.find(level); it != levelsAvc.end())
+        {
             codecVal = it->second;
+            found = true;
+        }
         break;
     case Codec::JPEG:
+        found = true; // JPEG doesn't use levels
         break;
     }
+
+    if (!found)
+    {
+        CV_Error(cv::Error::StsBadArg, "Invalid level '" + level + "'. Valid levels: " + Encoder::getLevels(codec));
+    }
+
     return codecVal;
 }
 
@@ -226,6 +244,9 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
 
     AL_EProfile profile = getProfile(currentSettings_.pic_.codec, currentSettings_.profile_.profile);
     uint8_t level = getLevel(currentSettings_.pic_.codec, currentSettings_.profile_.level);
+
+    std::cout << "!@! Selected profile: " << static_cast<int>(profile)
+              << ", level: " << static_cast<int>(level) << std::endl;
     cfg_.reset(new EncContext::Config);
     EncContext::Config& cfg = *cfg_;
 
