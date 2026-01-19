@@ -245,8 +245,6 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     AL_EProfile profile = getProfile(currentSettings_.pic_.codec, currentSettings_.profile_.profile);
     uint8_t level = getLevel(currentSettings_.pic_.codec, currentSettings_.profile_.level);
 
-    std::cout << "!@! Selected profile: " << static_cast<int>(profile)
-              << ", level: " << static_cast<int>(level) << std::endl;
     cfg_.reset(new EncContext::Config);
     EncContext::Config& cfg = *cfg_;
 

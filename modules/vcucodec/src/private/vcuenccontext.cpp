@@ -824,9 +824,6 @@ bool InitStreamBufPool(BufPool& pool, AL_TEncSettings& Settings, int32_t iLayerI
     (void)uNumCore;
 
     int32_t numStreams;
-// print eProfile and level
-    std::cout << "!@! eProfile: " << Settings.tChParam[iLayerID].eProfile << std::endl;
-    std::cout << "!@! uLevel: " << static_cast<int>(Settings.tChParam[iLayerID].uLevel) << std::endl;
 
     AL_TDimension dim =
         { Settings.tChParam[iLayerID].uEncWidth, Settings.tChParam[iLayerID].uEncHeight };
