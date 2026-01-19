@@ -90,7 +90,7 @@ def main():
         print(f"  Output:  {output_file}")
         print(f"  Size:    {pic.width}x{pic.height}")
         print(f"  Codec:   {'HEVC' if pic.codec == vcu.CODEC_HEVC else 'AVC'}")
-        print(f"  Bitrate: {rc.bitrate // 1000} kbps")
+        print(f"  Bitrate: {rc.bitrate} kbps")
         print(f"  GOP:     {gop.gopLength}")
         print(f"  Range:   first={first_picture}, max={max_picture if max_picture > 0 else 'ALL'}")
         print()
