@@ -127,17 +127,25 @@ class VCUConfigParser:
                 rc_settings.maxBitrate = int(rc_data['MaxBitrate'])
 
             if 'CPBSize' in rc_data:
-                rc_settings.cpbSize = int(rc_data['CPBSize'])
+                rc_settings.cpbSize = int(float(rc_data['CPBSize']) * 1000)  # seconds to ms
             if 'InitialDelay' in rc_data:
-                rc_settings.initialDelay = int(rc_data['InitialDelay'])
+                rc_settings.initialDelay = int(float(rc_data['InitialDelay']) * 1000)  # seconds to ms
 
             # Additional RC parameters
             if 'Entropy' in rc_data:
                 rc_settings.entropy = self._parse_entropy(rc_data['Entropy'])
             if 'FillerData' in rc_data:
                 rc_settings.fillerData = bool(rc_data['FillerData'])
-            if 'MaxQualityTarget' in rc_data:
-                rc_settings.maxQualityTarget = int(rc_data['MaxQualityTarget'])
+            if 'MaxPSNR' in rc_data:
+                max_psnr = float(rc_data['MaxPSNR'])
+                if max_psnr < 28.0 or max_psnr > 48.0:
+                    raise ValueError(f"MaxPSNR must be in range [28.0, 48.0], got {max_psnr}")
+                rc_settings.maxQualityTarget = int(max_psnr - 28)
+            elif 'MaxQualityTarget' in rc_data:
+                max_quality = int(rc_data['MaxQualityTarget'])
+                if max_quality < 0 or max_quality > 20:
+                    raise ValueError(f"MaxQualityTarget must be in range [0, 20], got {max_quality}")
+                rc_settings.maxQualityTarget = max_quality
             if 'MaxPictureSizeI' in rc_data:
                 rc_settings.maxPictureSizeI = int(rc_data['MaxPictureSizeI'])
             if 'MaxPictureSizeP' in rc_data:

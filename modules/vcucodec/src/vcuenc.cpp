@@ -375,9 +375,12 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     chn.tRCParam.eRCMode = (AL_ERateCtrlMode)currentSettings_.rc_.mode;
     chn.tRCParam.uTargetBitRate = currentSettings_.rc_.bitrate * 1000; // Convert kbps to bps
     chn.tRCParam.uMaxBitRate = currentSettings_.rc_.maxBitrate * 1000; // Convert kbps to bps
-    chn.tRCParam.uCPBSize = currentSettings_.rc_.cpbSize;
-    chn.tRCParam.uInitialRemDelay = currentSettings_.rc_.initialDelay;
-    // Note: iMaxQuality is not part of AL_TRCParam, maxQualityTarget not directly mappable
+    chn.tRCParam.uCPBSize = currentSettings_.rc_.cpbSize * 90; // Convert ms to 90kHz ticks
+    chn.tRCParam.uInitialRemDelay = currentSettings_.rc_.initialDelay * 90; // Convert ms to 90kHz ticks
+    chn.eEntropyMode = (AL_EEntropyMode)currentSettings_.rc_.entropy;
+
+    // MaxPSNR for CAPPED_VBR mode: quality 0-20 maps to PSNR 28-48 dB
+    chn.tRCParam.uMaxPSNR = (currentSettings_.rc_.maxQualityTarget + 28) * 100;
 
     // GOP settings from currentSettings_.gop_
     chn.tGopParam.uGopLength = currentSettings_.gop_.gopLength;
@@ -952,6 +955,10 @@ bool VCUEncoder::validateSettings()
     valid = pic.codec == Codec::HEVC || pic.codec == Codec::AVC;
     if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported codec");
 
+    // CAVLC entropy is only valid for AVC (HEVC always uses CABAC)
+    valid = !(pic.codec == Codec::HEVC && rc.entropy == Entropy::CAVLC);
+    if (!valid) CV_Error(cv::Error::StsBadArg, "CAVLC entropy mode is only supported for AVC, HEVC always uses CABAC");
+
     auto fi = FormatInfo(pic.fourcc);
     valid = fi.encodeable;
     if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported input fourcc");
@@ -967,6 +974,8 @@ bool VCUEncoder::validateSettings()
     if (!valid) CV_Error(Error::StsBadArg, "Width must be in the range [1, 8192]");
     valid = pic.height > 0 && pic.height <= 2160; // Max height 4K
     if (!valid) CV_Error(Error::StsBadArg, "Height must be in the range [1, 2160]");
+    valid = rc.maxQualityTarget >= 0 && rc.maxQualityTarget <= 20;
+    if (!valid) CV_Error(Error::StsBadArg, "maxQualityTarget must be in the range [0, 20]");
 
     return valid;
 }

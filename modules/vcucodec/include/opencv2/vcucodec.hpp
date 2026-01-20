@@ -173,7 +173,7 @@ struct CV_EXPORTS_W_SIMPLE RCSettings
     CV_PROP_RW int  maxBitrate;       ///< Maximum bitrate in kbits per second
     CV_PROP_RW int  cpbSize;          ///< Coded Picture Buffer (CPB) size in milliseconds.
                                       ///< Cannot be smaller than initial-delay. Default: 3000.
-    CV_PROP_RW int  initialDelay;     ///< Initial delay in milliseconds. Default: 1000.
+    CV_PROP_RW int  initialDelay;     ///< Initial delay in milliseconds. Default: 1500.
     CV_PROP_RW bool fillerData;       ///< Add filler data in CBR mode. Default: true;
     CV_PROP_RW int  maxQualityTarget; ///< 0-20. Maximum quality target for CAPPED_VBR. Default: 14.
     CV_PROP_RW int  maxPictureSizeI;  ///< Maximum picture size in kBytes. Default: 0 (unlimited).
@@ -184,7 +184,7 @@ struct CV_EXPORTS_W_SIMPLE RCSettings
     CV_PROP_RW int  maxSkip;          ///< Maximum number of skips in a row. Default: unlimited
 
     CV_WRAP RCSettings(RCMode mode = RCMode::VBR, Entropy entropy = Entropy::CABAC,
-        int bitrate = 4000, int maxBitrate = 4000, int cbPSize = 3000, int initialDelay = 1000,
+        int bitrate = 4000, int maxBitrate = 4000, int cpbSize = 3000, int initialDelay = 1500,
         bool fillerData = true, int maxQualityTarget = 14, int maxPictureSizeI = 0,
         int maxPictureSizeP = 0, int maxPictureSizeB = 0, bool skipFrame = false,  int maxSkip = -1);
 };
