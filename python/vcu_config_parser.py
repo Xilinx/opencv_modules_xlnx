@@ -73,7 +73,7 @@ class VCUConfigParser:
                 line = line.split('#')[0].strip()
                 if '=' in line:
                     key, value = line.split('=', 1)
-                    key = key.strip()
+                    key = key.strip().lower()
                     value = value.strip()
 
                     if self.current_section is None:
@@ -99,109 +99,94 @@ class VCUConfigParser:
         # Configure INPUT section parameters
         if 'INPUT' in self.sections:
             input_data = self.sections['INPUT']
-            if 'Width' in input_data:
-                picture_settings.width = int(input_data['Width'])
-            if 'Height' in input_data:
-                picture_settings.height = int(input_data['Height'])
-            if 'FrameRate' in input_data:
-                picture_settings.framerate = int(input_data['FrameRate'])
-            if 'Format' in input_data:
-                picture_settings.fourcc = self._parse_format(input_data['Format'])
+            if 'width' in input_data:
+                picture_settings.width = int(input_data['width'])
+            if 'height' in input_data:
+                picture_settings.height = int(input_data['height'])
+            if 'framerate' in input_data:
+                picture_settings.framerate = int(input_data['framerate'])
+            if 'format' in input_data:
+                picture_settings.fourcc = self._parse_format(input_data['format'])
 
         # Configure RATE_CONTROL section parameters
         if 'RATE_CONTROL' in self.sections:
             rc_data = self.sections['RATE_CONTROL']
-            if 'RateCtrlMode' in rc_data:
-                rc_settings.mode = self._parse_rc_mode(rc_data['RateCtrlMode'])
-            elif 'Mode' in rc_data:
-                rc_settings.mode = self._parse_rc_mode(rc_data['Mode'])
+            if 'ratectrlmode' in rc_data:
+                rc_settings.mode = self._parse_rc_mode(rc_data['ratectrlmode'])
 
-            if 'BitRate' in rc_data:
-                rc_settings.bitrate = int(rc_data['BitRate'])
-            elif 'Bitrate' in rc_data:
-                rc_settings.bitrate = int(rc_data['Bitrate'])
+            if 'bitrate' in rc_data:
+                rc_settings.bitrate = int(rc_data['bitrate'])
 
-            if 'MaxBitRate' in rc_data:
-                rc_settings.maxBitrate = int(rc_data['MaxBitRate'])
-            elif 'MaxBitrate' in rc_data:
-                rc_settings.maxBitrate = int(rc_data['MaxBitrate'])
+            if 'maxbitrate' in rc_data:
+                rc_settings.maxBitrate = int(rc_data['maxbitrate'])
 
-            if 'CPBSize' in rc_data:
-                rc_settings.cpbSize = int(float(rc_data['CPBSize']) * 1000)  # seconds to ms
-            if 'InitialDelay' in rc_data:
-                rc_settings.initialDelay = int(float(rc_data['InitialDelay']) * 1000)  # seconds to ms
+            if 'cpbsize' in rc_data:
+                rc_settings.cpbSize = int(float(rc_data['cpbsize']) * 1000)  # seconds to ms
+            if 'initialdelay' in rc_data:
+                rc_settings.initialDelay = int(float(rc_data['initialdelay']) * 1000)  # seconds to ms
 
             # Additional RC parameters
-            if 'Entropy' in rc_data:
-                rc_settings.entropy = self._parse_entropy(rc_data['Entropy'])
-            if 'FillerData' in rc_data:
-                rc_settings.fillerData = bool(rc_data['FillerData'])
-            if 'MaxPSNR' in rc_data:
-                max_psnr = float(rc_data['MaxPSNR'])
-                if max_psnr < 28.0 or max_psnr > 48.0:
-                    raise ValueError(f"MaxPSNR must be in range [28.0, 48.0], got {max_psnr}")
+            if 'maxpsnr' in rc_data:
+                max_psnr = float(rc_data['maxpsnr'])
+                if max_psnr < 20.0 or max_psnr > 50.0:
+                    raise ValueError(f"MaxPSNR must be in range [20.0, 50.0], got {max_psnr}")
                 rc_settings.maxQualityTarget = int(max_psnr - 28)
-            elif 'MaxQualityTarget' in rc_data:
-                max_quality = int(rc_data['MaxQualityTarget'])
-                if max_quality < 0 or max_quality > 20:
-                    raise ValueError(f"MaxQualityTarget must be in range [0, 20], got {max_quality}")
-                rc_settings.maxQualityTarget = max_quality
-            if 'MaxPictureSizeI' in rc_data:
-                rc_settings.maxPictureSizeI = int(rc_data['MaxPictureSizeI'])
-            if 'MaxPictureSizeP' in rc_data:
-                rc_settings.maxPictureSizeP = int(rc_data['MaxPictureSizeP'])
-            if 'MaxPictureSizeB' in rc_data:
-                rc_settings.maxPictureSizeB = int(rc_data['MaxPictureSizeB'])
-            if 'SkipFrame' in rc_data:
-                rc_settings.skipFrame = bool(rc_data['SkipFrame'])
-            if 'MaxSkip' in rc_data:
-                rc_settings.maxSkip = int(rc_data['MaxSkip'])
+            if 'maxpicturesize.i' in rc_data:
+                rc_settings.maxPictureSizeI = int(rc_data['maxpicturesize.i'])
+            if 'maxpicturesize.p' in rc_data:
+                rc_settings.maxPictureSizeP = int(rc_data['maxpicturesize.p'])
+            if 'maxpicturesize.b' in rc_data:
+                rc_settings.maxPictureSizeB = int(rc_data['maxpicturesize.b'])
+            if 'enableskip' in rc_data:
+                rc_settings.skipFrame = bool(rc_data['enableskip'])
+            if 'maxconsecutiveskip' in rc_data:
+                rc_settings.maxSkip = int(rc_data['maxconsecutiveskip'])
 
         # Configure GOP section parameters
         if 'GOP' in self.sections:
             gop_data = self.sections['GOP']
-            if 'GopCtrlMode' in gop_data:
-                gop_settings.mode = self._parse_gop_mode(gop_data['GopCtrlMode'])
-            elif 'Mode' in gop_data:
-                gop_settings.mode = self._parse_gop_mode(gop_data['Mode'])
+            if 'gopctrlmode' in gop_data:
+                gop_settings.mode = self._parse_gop_mode(gop_data['gopctrlmode'])
 
-            if 'Gop.Length' in gop_data:
-                gop_settings.gopLength = int(gop_data['Gop.Length'])
+            if 'gop.length' in gop_data:
+                gop_settings.gopLength = int(gop_data['gop.length'])
 
-            if 'Gop.NumB' in gop_data:
-                gop_settings.nrBFrames = int(gop_data['Gop.NumB'])
+            if 'gop.numb' in gop_data:
+                gop_settings.nrBFrames = int(gop_data['gop.numb'])
 
             # Additional GOP parameters
-            if 'GDRMode' in gop_data:
-                gop_settings.gdrMode = self._parse_gdr_mode(gop_data['GDRMode'])
-            if 'LongTermRef' in gop_data:
-                gop_settings.longTermRef = bool(gop_data['LongTermRef'])
-            if 'LongTermFreq' in gop_data:
-                gop_settings.longTermFreq = int(gop_data['LongTermFreq'])
-            if 'PeriodIDR' in gop_data:
-                gop_settings.periodIDR = int(gop_data['PeriodIDR'])
+            if 'gop.gdrmode' in gop_data:
+                gop_settings.gdrMode = self._parse_gdr_mode(gop_data['gop.gdrmode'])
+            if 'gop.enablelt' in gop_data:
+                gop_settings.longTermRef = bool(gop_data['gop.enablelt'])
+            if 'gop.freqlt' in gop_data:
+                gop_settings.longTermFreq = int(gop_data['gop.freqlt'])
+            if 'gop.freqidr' in gop_data:
+                gop_settings.periodIDR = int(gop_data['gop.freqidr'])
 
         # Configure SETTINGS section parameters
         if 'SETTINGS' in self.sections:
             settings_data = self.sections['SETTINGS']
-            if 'Codec' in settings_data:
-                picture_settings.codec = self._parse_codec(settings_data['Codec'])
-            if 'Profile' in settings_data:
-                profile_settings.profile = self._parse_profile(settings_data['Profile'])
-            if 'Level' in settings_data:
-                profile_settings.level = str(settings_data['Level'])
-            if 'Tier' in settings_data:
-                profile_settings.tier = self._parse_tier(settings_data['Tier'])
+            if 'profile' in settings_data:
+                profile_settings.profile = self._parse_profile(settings_data['profile'])
+            if 'level' in settings_data:
+                profile_settings.level = str(settings_data['level'])
+            if 'tier' in settings_data:
+                profile_settings.tier = self._parse_tier(settings_data['tier'])
+            if 'entropymode' in settings_data:
+                rc_settings.entropy = self._parse_entropy(settings_data['entropymode'])
+            if 'enablefillerdata' in settings_data:
+                rc_settings.fillerData = bool(settings_data['enablefillerdata'])
 
         # Configure MOTION_VECTOR section parameters
         if 'MOTION_VECTOR' in self.sections:
             mv_data = self.sections['MOTION_VECTOR']
-            if 'FrameIndex' in mv_data:
-                motion_vector.frameIndex = int(mv_data['FrameIndex'])
-            if 'GMVectorX' in mv_data:
-                motion_vector.gmVectorX = int(mv_data['GMVectorX'])
-            if 'GMVectorY' in mv_data:
-                motion_vector.gmVectorY = int(mv_data['GMVectorY'])
+            if 'frameindex' in mv_data:
+                motion_vector.frameIndex = int(mv_data['frameindex'])
+            if 'gmvectorx' in mv_data:
+                motion_vector.gmVectorX = int(mv_data['gmvectorx'])
+            if 'gmvectory' in mv_data:
+                motion_vector.gmVectorY = int(mv_data['gmvectory'])
 
         # Create and return EncoderInitParams
         # In Python, we can assign the settings objects directly
@@ -213,16 +198,6 @@ class VCUConfigParser:
         encoder_params.globalMotionVector = motion_vector
 
         return encoder_params
-
-    def _parse_codec(self, codec_str):
-        """Parse codec string to VCU codec enum"""
-        codec_str = codec_str.upper()
-        if 'AVC' in codec_str or 'H264' in codec_str or 'H.264' in codec_str:
-            return vcu.CODEC_AVC
-        elif 'HEVC' in codec_str or 'H265' in codec_str or 'H.265' in codec_str:
-            return vcu.CODEC_HEVC
-        else:
-            return vcu.CODEC_AVC  # Default to AVC
 
     def _parse_format(self, format_str):
         """Parse video format string to VCU format"""
@@ -246,40 +221,45 @@ class VCUConfigParser:
         return format_map.get(format_str, 0x30323449)  # Default to I420
 
     def _parse_rc_mode(self, mode_str):
-        """Parse rate control mode string to VCU enum"""
+        """Parse rate control mode string to VCU enum.
+        Accepts: CONST_QP, CBR, VBR, CAPPED_VBR, LOW_LATENCY, PLUGIN
+        """
         mode_str = mode_str.upper()
-        if 'CBR' in mode_str:
-            return vcu.RCMode_CBR
-        elif 'VBR' in mode_str:
-            return vcu.RCMode_VBR
-        elif 'CONST_QP' in mode_str:
+        if mode_str == 'CONST_QP':
             return vcu.RCMode_CONST_QP
-        elif 'LOW_LATENCY' in mode_str:
-            return vcu.RCMode_LOW_LATENCY
-        elif 'CAPPED_VBR' in mode_str:
+        elif mode_str == 'CBR':
+            return vcu.RCMode_CBR
+        elif mode_str == 'VBR':
+            return vcu.RCMode_VBR
+        elif mode_str == 'CAPPED_VBR':
             return vcu.RCMode_CAPPED_VBR
+        elif mode_str == 'LOW_LATENCY':
+            return vcu.RCMode_LOW_LATENCY
         else:
-            return vcu.RCMode_CBR  # Default
+            raise ValueError(f"Invalid RateCtrlMode '{mode_str}'. Must be CONST_QP, CBR, VBR, CAPPED_VBR, or LOW_LATENCY")
 
     def _parse_gop_mode(self, mode_str):
-        """Parse GOP mode string to VCU enum"""
+        """Parse GOP mode string to VCU enum.
+        Accepts: DEFAULT_GOP, DEFAULT_GOP_B, PYRAMIDAL_GOP, PYRAMIDAL_GOP_B,
+                 LOW_DELAY_P, LOW_DELAY_B, ADAPTIVE_GOP
+        """
         mode_str = mode_str.upper()
-        if 'DEFAULT_GOP' in mode_str:
+        if mode_str == 'DEFAULT_GOP':
             return vcu.GOPMode_BASIC
-        elif 'DEFAULT_GOP_B' in mode_str:
+        elif mode_str == 'DEFAULT_GOP_B':
             return vcu.GOPMode_BASIC_B
-        elif 'PYRAMIDAL_GOP' in mode_str:
+        elif mode_str == 'PYRAMIDAL_GOP':
             return vcu.GOPMode_PYRAMIDAL
-        elif 'PYRAMIDAL_GOP_B' in mode_str:
+        elif mode_str == 'PYRAMIDAL_GOP_B':
             return vcu.GOPMode_PYRAMIDAL_B
-        elif 'LOW_DELAY_P' in mode_str:
+        elif mode_str == 'LOW_DELAY_P':
             return vcu.GOPMode_LOW_DELAY_P
-        elif 'LOW_DELAY_B' in mode_str:
+        elif mode_str == 'LOW_DELAY_B':
             return vcu.GOPMode_LOW_DELAY_B
-        elif 'ADAPTIVE_GOP' in mode_str:
+        elif mode_str == 'ADAPTIVE_GOP':
             return vcu.GOPMode_ADAPTIVE
         else:
-            return vcu.GOPMode_BASIC  # Default
+            raise ValueError(f"Invalid GopCtrlMode '{mode_str}'. Must be DEFAULT_GOP, DEFAULT_GOP_B, PYRAMIDAL_GOP, PYRAMIDAL_GOP_B, LOW_DELAY_P, LOW_DELAY_B, or ADAPTIVE_GOP")
 
     def _parse_profile(self, profile_str):
         """Return profile string as-is for firmware parsing"""
@@ -287,51 +267,55 @@ class VCUConfigParser:
         return str(profile_str)
 
     def _parse_entropy(self, entropy_str):
-        """Parse entropy string to VCU enum"""
+        """Parse entropy mode string to VCU enum.
+        Accepts: MODE_CAVLC, MODE_CABAC
+        """
         entropy_str = entropy_str.upper()
-        if 'CAVLC' in entropy_str:
+        if entropy_str == 'MODE_CAVLC':
             return vcu.Entropy_CAVLC
-        elif 'CABAC' in entropy_str:
+        elif entropy_str == 'MODE_CABAC':
             return vcu.Entropy_CABAC
         else:
-            return vcu.Entropy_CABAC  # Default
+            raise ValueError(f"Invalid EntropyMode '{entropy_str}'. Must be MODE_CABAC or MODE_CAVLC")
 
     def _parse_gdr_mode(self, gdr_str):
-        """Parse GDR mode string to VCU enum"""
+        """Parse GDR mode string to VCU enum.
+        Accepts: DISABLE, GDR_OFF, GDR_HORIZONTAL, GDR_VERTICAL
+        """
         gdr_str = gdr_str.upper()
-        if 'DISABLE' in gdr_str:
+        if gdr_str == 'DISABLE' or gdr_str == 'GDR_OFF':
             return vcu.GDRMode_DISABLE
-        elif 'VERTICAL' in gdr_str:
+        elif gdr_str == 'GDR_VERTICAL':
             return vcu.GDRMode_VERTICAL
-        elif 'HORIZONTAL' in gdr_str:
+        elif gdr_str == 'GDR_HORIZONTAL':
             return vcu.GDRMode_HORIZONTAL
         else:
-            return vcu.GDRMode_DISABLE  # Default
+            raise ValueError(f"Invalid GDRMode '{gdr_str}'. Must be DISABLE, GDR_OFF, GDR_HORIZONTAL, or GDR_VERTICAL")
 
     def _parse_tier(self, tier_str):
-        """Parse tier string to VCU enum"""
+        """Parse tier string to VCU enum.
+        Accepts: MAIN_TIER, HIGH_TIER
+        """
         tier_str = tier_str.upper()
-        if 'MAIN' in tier_str:
+        if tier_str == 'MAIN_TIER':
             return vcu.Tier_MAIN
-        elif 'HIGH' in tier_str:
+        elif tier_str == 'HIGH_TIER':
             return vcu.Tier_HIGH
         else:
-            return vcu.Tier_MAIN  # Default
+            raise ValueError(f"Invalid Tier '{tier_str}'. Must be MAIN_TIER or HIGH_TIER")
 
     @staticmethod
     def get_supported_sections():
         return {
-            'INPUT': ['YUVFile', 'Width', 'Height', 'Format', 'FrameRate'],
+            'INPUT': ['YUVFile', 'Width', 'Height', 'Format', 'Framerate'],
             'OUTPUT': ['BitstreamFile', 'RecFile', 'Width', 'Height'],
-            'GOP': ['GopCtrlMode', 'Gop.Length', 'Gop.NumB', 'GDRMode', 'LongTermRef', 'LongTermFreq', 'PeriodIDR'],
-            'RATE_CONTROL': ['RateCtrlMode', 'BitRate', 'MaxBitRate', 'FrameRate', 'CPBSize', 'InitialDelay',
-                           'Entropy', 'FillerData', 'MaxQualityTarget', 'MaxPictureSizeI', 'MaxPictureSizeP',
-                           'MaxPictureSizeB', 'SkipFrame', 'MaxSkip'],
-            'SETTINGS': ['Profile', 'Level', 'ChromaMode', 'BitDepth', 'Tier'],
+            'GOP': ['GopCtrlMode', 'Gop.Length', 'Gop.NumB', 'Gop.GdrMode', 'Gop.EnableLT', 'Gop.FreqLT', 'Gop.FreqIDR'],
+            'RATE_CONTROL': ['RateCtrlMode', 'Bitrate', 'MaxBitrate', 'Framerate', 'CPBSize', 'InitialDelay',
+                           'MaxPSNR', 'MaxPictureSize.I', 'MaxPictureSize.P', 'MaxPictureSize.B',
+                           'EnableSkip', 'MaxConsecutiveSkip'],
+            'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'EnableFillerData', 'ChromaMode', 'BitDepth'],
             'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
-            'HARDWARE': ['LookAheadDepth', 'NumSlices', 'EnableConstrainedIntraPrediction'],
-            'QUALITY': ['QP', 'MinQP', 'MaxQP', 'QualityLevel'],
-            'RUN': ['Loop', 'FirstPicture', 'MaxPicture', 'RateCtrlStats']
+            'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }
 
     @staticmethod

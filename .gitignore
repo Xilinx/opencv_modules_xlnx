@@ -31,3 +31,7 @@
 *.out
 *.app
 .vscode/
+
+# Python
+__pycache__/
+*.pyc

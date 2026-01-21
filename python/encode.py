@@ -26,12 +26,15 @@ def main():
     text = "AVC/HEVC Encoder\n"
     text += "\nEncode raw YUV files to AVC/HEVC bitstreams using VCU hardware.\n"
     text += "\nExample usage:\n"
-    text += "  ./encode.py --cfg enc.cfg\n"
-    text += "  ./encode.py --cfg enc.cfg --input video.yuv --output video.hevc\n"
-    text += "  ./encode.py --cfg enc.cfg --first-picture 10 --max-picture 100\n"
+    text += "  ./encode.py --hevc --cfg enc.cfg --input video.yuv --output video.hevc\n"
+    text += "  ./encode.py --avc --cfg enc.cfg --input video.yuv --output video.264\n"
+    text += "  ./encode.py --hevc --cfg enc.cfg --first-picture 10 --max-picture 100\n"
     text += "\n"
 
     parser = argparse.ArgumentParser(description=text, formatter_class=argparse.RawDescriptionHelpFormatter)
+    codec_group = parser.add_mutually_exclusive_group()
+    codec_group.add_argument("--avc", action="store_true", help="Encode using AVC/H.264 codec")
+    codec_group.add_argument("--hevc", action="store_true", help="Encode using HEVC/H.265 codec (default)")
     parser.add_argument("--cfg", "-c", required=True, help="Input configuration file path")
     parser.add_argument("--input", "-i", help="Input YUV file (overrides config YUVFile)")
     parser.add_argument("--output", "-o", help="Output bitstream file (overrides config BitstreamFile)")
@@ -46,11 +49,18 @@ def main():
     config.parse(args.cfg)
     encoder_params = config.create_encoder_params()
 
+    # Set codec from command line (default to HEVC)
+    pic = encoder_params.pictureEncSettings
+    if args.avc:
+        pic.codec = vcu.CODEC_AVC
+    else:
+        pic.codec = vcu.CODEC_HEVC
+
     # Get input file from command line or config
     input_file = args.input
     if not input_file:
-        if 'INPUT' in config.sections and 'YUVFile' in config.sections['INPUT']:
-            input_file = config.sections['INPUT']['YUVFile']
+        if 'INPUT' in config.sections and 'yuvfile' in config.sections['INPUT']:
+            input_file = config.sections['INPUT']['yuvfile']
         else:
             print(f"{BLUE}Error: No input file specified. Use --input or set YUVFile in config.{RESET}")
             sys.exit(1)
@@ -58,8 +68,8 @@ def main():
     # Get output file from command line or config
     output_file = args.output
     if not output_file:
-        if 'OUTPUT' in config.sections and 'BitstreamFile' in config.sections['OUTPUT']:
-            output_file = config.sections['OUTPUT']['BitstreamFile']
+        if 'OUTPUT' in config.sections and 'bitstreamfile' in config.sections['OUTPUT']:
+            output_file = config.sections['OUTPUT']['bitstreamfile']
         else:
             print(f"{BLUE}Error: No output file specified. Use --output or set BitstreamFile in config.{RESET}")
             sys.exit(1)
@@ -67,20 +77,19 @@ def main():
     # Get first picture from command line or config [RUN] section
     first_picture = args.first_picture
     if first_picture is None:
-        if 'RUN' in config.sections and 'FirstPicture' in config.sections['RUN']:
-            first_picture = int(config.sections['RUN']['FirstPicture'])
+        if 'RUN' in config.sections and 'firstpicture' in config.sections['RUN']:
+            first_picture = int(config.sections['RUN']['firstpicture'])
         else:
             first_picture = 0
 
     # Get max picture from command line or config [RUN] section
     max_picture_value = args.max_picture
     if max_picture_value is None:
-        if 'RUN' in config.sections and 'MaxPicture' in config.sections['RUN']:
-            max_picture_value = config.sections['RUN']['MaxPicture']
+        if 'RUN' in config.sections and 'maxpicture' in config.sections['RUN']:
+            max_picture_value = config.sections['RUN']['maxpicture']
     max_picture = parse_max_picture(max_picture_value)
 
     # Print encoding parameters
-    pic = encoder_params.pictureEncSettings
     rc = encoder_params.rcSettings
     gop = encoder_params.gopSettings
 

@@ -962,7 +962,7 @@ bool VCUEncoder::validateSettings()
     auto fi = FormatInfo(pic.fourcc);
     valid = fi.encodeable;
     if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported input fourcc");
-    valid = rc.mode >= RCMode::CONST_QP && rc.mode <= RCMode::VBR;
+    valid = rc.mode >= RCMode::CONST_QP && rc.mode <= RCMode::CAPPED_VBR;
     if (!valid) CV_Error(Error::StsBadArg, "Unsupported rate control mode");
     valid = rc.bitrate > 0;
     if (!valid) CV_Error(Error::StsBadArg, "Bitrate must be greater than 0");
