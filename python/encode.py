@@ -47,6 +47,10 @@ def main():
     # Parse configuration file
     config = vcu_config_parser.VCUConfigParser()
     config.parse(args.cfg)
+
+    # Warn about unknown/deprecated config keys
+    config.validate_keys()
+
     encoder_params = config.create_encoder_params()
 
     # Set codec from command line (default to HEVC)
@@ -55,6 +59,8 @@ def main():
         pic.codec = vcu.CODEC_AVC
     else:
         pic.codec = vcu.CODEC_HEVC
+    # Reassign to ensure the modified object is used (Python binding may return copies)
+    encoder_params.pictureEncSettings = pic
 
     # Get input file from command line or config
     input_file = args.input

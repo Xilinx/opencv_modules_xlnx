@@ -259,6 +259,12 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     // (like Log2MaxCuSize for AVC vs HEVC) are set correctly
     if (profile != AL_PROFILE_UNKNOWN)
         chn.eProfile = profile;
+    else
+    {
+        // No profile specified - use default profile based on codec type
+        chn.eProfile = (currentSettings_.pic_.codec == Codec::AVC) ?
+            AL_PROFILE_AVC_HIGH : AL_PROFILE_HEVC_MAIN;
+    }
 
     // Set codec-specific defaults (QP bounds, codec parameters) based on profile
     AL_Settings_SetDefaultParam(&cfg.Settings);

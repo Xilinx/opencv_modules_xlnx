@@ -282,6 +282,11 @@ class VCUConfigParser:
         """Parse GDR mode string to VCU enum.
         Accepts: DISABLE, GDR_OFF, GDR_HORIZONTAL, GDR_VERTICAL
         """
+        # Handle boolean False (converted from DISABLE by parse_value)
+        if gdr_str is False or gdr_str == 0:
+            return vcu.GDRMode_DISABLE
+        if not isinstance(gdr_str, str):
+            raise ValueError(f"Invalid Gop.GdrMode '{gdr_str}'. Must be DISABLE, GDR_OFF, GDR_HORIZONTAL, or GDR_VERTICAL")
         gdr_str = gdr_str.upper()
         if gdr_str == 'DISABLE' or gdr_str == 'GDR_OFF':
             return vcu.GDRMode_DISABLE
@@ -290,7 +295,7 @@ class VCUConfigParser:
         elif gdr_str == 'GDR_HORIZONTAL':
             return vcu.GDRMode_HORIZONTAL
         else:
-            raise ValueError(f"Invalid GDRMode '{gdr_str}'. Must be DISABLE, GDR_OFF, GDR_HORIZONTAL, or GDR_VERTICAL")
+            raise ValueError(f"Invalid Gop.GdrMode '{gdr_str}'. Must be DISABLE, GDR_OFF, GDR_HORIZONTAL, or GDR_VERTICAL")
 
     def _parse_tier(self, tier_str):
         """Parse tier string to VCU enum.
@@ -317,6 +322,42 @@ class VCUConfigParser:
             'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }
+
+    def validate_keys(self, strict=False):
+        """Validate parsed keys against known supported parameters.
+
+        Args:
+            strict: If True, raise ValueError on unknown keys. If False, print warnings.
+
+        Returns:
+            List of tuples (section, key) for unknown keys.
+        """
+        supported = self.get_supported_sections()
+        unknown_keys = []
+
+        for section, data in self.sections.items():
+            if section not in supported:
+                unknown_keys.append((section, None))
+                msg = f"Unknown section: [{section}]"
+                if strict:
+                    raise ValueError(msg)
+                else:
+                    print(f"Warning: {msg}")
+                continue
+
+            # Convert supported keys to lowercase for comparison
+            supported_lower = {k.lower() for k in supported[section]}
+
+            for key in data.keys():
+                if key not in supported_lower:
+                    unknown_keys.append((section, key))
+                    msg = f"Unknown parameter '{key}' in [{section}]"
+                    if strict:
+                        raise ValueError(msg)
+                    else:
+                        print(f"Warning: {msg}")
+
+        return unknown_keys
 
     @staticmethod
     def get_supported_formats():
