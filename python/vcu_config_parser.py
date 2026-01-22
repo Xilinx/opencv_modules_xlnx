@@ -137,8 +137,8 @@ class VCUConfigParser:
                 rc_settings.maxPictureSizeP = int(rc_data['maxpicturesize.p'])
             if 'maxpicturesize.b' in rc_data:
                 rc_settings.maxPictureSizeB = int(rc_data['maxpicturesize.b'])
-            if 'enableskip' in rc_data:
-                rc_settings.skipFrame = bool(rc_data['enableskip'])
+            if 'enableskipframe' in rc_data:
+                rc_settings.skipFrame = bool(rc_data['enableskipframe'])
             if 'maxconsecutiveskip' in rc_data:
                 rc_settings.maxSkip = int(rc_data['maxconsecutiveskip'])
 
@@ -175,8 +175,8 @@ class VCUConfigParser:
                 profile_settings.tier = self._parse_tier(settings_data['tier'])
             if 'entropymode' in settings_data:
                 rc_settings.entropy = self._parse_entropy(settings_data['entropymode'])
-            if 'enablefillerdata' in settings_data:
-                rc_settings.fillerData = bool(settings_data['enablefillerdata'])
+            if 'enablefillerdata' in rc_data:
+                rc_settings.fillerData = bool(rc_data['enablefillerdata'])
 
         # Configure MOTION_VECTOR section parameters
         if 'MOTION_VECTOR' in self.sections:
@@ -189,13 +189,14 @@ class VCUConfigParser:
                 motion_vector.gmVectorY = int(mv_data['gmvectory'])
 
         # Create and return EncoderInitParams
-        # In Python, we can assign the settings objects directly
         encoder_params = vcu.EncoderInitParams()
         encoder_params.pictureEncSettings = picture_settings
         encoder_params.rcSettings = rc_settings
         encoder_params.gopSettings = gop_settings
         encoder_params.profileSettings = profile_settings
         encoder_params.globalMotionVector = motion_vector
+
+        return encoder_params
 
         return encoder_params
 
@@ -317,8 +318,8 @@ class VCUConfigParser:
             'GOP': ['GopCtrlMode', 'Gop.Length', 'Gop.NumB', 'Gop.GdrMode', 'Gop.EnableLT', 'Gop.FreqLT', 'Gop.FreqIDR'],
             'RATE_CONTROL': ['RateCtrlMode', 'Bitrate', 'MaxBitrate', 'Framerate', 'CPBSize', 'InitialDelay',
                            'MaxPSNR', 'MaxPictureSize.I', 'MaxPictureSize.P', 'MaxPictureSize.B',
-                           'EnableSkip', 'MaxConsecutiveSkip'],
-            'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'EnableFillerData', 'ChromaMode', 'BitDepth'],
+                           'EnableSkipFrame', 'MaxConsecutiveSkip', 'EnableFillerData'],
+            'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth'],
             'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }
