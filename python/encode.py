@@ -8,7 +8,80 @@ import vcu_config_parser
 
 GREEN = '\033[92m'
 BLUE = '\033[94m'
+YELLOW = '\033[93m'
 RESET = '\033[0m'
+
+
+def show_defaults():
+    """Display all default encoder parameter values."""
+    # Create default instances to show their values
+    pic = vcu.PictureEncSettings()
+    rc = vcu.RCSettings()
+    gop = vcu.GOPSettings()
+    profile = vcu.ProfileSettings()
+
+    # Helper to convert enum values to readable strings
+    def codec_str(c):
+        return {vcu.CODEC_AVC: 'AVC', vcu.CODEC_HEVC: 'HEVC', vcu.CODEC_JPEG: 'JPEG'}.get(c, str(c))
+
+    def rcmode_str(m):
+        return {vcu.RC_CONST_QP: 'CONST_QP', vcu.RC_CBR: 'CBR', vcu.RC_VBR: 'VBR',
+                vcu.RC_LOW_LATENCY: 'LOW_LATENCY', vcu.RC_CAPPED_VBR: 'CAPPED_VBR'}.get(m, str(m))
+
+    def entropy_str(e):
+        return {vcu.ENTROPY_CAVLC: 'CAVLC', vcu.ENTROPY_CABAC: 'CABAC'}.get(e, str(e))
+
+    def gopmode_str(m):
+        return {vcu.GOP_MODE_BASIC: 'BASIC', vcu.GOP_MODE_BASIC_B: 'BASIC_B',
+                vcu.GOP_MODE_PYRAMIDAL: 'PYRAMIDAL', vcu.GOP_MODE_PYRAMIDAL_B: 'PYRAMIDAL_B',
+                vcu.GOP_MODE_LOW_DELAY_P: 'LOW_DELAY_P', vcu.GOP_MODE_LOW_DELAY_B: 'LOW_DELAY_B',
+                vcu.GOP_MODE_ADAPTIVE: 'ADAPTIVE'}.get(m, str(m))
+
+    def gdrmode_str(m):
+        return {vcu.GDR_MODE_DISABLE: 'DISABLE', vcu.GDR_MODE_VERTICAL: 'VERTICAL',
+                vcu.GDR_MODE_HORIZONTAL: 'HORIZONTAL'}.get(m, str(m))
+
+    def tier_str(t):
+        return {vcu.TIER_MAIN: 'MAIN', vcu.TIER_HIGH: 'HIGH'}.get(t, str(t))
+
+    print(f"\n{GREEN}VCU Encoder Default Parameters{RESET}\n")
+
+    print(f"{YELLOW}[PICTURE]{RESET}")
+    print(f"  codec      = {codec_str(pic.codec)}")
+    print(f"  fourcc     = {fourcc_str(pic.fourcc)}")
+    print(f"  width      = {pic.width}")
+    print(f"  height     = {pic.height}")
+    print(f"  framerate  = {pic.framerate}")
+
+    print(f"\n{YELLOW}[RATE_CONTROL]{RESET}")
+    print(f"  mode             = {rcmode_str(rc.mode)}")
+    print(f"  entropy          = {entropy_str(rc.entropy)}")
+    print(f"  bitrate          = {rc.bitrate} kbps")
+    print(f"  maxBitrate       = {rc.maxBitrate} kbps")
+    print(f"  cpbSize          = {rc.cpbSize} ms")
+    print(f"  initialDelay     = {rc.initialDelay} ms")
+    print(f"  fillerData       = {rc.fillerData}")
+    print(f"  maxQualityTarget = {rc.maxQualityTarget}")
+    print(f"  maxPictureSizeI  = {rc.maxPictureSizeI} (0=unlimited)")
+    print(f"  maxPictureSizeP  = {rc.maxPictureSizeP} (0=unlimited)")
+    print(f"  maxPictureSizeB  = {rc.maxPictureSizeB} (0=unlimited)")
+    print(f"  skipFrame        = {rc.skipFrame}")
+    print(f"  maxSkip          = {rc.maxSkip} (-1=unlimited)")
+
+    print(f"\n{YELLOW}[GOP]{RESET}")
+    print(f"  mode        = {gopmode_str(gop.mode)}")
+    print(f"  gdrMode     = {gdrmode_str(gop.gdrMode)}")
+    print(f"  gopLength   = {gop.gopLength}")
+    print(f"  nrBFrames   = {gop.nrBFrames}")
+    print(f"  longTermRef = {gop.longTermRef}")
+    print(f"  longTermFreq= {gop.longTermFreq}")
+    print(f"  periodIDR   = {gop.periodIDR}")
+
+    print(f"\n{YELLOW}[PROFILE]{RESET}")
+    print(f"  profile = '{profile.profile}' (empty=auto-detect)")
+    print(f"  level   = '{profile.level}' (empty=library default)")
+    print(f"  tier    = {tier_str(profile.tier)}")
+    print()
 
 
 def parse_max_picture(value):
@@ -29,13 +102,16 @@ def main():
     text += "  ./encode.py --hevc --cfg enc.cfg --input video.yuv --output video.hevc\n"
     text += "  ./encode.py --avc --cfg enc.cfg --input video.yuv --output video.264\n"
     text += "  ./encode.py --hevc --cfg enc.cfg --first-picture 10 --max-picture 100\n"
+    text += "  ./encode.py --show                # show defaults only\n"
+    text += "  ./encode.py --show --cfg enc.cfg  # show defaults and config values\n"
     text += "\n"
 
     parser = argparse.ArgumentParser(description=text, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--show", action="store_true", help="Show encoder parameters (defaults, or with --cfg also config values)")
     codec_group = parser.add_mutually_exclusive_group()
     codec_group.add_argument("--avc", action="store_true", help="Encode using AVC/H.264 codec")
     codec_group.add_argument("--hevc", action="store_true", help="Encode using HEVC/H.265 codec (default)")
-    parser.add_argument("--cfg", "-c", required=True, help="Input configuration file path")
+    parser.add_argument("--cfg", "-c", help="Input configuration file path")
     parser.add_argument("--input", "-i", help="Input YUV file (overrides config YUVFile)")
     parser.add_argument("--output", "-o", help="Output bitstream file (overrides config BitstreamFile)")
     parser.add_argument("--first-picture", "-f", type=int, help="First picture index (overrides config FirstPicture)")
@@ -43,6 +119,15 @@ def main():
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output messages")
 
     args = parser.parse_args()
+
+    # Handle --show option without config (show defaults only)
+    if args.show and not args.cfg:
+        show_defaults()
+        sys.exit(0)
+
+    # Config file is required for encoding (unless just showing defaults)
+    if not args.cfg:
+        parser.error("--cfg is required for encoding (use --show to see default values)")
 
     # Parse configuration file
     config = vcu_config_parser.VCUConfigParser()
@@ -97,7 +182,9 @@ def main():
     rc = encoder_params.rcSettings
     gop = encoder_params.gopSettings
 
-    if not args.quiet:
+    if not args.quiet or args.show:
+        if args.show:
+            show_defaults()
         print(f"\n{GREEN}VCU Encoder{RESET}")
         print(f"  Input:   {input_file}")
         print(f"  Output:  {output_file}")
@@ -107,6 +194,10 @@ def main():
         print(f"  GOP:     {gop.gopLength}")
         print(f"  Range:   first={first_picture}, max={max_picture if max_picture > 0 else 'ALL'}")
         print()
+
+    # Exit after showing if --show was used
+    if args.show:
+        sys.exit(0)
 
     # Create encoder
     try:
