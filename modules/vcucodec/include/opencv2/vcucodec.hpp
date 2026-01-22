@@ -208,7 +208,7 @@ struct CV_EXPORTS_W_SIMPLE GOPSettings
                                   ///< multiple of the GOP length.
                                   ///< -1 disables, 0 (default) first frame is IDR
     CV_WRAP GOPSettings(GOPMode mode = GOPMode::BASIC, GDRMode gdrMode = GDRMode::DISABLE,
-        int gopLength = 60, int nrBFrames = 0, bool longTermRef = false,
+        int gopLength = 30, int nrBFrames = 0, bool longTermRef = false,
         int longTermFreq = 0, int periodIDR = 0);
 };
 
@@ -234,15 +234,13 @@ struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
 /// Struct EncoderInitParams contains encoder parameters and statistics
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams
 {
-    CV_PROP_RW Ptr<PictureEncSettings> pictureEncSettings;
-    CV_PROP_RW Ptr<RCSettings>         rcSettings;
-    CV_PROP_RW Ptr<GOPSettings>        gopSettings;
-    CV_PROP_RW Ptr<ProfileSettings>    profileSettings;
-    CV_PROP_RW Ptr<GlobalMotionVector> globalMotionVector;
+    CV_PROP_RW PictureEncSettings pictureEncSettings;
+    CV_PROP_RW RCSettings         rcSettings;
+    CV_PROP_RW GOPSettings        gopSettings;
+    CV_PROP_RW ProfileSettings    profileSettings;
+    CV_PROP_RW GlobalMotionVector globalMotionVector;
 
-    CV_WRAP EncoderInitParams(Ptr<PictureEncSettings> = nullptr, Ptr<RCSettings> = nullptr,
-        Ptr<GOPSettings> = nullptr, Ptr<ProfileSettings> = nullptr,
-        Ptr<GlobalMotionVector> = nullptr);
+    CV_WRAP EncoderInitParams() = default;
 };
 
 /// @brief Class EncoderCallback reports encoder progress (not supported in Python).
@@ -489,13 +487,6 @@ inline ProfileSettings::ProfileSettings(String _profile, String _level, Tier _ti
 
 inline GlobalMotionVector::GlobalMotionVector(int _frameIndex, int _gmVectorX, int _gmVectorY)
     : frameIndex(_frameIndex), gmVectorX(_gmVectorX), gmVectorY(_gmVectorY) {}
-
-inline EncoderInitParams::EncoderInitParams(Ptr<PictureEncSettings> _pictureEncSettings,
-        Ptr<RCSettings> _rcSettings, Ptr<GOPSettings> _gopSettings,
-        Ptr<ProfileSettings> _profileSettings, Ptr<GlobalMotionVector> _globalMotionVector)
-        : pictureEncSettings(_pictureEncSettings), rcSettings(_rcSettings),
-          gopSettings(_gopSettings), profileSettings(_profileSettings),
-          globalMotionVector(_globalMotionVector) {}
 
 //! @endcond
 

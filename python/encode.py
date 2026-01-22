@@ -54,13 +54,10 @@ def main():
     encoder_params = config.create_encoder_params()
 
     # Set codec from command line (default to HEVC)
-    pic = encoder_params.pictureEncSettings
     if args.avc:
-        pic.codec = vcu.CODEC_AVC
+        encoder_params.pictureEncSettings.codec = vcu.CODEC_AVC
     else:
-        pic.codec = vcu.CODEC_HEVC
-    # Reassign to ensure the modified object is used (Python binding may return copies)
-    encoder_params.pictureEncSettings = pic
+        encoder_params.pictureEncSettings.codec = vcu.CODEC_HEVC
 
     # Get input file from command line or config
     input_file = args.input
@@ -96,6 +93,7 @@ def main():
     max_picture = parse_max_picture(max_picture_value)
 
     # Print encoding parameters
+    pic = encoder_params.pictureEncSettings
     rc = encoder_params.rcSettings
     gop = encoder_params.gopSettings
 

@@ -988,16 +988,11 @@ bool VCUEncoder::validateSettings()
 
 void VCUEncoder::initSettings(const EncoderInitParams& params)
 {
-    if (params.pictureEncSettings)
-        currentSettings_.pic_ = *params.pictureEncSettings;
-    if (params.rcSettings)
-        currentSettings_.rc_ = *params.rcSettings;
-    if (params.gopSettings)
-        currentSettings_.gop_ = *params.gopSettings;
-    if (params.profileSettings)
-        currentSettings_.profile_ = *params.profileSettings;
-    if (params.globalMotionVector)
-        currentSettings_.gmv_ = *params.globalMotionVector;
+    currentSettings_.pic_ = params.pictureEncSettings;
+    currentSettings_.rc_ = params.rcSettings;
+    currentSettings_.gop_ = params.gopSettings;
+    currentSettings_.profile_ = params.profileSettings;
+    currentSettings_.gmv_ = params.globalMotionVector;
 }
 
 String VCUEncoder::currentSettingsString() const
