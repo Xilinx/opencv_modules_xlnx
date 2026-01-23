@@ -12,43 +12,42 @@ YELLOW = '\033[93m'
 RESET = '\033[0m'
 
 
-def show_defaults():
-    """Display all default encoder parameter values."""
-    # Create default instances to show their values
-    pic = vcu.PictureEncSettings()
-    rc = vcu.RCSettings()
-    gop = vcu.GOPSettings()
-    profile = vcu.ProfileSettings()
+def show_params(encoder_params, title="VCU Encoder Parameters"):
+    """Display encoder parameter values."""
+    pic = encoder_params.pictureEncSettings
+    rc = encoder_params.rcSettings
+    gop = encoder_params.gopSettings
+    profile = encoder_params.profileSettings
 
     # Helper to convert enum values to readable strings
     def codec_str(c):
-        return {vcu.CODEC_AVC: 'AVC', vcu.CODEC_HEVC: 'HEVC', vcu.CODEC_JPEG: 'JPEG'}.get(c, str(c))
+        return {vcu.Codec_AVC: 'AVC', vcu.Codec_HEVC: 'HEVC', vcu.Codec_JPEG: 'JPEG'}.get(c, str(c))
 
     def rcmode_str(m):
-        return {vcu.RC_CONST_QP: 'CONST_QP', vcu.RC_CBR: 'CBR', vcu.RC_VBR: 'VBR',
-                vcu.RC_LOW_LATENCY: 'LOW_LATENCY', vcu.RC_CAPPED_VBR: 'CAPPED_VBR'}.get(m, str(m))
+        return {vcu.RCMode_CONST_QP: 'CONST_QP', vcu.RCMode_CBR: 'CBR', vcu.RCMode_VBR: 'VBR',
+                vcu.RCMode_LOW_LATENCY: 'LOW_LATENCY', vcu.RCMode_CAPPED_VBR: 'CAPPED_VBR'}.get(m, str(m))
 
     def entropy_str(e):
-        return {vcu.ENTROPY_CAVLC: 'CAVLC', vcu.ENTROPY_CABAC: 'CABAC'}.get(e, str(e))
+        return {vcu.Entropy_CAVLC: 'CAVLC', vcu.Entropy_CABAC: 'CABAC'}.get(e, str(e))
 
     def gopmode_str(m):
-        return {vcu.GOP_MODE_BASIC: 'BASIC', vcu.GOP_MODE_BASIC_B: 'BASIC_B',
-                vcu.GOP_MODE_PYRAMIDAL: 'PYRAMIDAL', vcu.GOP_MODE_PYRAMIDAL_B: 'PYRAMIDAL_B',
-                vcu.GOP_MODE_LOW_DELAY_P: 'LOW_DELAY_P', vcu.GOP_MODE_LOW_DELAY_B: 'LOW_DELAY_B',
-                vcu.GOP_MODE_ADAPTIVE: 'ADAPTIVE'}.get(m, str(m))
+        return {vcu.GOPMode_BASIC: 'BASIC', vcu.GOPMode_BASIC_B: 'BASIC_B',
+                vcu.GOPMode_PYRAMIDAL: 'PYRAMIDAL', vcu.GOPMode_PYRAMIDAL_B: 'PYRAMIDAL_B',
+                vcu.GOPMode_LOW_DELAY_P: 'LOW_DELAY_P', vcu.GOPMode_LOW_DELAY_B: 'LOW_DELAY_B',
+                vcu.GOPMode_ADAPTIVE: 'ADAPTIVE'}.get(m, str(m))
 
     def gdrmode_str(m):
-        return {vcu.GDR_MODE_DISABLE: 'DISABLE', vcu.GDR_MODE_VERTICAL: 'VERTICAL',
-                vcu.GDR_MODE_HORIZONTAL: 'HORIZONTAL'}.get(m, str(m))
+        return {vcu.GDRMode_DISABLE: 'DISABLE', vcu.GDRMode_VERTICAL: 'VERTICAL',
+                vcu.GDRMode_HORIZONTAL: 'HORIZONTAL'}.get(m, str(m))
 
     def tier_str(t):
-        return {vcu.TIER_MAIN: 'MAIN', vcu.TIER_HIGH: 'HIGH'}.get(t, str(t))
+        return {vcu.Tier_MAIN: 'MAIN', vcu.Tier_HIGH: 'HIGH'}.get(t, str(t))
 
-    print(f"\n{GREEN}VCU Encoder Default Parameters{RESET}\n")
+    print(f"\n{GREEN}{title}{RESET}\n")
 
     print(f"{YELLOW}[PICTURE]{RESET}")
     print(f"  codec      = {codec_str(pic.codec)}")
-    print(f"  fourcc     = {fourcc_str(pic.fourcc)}")
+    print(f"  fourcc     = {fourcc_to_string(pic.fourcc)}")
     print(f"  width      = {pic.width}")
     print(f"  height     = {pic.height}")
     print(f"  framerate  = {pic.framerate}")
@@ -82,6 +81,12 @@ def show_defaults():
     print(f"  level   = '{profile.level}' (empty=library default)")
     print(f"  tier    = {tier_str(profile.tier)}")
     print()
+
+
+def show_defaults():
+    """Display all default encoder parameter values."""
+    params = vcu.EncoderInitParams()
+    show_params(params, "VCU Encoder Default Parameters")
 
 
 def parse_max_picture(value):
@@ -139,10 +144,13 @@ def main():
     encoder_params = config.create_encoder_params()
 
     # Set codec from command line (default to HEVC)
+    # Note: Need to get/modify/reassign because Python bindings return copies
+    pic = encoder_params.pictureEncSettings
     if args.avc:
-        encoder_params.pictureEncSettings.codec = vcu.CODEC_AVC
+        pic.codec = vcu.Codec_AVC
     else:
-        encoder_params.pictureEncSettings.codec = vcu.CODEC_HEVC
+        pic.codec = vcu.Codec_HEVC
+    encoder_params.pictureEncSettings = pic
 
     # Get input file from command line or config
     input_file = args.input
@@ -184,20 +192,16 @@ def main():
 
     if not args.quiet or args.show:
         if args.show:
-            show_defaults()
+            show_params(encoder_params, "VCU Encoder Config Parameters")
         print(f"\n{GREEN}VCU Encoder{RESET}")
         print(f"  Input:   {input_file}")
         print(f"  Output:  {output_file}")
         print(f"  Size:    {pic.width}x{pic.height}")
-        print(f"  Codec:   {'HEVC' if pic.codec == vcu.CODEC_HEVC else 'AVC'}")
+        print(f"  Codec:   {'HEVC' if pic.codec == vcu.Codec_HEVC else 'AVC'}")
         print(f"  Bitrate: {rc.bitrate} kbps")
         print(f"  GOP:     {gop.gopLength}")
         print(f"  Range:   first={first_picture}, max={max_picture if max_picture > 0 else 'ALL'}")
         print()
-
-    # Exit after showing if --show was used
-    if args.show:
-        sys.exit(0)
 
     # Create encoder
     try:
