@@ -395,7 +395,11 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     chn.tGopParam.eGdrMode = (AL_EGdrMode)currentSettings_.gop_.gdrMode;
     chn.tGopParam.bEnableLT = currentSettings_.gop_.longTermRef;
     chn.tGopParam.uFreqLT = currentSettings_.gop_.longTermFreq;
-    chn.tGopParam.uFreqIDR = currentSettings_.gop_.periodIDR;
+    // Map periodIDR to Allegro's uFreqIDR:
+    // - periodIDR <= 0: No periodic IDR (first frame is still IDR) → uFreqIDR = -1
+    // - periodIDR > 0: IDR every N frames → uFreqIDR = N
+    // Note: Allegro's uFreqIDR = 0 means every frame is IDR, which is NOT what periodIDR=0 means
+    chn.tGopParam.uFreqIDR = (currentSettings_.gop_.periodIDR > 0) ? currentSettings_.gop_.periodIDR : -1;
 
     // Override filler data setting from RCSettings
     cfg.Settings.eEnableFillerData = currentSettings_.rc_.fillerData ? AL_FILLER_ENC : AL_FILLER_DISABLE;
