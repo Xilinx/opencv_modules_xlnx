@@ -137,8 +137,8 @@ class VCUConfigParser:
                 rc_settings.maxPictureSizeP = int(rc_data['maxpicturesize.p'])
             if 'maxpicturesize.b' in rc_data:
                 rc_settings.maxPictureSizeB = int(rc_data['maxpicturesize.b'])
-            if 'enableskipframe' in rc_data:
-                rc_settings.skipFrame = bool(rc_data['enableskipframe'])
+            if 'enableskip' in rc_data:
+                rc_settings.skipFrame = bool(rc_data['enableskip'])
             if 'maxconsecutiveskip' in rc_data:
                 rc_settings.maxSkip = int(rc_data['maxconsecutiveskip'])
 
@@ -318,7 +318,7 @@ class VCUConfigParser:
             'GOP': ['GopCtrlMode', 'Gop.Length', 'Gop.NumB', 'Gop.GdrMode', 'Gop.EnableLT', 'Gop.FreqLT', 'Gop.FreqIDR'],
             'RATE_CONTROL': ['RateCtrlMode', 'Bitrate', 'MaxBitrate', 'Framerate', 'CPBSize', 'InitialDelay',
                            'MaxPSNR', 'MaxPictureSize.I', 'MaxPictureSize.P', 'MaxPictureSize.B',
-                           'EnableSkipFrame', 'MaxConsecutiveSkip', 'EnableFillerData'],
+                           'EnableSkip', 'MaxConsecutiveSkip', 'EnableFillerData'],
             'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth'],
             'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
