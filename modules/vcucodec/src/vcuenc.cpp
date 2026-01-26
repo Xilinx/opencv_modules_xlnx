@@ -401,8 +401,16 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     // Note: Allegro's uFreqIDR = 0 means every frame is IDR, which is NOT what periodIDR=0 means
     chn.tGopParam.uFreqIDR = (currentSettings_.gop_.periodIDR > 0) ? currentSettings_.gop_.periodIDR : -1;
 
+    // Slice settings from currentSettings_.slice_
+    chn.uNumSlices = currentSettings_.slice_.numSlices;
+    chn.uSliceSize = currentSettings_.slice_.sliceSize;
+    chn.bSubframeLatency = currentSettings_.slice_.subframeLatency;
+
     // Override filler data setting from RCSettings
     cfg.Settings.eEnableFillerData = currentSettings_.rc_.fillerData ? AL_FILLER_ENC : AL_FILLER_DISABLE;
+
+    // DependentSlice is in AL_TEncSettings, not AL_TEncChanParam
+    cfg.Settings.bDependentSlice = currentSettings_.slice_.dependentSlice;
 
     // Override AUD setting - disable by default (can be made configurable later)
     cfg.Settings.bEnableAUD = false;
@@ -641,6 +649,18 @@ void VCUEncoder::get(ProfileSettings& profileSettings) const
 {
     std::lock_guard lock(settingsMutex_);
     profileSettings = currentSettings_.profile_;
+}
+
+void VCUEncoder::set(const SliceSettings& sliceSettings)
+{
+    std::lock_guard lock(settingsMutex_);
+    currentSettings_.slice_ = sliceSettings;
+}
+
+void VCUEncoder::get(SliceSettings& sliceSettings) const
+{
+    std::lock_guard lock(settingsMutex_);
+    sliceSettings = currentSettings_.slice_;
 }
 
 //
@@ -996,6 +1016,7 @@ void VCUEncoder::initSettings(const EncoderInitParams& params)
     currentSettings_.rc_ = params.rcSettings;
     currentSettings_.gop_ = params.gopSettings;
     currentSettings_.profile_ = params.profileSettings;
+    currentSettings_.slice_ = params.sliceSettings;
     currentSettings_.gmv_ = params.globalMotionVector;
 }
 
@@ -1035,6 +1056,11 @@ String VCUEncoder::currentSettingsString() const
     result += "\nProfile: profile=" + currentSettings_.profile_.profile;
     result += ", level=" + currentSettings_.profile_.level;
     result += ", tier=" + toString(currentSettings_.profile_.tier);
+
+    result += "\nSlice: numSlices=" + toString(currentSettings_.slice_.numSlices);
+    result += ", sliceSize=" + toString(currentSettings_.slice_.sliceSize);
+    result += ", dependentSlice=" + toString(currentSettings_.slice_.dependentSlice);
+    result += ", subframeLatency=" + toString(currentSettings_.slice_.subframeLatency);
 
     result += "\nGMV: frameIndex=" + toString(currentSettings_.gmv_.frameIndex);
     result += ", gmVectorX=" + toString(currentSettings_.gmv_.gmVectorX);

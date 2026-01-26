@@ -164,7 +164,8 @@ class VCUConfigParser:
             if 'gop.freqidr' in gop_data:
                 gop_settings.periodIDR = int(gop_data['gop.freqidr'])
 
-        # Configure SETTINGS section parameters
+        # Configure SETTINGS section parameters (including slice settings)
+        slice_settings = vcu.SliceSettings()
         if 'SETTINGS' in self.sections:
             settings_data = self.sections['SETTINGS']
             if 'profile' in settings_data:
@@ -175,8 +176,17 @@ class VCUConfigParser:
                 profile_settings.tier = self._parse_tier(settings_data['tier'])
             if 'entropymode' in settings_data:
                 rc_settings.entropy = self._parse_entropy(settings_data['entropymode'])
-            if 'enablefillerdata' in rc_data:
-                rc_settings.fillerData = bool(rc_data['enablefillerdata'])
+            if 'enablefillerdata' in settings_data:
+                rc_settings.fillerData = bool(settings_data['enablefillerdata'])
+            # Slice settings
+            if 'numslices' in settings_data:
+                slice_settings.numSlices = int(settings_data['numslices'])
+            if 'slicesize' in settings_data:
+                slice_settings.sliceSize = int(settings_data['slicesize'])
+            if 'dependentslice' in settings_data:
+                slice_settings.dependentSlice = self._parse_bool(settings_data['dependentslice'])
+            if 'subframelatency' in settings_data:
+                slice_settings.subframeLatency = self._parse_bool(settings_data['subframelatency'])
 
         # Configure MOTION_VECTOR section parameters
         if 'MOTION_VECTOR' in self.sections:
@@ -194,6 +204,7 @@ class VCUConfigParser:
         encoder_params.rcSettings = rc_settings
         encoder_params.gopSettings = gop_settings
         encoder_params.profileSettings = profile_settings
+        encoder_params.sliceSettings = slice_settings
         encoder_params.globalMotionVector = motion_vector
 
         return encoder_params
@@ -310,6 +321,20 @@ class VCUConfigParser:
         else:
             raise ValueError(f"Invalid Tier '{tier_str}'. Must be MAIN_TIER or HIGH_TIER")
 
+    def _parse_bool(self, value):
+        """Parse boolean value from config file.
+        Accepts: TRUE, FALSE, ENABLE, DISABLE (case insensitive)
+        """
+        if isinstance(value, bool):
+            return value
+        val_str = str(value).strip().upper()
+        if val_str in ('TRUE', 'ENABLE'):
+            return True
+        elif val_str in ('FALSE', 'DISABLE'):
+            return False
+        else:
+            raise ValueError(f"Invalid boolean value '{value}'. Must be TRUE/FALSE or ENABLE/DISABLE")
+
     @staticmethod
     def get_supported_sections():
         return {
@@ -318,8 +343,9 @@ class VCUConfigParser:
             'GOP': ['GopCtrlMode', 'Gop.Length', 'Gop.NumB', 'Gop.GdrMode', 'Gop.EnableLT', 'Gop.FreqLT', 'Gop.FreqIDR'],
             'RATE_CONTROL': ['RateCtrlMode', 'Bitrate', 'MaxBitrate', 'Framerate', 'CPBSize', 'InitialDelay',
                            'MaxPSNR', 'MaxPictureSize.I', 'MaxPictureSize.P', 'MaxPictureSize.B',
-                           'EnableSkip', 'MaxConsecutiveSkip', 'EnableFillerData'],
-            'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth'],
+                           'EnableSkip', 'MaxConsecutiveSkip'],
+            'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth', 'EnableFillerData',
+                         'NumSlices', 'SliceSize', 'DependentSlice', 'SubframeLatency', 'Alignment'],
             'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }

@@ -222,6 +222,20 @@ struct CV_EXPORTS_W_SIMPLE ProfileSettings
     CV_WRAP ProfileSettings(String profile = "", String level = "", Tier tier = Tier::MAIN);
 };
 
+/// @brief Struct SliceSettings specifies slice configuration for the encoder.
+struct CV_EXPORTS_W_SIMPLE SliceSettings
+{
+    CV_PROP_RW int  numSlices;        ///< Number of slices per frame. Default: 1.
+    CV_PROP_RW int  sliceSize;        ///< Maximum slice size in bytes. 0 = disabled. Default: 0.
+    CV_PROP_RW bool dependentSlice;   ///< Enable dependent slices (HEVC only). Default: false.
+    CV_PROP_RW bool subframeLatency;  ///< Enable subframe latency mode for low-latency streaming.
+                                      ///< When enabled, slices are output as soon as encoded.
+                                      ///< Default: false.
+
+    CV_WRAP SliceSettings(int numSlices = 1, int sliceSize = 0,
+                          bool dependentSlice = false, bool subframeLatency = false);
+};
+
 struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
 {
     CV_PROP_RW int frameIndex;   ///< Frame index
@@ -238,6 +252,7 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
     CV_PROP_RW RCSettings         rcSettings;
     CV_PROP_RW GOPSettings        gopSettings;
     CV_PROP_RW ProfileSettings    profileSettings;
+    CV_PROP_RW SliceSettings      sliceSettings;
     CV_PROP_RW GlobalMotionVector globalMotionVector;
 
     CV_WRAP EncoderInitParams() = default;
@@ -297,29 +312,30 @@ public:
     ) const = 0;
 
 
-    /// Set rate control settings
+    /// Set rate control settings.
     CV_WRAP virtual void set(const RCSettings& rcSettings) = 0;
-
-    /// Get rate control settings
+    /// Get rate control settings.
     CV_WRAP virtual void get(RCSettings& rcSettings) const = 0;
 
-    /// Set GOP (Group Of Pictures) settings
+    /// Set GOP (Group Of Pictures) settings.
     CV_WRAP virtual void set(const GOPSettings& gopSettings) = 0;
-
-    /// Get GOP (Group Of Pictures) settings
+    /// Get GOP (Group Of Pictures) settings.
     CV_WRAP virtual void get(GOPSettings& gopSettings) const = 0;
 
-    /// Set global motion vector
-    CV_WRAP virtual void set(const GlobalMotionVector& gmVector) = 0;
-
-    /// Get global motion vector
-    CV_WRAP virtual void get(GlobalMotionVector& gmVector) const = 0;
-
-    /// Set profile, level and tier settings
+    /// Set profile, level and tier settings.
     CV_WRAP virtual void set(const ProfileSettings& profileSettings) = 0;
-
-    /// Get profile, level and tier settings
+    /// Get profile, level and tier settings.
     CV_WRAP virtual void get(ProfileSettings& profileSettings) const = 0;
+
+    /// Set slice settings.
+    CV_WRAP virtual void set(const SliceSettings& sliceSettings) = 0;
+    /// Get slice settings.
+    CV_WRAP virtual void get(SliceSettings& sliceSettings) const = 0;
+
+    /// Set global motion vector.
+    CV_WRAP virtual void set(const GlobalMotionVector& gmVector) = 0;
+    /// Get global motion vector.
+    CV_WRAP virtual void get(GlobalMotionVector& gmVector) const = 0;
 
     //
     // Dynamic commands
@@ -484,6 +500,11 @@ inline GOPSettings::GOPSettings(GOPMode _mode, GDRMode _gdrMode, int _gopLength,
 
 inline ProfileSettings::ProfileSettings(String _profile, String _level, Tier _tier)
     : profile(_profile), level(_level), tier(_tier) {}
+
+inline SliceSettings::SliceSettings(int _numSlices, int _sliceSize,
+                                    bool _dependentSlice, bool _subframeLatency)
+    : numSlices(_numSlices), sliceSize(_sliceSize),
+      dependentSlice(_dependentSlice), subframeLatency(_subframeLatency) {}
 
 inline GlobalMotionVector::GlobalMotionVector(int _frameIndex, int _gmVectorX, int _gmVectorY)
     : frameIndex(_frameIndex), gmVectorX(_gmVectorX), gmVectorY(_gmVectorY) {}

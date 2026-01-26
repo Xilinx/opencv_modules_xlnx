@@ -37,8 +37,9 @@ public:
         PictureEncSettings pic_;
         RCSettings rc_;
         GOPSettings gop_;
-        GlobalMotionVector gmv_;
         ProfileSettings profile_;
+        SliceSettings slice_;
+        GlobalMotionVector gmv_;
     };
 
     virtual ~VCUEncoder();
@@ -62,10 +63,12 @@ public:
     virtual void get(RCSettings& rcSettings) const override;
     virtual void set(const GOPSettings& gopSettings) override;
     virtual void get(GOPSettings& gopSettings) const override;
-    virtual void set(const GlobalMotionVector& gmVector) override;
-    virtual void get(GlobalMotionVector& gmVector) const override;
     virtual void set(const ProfileSettings& profileSettings) override;
     virtual void get(ProfileSettings& profileSettings) const override;
+    virtual void set(const SliceSettings& sliceSettings) override;
+    virtual void get(SliceSettings& sliceSettings) const override;
+    virtual void set(const GlobalMotionVector& gmVector) override;
+    virtual void get(GlobalMotionVector& gmVector) const override;
 
     //
     // Dynamic commands
