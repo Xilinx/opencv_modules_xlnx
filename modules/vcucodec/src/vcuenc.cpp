@@ -403,7 +403,7 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
 
     // Slice settings from currentSettings_.slice_
     chn.uNumSlices = currentSettings_.slice_.numSlices;
-    chn.uSliceSize = currentSettings_.slice_.sliceSize;
+    // chn.uSliceSize  (not supported)
     chn.bSubframeLatency = currentSettings_.slice_.subframeLatency;
 
     // Override filler data setting from RCSettings
@@ -981,14 +981,15 @@ bool VCUEncoder::validateSettings()
     const PictureEncSettings& pic = currentSettings_.pic_;
     const RCSettings& rc = currentSettings_.rc_;
     const GOPSettings& gop = currentSettings_.gop_;
+    const SliceSettings& slice = currentSettings_.slice_;
 
     valid = pic.codec == Codec::HEVC || pic.codec == Codec::AVC;
     if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported codec");
 
     // CAVLC entropy is only valid for AVC (HEVC always uses CABAC)
     valid = !(pic.codec == Codec::HEVC && rc.entropy == Entropy::CAVLC);
-    if (!valid) CV_Error(cv::Error::StsBadArg, "CAVLC entropy mode is only supported for AVC, HEVC always uses CABAC");
-
+    if (!valid) CV_Error(cv::Error::StsBadArg,
+        "CAVLC entropy mode is only supported for AVC, HEVC always uses CABAC");
     auto fi = FormatInfo(pic.fourcc);
     valid = fi.encodeable;
     if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported input fourcc");
@@ -1006,7 +1007,12 @@ bool VCUEncoder::validateSettings()
     if (!valid) CV_Error(Error::StsBadArg, "Height must be in the range [1, 2160]");
     valid = rc.maxQualityTarget >= 0 && rc.maxQualityTarget <= 20;
     if (!valid) CV_Error(Error::StsBadArg, "maxQualityTarget must be in the range [0, 20]");
-
+    // Slice count limits: AVC supports 1-256, HEVC supports 1-128
+    uint16_t maxSlices = (pic.codec == Codec::AVC) ? 256 : 128;
+    valid = slice.numSlices >= 1 && slice.numSlices <= maxSlices;
+    if (!valid) CV_Error(Error::StsBadArg,
+        "Number of slices must be in the range [1, " + std::to_string(maxSlices) + "] for "
+        + ((pic.codec == Codec::AVC) ? "AVC" : "HEVC"));
     return valid;
 }
 
@@ -1058,7 +1064,6 @@ String VCUEncoder::currentSettingsString() const
     result += ", tier=" + toString(currentSettings_.profile_.tier);
 
     result += "\nSlice: numSlices=" + toString(currentSettings_.slice_.numSlices);
-    result += ", sliceSize=" + toString(currentSettings_.slice_.sliceSize);
     result += ", dependentSlice=" + toString(currentSettings_.slice_.dependentSlice);
     result += ", subframeLatency=" + toString(currentSettings_.slice_.subframeLatency);
 

@@ -179,10 +179,9 @@ class VCUConfigParser:
             if 'enablefillerdata' in settings_data:
                 rc_settings.fillerData = bool(settings_data['enablefillerdata'])
             # Slice settings
+            # Slice size is not supported currently
             if 'numslices' in settings_data:
                 slice_settings.numSlices = int(settings_data['numslices'])
-            if 'slicesize' in settings_data:
-                slice_settings.sliceSize = int(settings_data['slicesize'])
             if 'dependentslice' in settings_data:
                 slice_settings.dependentSlice = self._parse_bool(settings_data['dependentslice'])
             if 'subframelatency' in settings_data:
@@ -345,7 +344,7 @@ class VCUConfigParser:
                            'MaxPSNR', 'MaxPictureSize.I', 'MaxPictureSize.P', 'MaxPictureSize.B',
                            'EnableSkip', 'MaxConsecutiveSkip'],
             'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth', 'EnableFillerData',
-                         'NumSlices', 'SliceSize', 'DependentSlice', 'SubframeLatency', 'Alignment'],
+                         'NumSlices', 'DependentSlice', 'SubframeLatency', 'Alignment'],
             'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }
