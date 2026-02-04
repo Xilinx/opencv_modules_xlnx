@@ -90,10 +90,14 @@ WARN_IF_UNDOCUMENTED   = NO
 WARN_IF_DOC_ERROR      = YES
 
 # Misc
-JAVADOC_AUTOBRIEF      = NO
+JAVADOC_AUTOBRIEF      = YES
 MULTILINE_CPP_IS_BRIEF = NO
 TAB_SIZE               = 4
 OPTIMIZE_OUTPUT_FOR_C  = NO
 MARKDOWN_SUPPORT       = YES
 TOC_INCLUDE_HEADINGS   = 5
 LAYOUT_FILE            = DoxygenLayout.xml
+
+# Custom aliases
+ALIASES                = "TABLEBRIEF{1}=<tr><td>@ref cv::vcucodec::\1 \"\1\"</td><td> @copybrief cv::vcucodec::\1 </td></tr>" \
+                         "TABLEBRIEF{2}=<tr><td><span style=\"padding-left:\2em\">@ref cv::vcucodec::\1 \"\1\"</span></td><td> @copybrief cv::vcucodec::\1 </td></tr>"

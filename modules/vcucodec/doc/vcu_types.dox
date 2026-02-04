@@ -1,0 +1,41 @@
+/**
+\page vcu_types VCU Types
+\ingroup vcucodec_types
+\anchor vcu_types_anchor
+
+Basic enums used for decoder/encoder settings:
+
+<table>
+@TABLEBRIEF{Codec}
+@TABLEBRIEF{PicStruct}
+@TABLEBRIEF{BitDepth}
+@TABLEBRIEF{Tier}
+@TABLEBRIEF{RCMode}
+@TABLEBRIEF{Entropy}
+@TABLEBRIEF{GOPMode}
+@TABLEBRIEF{GDRMode}
+</table>
+
+\n
+HDR SEI structure:
+
+<table>
+@TABLEBRIEF{HDRSEIs}
+@TABLEBRIEF{MasteringDisplayColourVolume,1}
+@TABLEBRIEF{ChromaCoordinates,2}
+@TABLEBRIEF{ContentLightLevel,1}
+@TABLEBRIEF{AlternativeTransferCharacteristics,1}
+@TABLEBRIEF{DynamicMeta_ST2094_10,1}
+@TABLEBRIEF{ProcessingWindow_ST2094_10,2}
+@TABLEBRIEF{ImageCharacteristics_ST2094_10,2}
+@TABLEBRIEF{ManualAdjustment_ST2094_10,2}
+@TABLEBRIEF{DynamicMeta_ST2094_40,1}
+@TABLEBRIEF{ProcessingWindow_ST2094_40,2}
+@TABLEBRIEF{ProcessingWindow_ST2094_1,2}
+@TABLEBRIEF{TargetedSystemDisplay_ST2094_40,2}
+@TABLEBRIEF{DisplayPeakLuminance_ST2094_40,2}
+@TABLEBRIEF{ToneMapping_ST2094_40,2}
+@TABLEBRIEF{ProcessingWindowTransform_ST2094_40,2}
+</table>
+
+*/

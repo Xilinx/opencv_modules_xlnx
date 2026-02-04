@@ -37,36 +37,36 @@ namespace vcucodec {
 //! @addtogroup vcucodec
 //! @{
 
-/// Struct RawInfo defines a raw YUV frame containing metadata such as format, dimensions, and stride.
+/// Struct \ref RawInfo defines a raw YUV frame containing metadata such as format, dimensions, and stride.
 struct CV_EXPORTS_W_SIMPLE RawInfo {
-    CV_PROP_RW bool eos;            ///< End-of-stream flag, below information valid only if false
-    CV_PROP_RW int  fourcc;         ///< Output format as FOURCC code
-    CV_PROP_RW int  bitsPerLuma;    ///< Bit depth of the output data, 8, 10, or 12 bits per channel
-    CV_PROP_RW int  bitsPerChroma;  ///< Bit depth of the output data, 8, 10, or 12 bits per channel
-    CV_PROP_RW int  stride;         ///< Stride of the output frame in bytes
+    CV_PROP_RW bool eos;            ///< End-of-stream flag, below information valid only if false.
+    CV_PROP_RW int  fourcc;         ///< Output format as FOURCC code.
+    CV_PROP_RW int  bitsPerLuma;    ///< Bit depth of the output data, 8, 10, or 12 bits per channel.
+    CV_PROP_RW int  bitsPerChroma;  ///< Bit depth of the output data, 8, 10, or 12 bits per channel.
+    CV_PROP_RW int  stride;         ///< Stride of the output frame in bytes.
     CV_PROP_RW int  strideChroma;   ///< Stride of Chroma buffer of the output frame in bytes.
-    CV_PROP_RW int  width;          ///< Width of the raw frame
-    CV_PROP_RW int  height;         ///< Height of the raw frame
-    CV_PROP_RW int  posX;           ///< Position x offset
-    CV_PROP_RW int  posY;           ///< Position y offset
-    CV_PROP_RW int  cropTop;        ///< Crop top offset
-    CV_PROP_RW int  cropBottom;     ///< Crop bottom offset
-    CV_PROP_RW int  cropLeft;       ///< Crop left offset
-    CV_PROP_RW int  cropRight;      ///< Crop right offset
+    CV_PROP_RW int  width;          ///< Width of the raw frame.
+    CV_PROP_RW int  height;         ///< Height of the raw frame.
+    CV_PROP_RW int  posX;           ///< Position x offset.
+    CV_PROP_RW int  posY;           ///< Position y offset.
+    CV_PROP_RW int  cropTop;        ///< Crop top offset.
+    CV_PROP_RW int  cropBottom;     ///< Crop bottom offset.
+    CV_PROP_RW int  cropLeft;       ///< Crop left offset.
+    CV_PROP_RW int  cropRight;      ///< Crop right offset.
 
-    CV_PROP_RW PicStruct picStruct; ///< Picture structure (frame, top/bottom field, ...)
+    CV_PROP_RW PicStruct picStruct; ///< Picture structure (frame, top/bottom field, ...).
 
 };
 
-/// Struct DecoderInitParams contains initialization parameters for the decoder.
+/// Struct \ref DecoderInitParams contains initialization parameters for the decoder.
 struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 {
-    CV_PROP_RW Codec codec;       ///< Codec type (AVC, HEVC, JPEG)
-    CV_PROP_RW int fourcc;        ///< Format of the output raw data as FOURCC code,
-                                  ///< Default is VCU_FOURCC_AUTO (determined automatically)
-    CV_PROP_RW int fourccConvert; ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none)
-    CV_PROP_RW int maxFrames;     ///< Maximum number of frames to decode, 0 for unlimited
-    CV_PROP_RW BitDepth bitDepth; ///< Specify output bit depth (first, alloc, stream, 8, 10, 12)
+    CV_PROP_RW Codec codec;       ///< Codec type (AVC, HEVC, JPEG).
+    CV_PROP_RW int fourcc;        ///< Format of the output raw data as FOURCC code.
+                                  ///< Default is VCU_FOURCC_AUTO (determined automatically).
+    CV_PROP_RW int fourccConvert; ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none).
+    CV_PROP_RW int maxFrames;     ///< Maximum number of frames to decode, 0 for unlimited.
+    CV_PROP_RW BitDepth bitDepth; ///< Specify output bit depth (first, alloc, stream, 8, 10, 12).
     CV_PROP_RW int extraFrames;   ///< Number of extra frame buffers to allocate for processing,
                                   ///< including the ones held at display side.
 
@@ -75,13 +75,14 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
         int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC);
 };
 
+/// Class \ref FrameToken is a token to manage frame reference lifetime.
 class CV_EXPORTS_W FrameToken
 {
 public:
     virtual ~FrameToken() {};
 };
 
-/// @brief Class Decoder is the interface for decoding video streams.
+/// Class \ref Decoder is the interface for decoding video streams.
 /// This interface provides methods to decode video frames from a stream.
 /// See: @ref dec_python_ex
 class CV_EXPORTS_W Decoder
@@ -90,20 +91,20 @@ public:
     /// Virtual destructor for the Decoder interface.
     virtual ~Decoder() {}
 
-    /// Decode the next frame from the stream, return a cop6 as a single plane.
+    /// Decode the next frame from the stream, return a copy as a single plane.
     /// @return true if a frame was successfully decoded, false if no frames are available (yet)
-    //          or if an error occurred.
+    ///         or if an error occurred.
     CV_WRAP virtual bool nextFrame(
-        CV_OUT OutputArray frame, ///< Output array to store the decoded frame
-        CV_OUT RawInfo& frameInfo ///< Output parameter with information about the decoded frame
+        CV_OUT OutputArray frame, ///< Output array to store the decoded frame.
+        CV_OUT RawInfo& frameInfo ///< Output parameter with information about the decoded frame.
     ) = 0;
 
     /// Decode the next frame from the stream into separate planes, copies are made of each frame.
     /// @return true if a frame was successfully decoded, false if no frames are available (yet)
-    //          or if an error occurred.
+    ///         or if an error occurred.
     CV_WRAP virtual bool nextFramePlanes(
-        CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame
-        CV_OUT RawInfo& frameInfo   ///< Output parameter with information about the decoded frame
+        CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame.
+        CV_OUT RawInfo& frameInfo   ///< Output parameter with information about the decoded frame.
     ) = 0;
 
 
@@ -111,32 +112,32 @@ public:
     /// As long as the client holds on to returned frameToken, the frame is not released and
     /// put back on the decoder queue. Holding on to frames too long may block the decoding process.
     /// @return true if a frame was successfully decoded, false if no frames are available (yet)
-    //          or if an error occurred.
+    ///         or if an error occurred.
     CV_WRAP virtual bool nextFramePlanesRef(
-        CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame
-        CV_OUT RawInfo& frameInfo,  ///< Output parameter with information about the decoded frame
-        CV_OUT Ptr<FrameToken>& frameToken ///< Output token to manage frame reference
+        CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame.
+        CV_OUT RawInfo& frameInfo,  ///< Output parameter with information about the decoded frame.
+        CV_OUT Ptr<FrameToken>& frameToken ///< Output token to manage frame reference.
     ) = 0;
 
 
     /// Set a property for the decoder.
-    /// @return true if the property was set successfully, false otherwise
+    /// @return true if the property was set successfully, false otherwise.
     /// Properties that user can set:
     /// - None
     CV_WRAP virtual bool set(
-        int propId,  ///< Property identifier
-        double value ///< Value to set for the property
+        int propId,  ///< Property identifier.
+        double value ///< Value to set for the property.
     ) = 0;
 
     /// Get the value of a property.
     /// Provided properties:
-    /// - CAP_PROP_FOURCC: The codec type (H264, HEVC, MJPG)
-    /// - CAP_PROP_CODEC_PIXEL_FORMAT: The pixel format of the decoded frames (NV12, ...)
-    /// - CAP_PROP_FRAME_WIDTH: Width of the decoded frames
-    /// - CAP_PROP_FRAME_HEIGHT: Height of the decoded frames
-    /// - CAP_PROP_POS_FRAMES: Current frame position in the stream
+    /// - CAP_PROP_FOURCC: The codec type (H264, HEVC, MJPG).
+    /// - CAP_PROP_CODEC_PIXEL_FORMAT: The pixel format of the decoded frames (NV12, ...).
+    /// - CAP_PROP_FRAME_WIDTH: Width of the decoded frames.
+    /// - CAP_PROP_FRAME_HEIGHT: Height of the decoded frames.
+    /// - CAP_PROP_POS_FRAMES: Current frame position in the stream.
     CV_WRAP virtual double get(
-        int propId ///< Property identifier
+        int propId ///< Property identifier.
     ) const = 0;
 
     /// Get the information of the stream that was parsed (if any sofar).
@@ -149,14 +150,14 @@ public:
     static CV_WRAP String getFourCCs();
 };
 
-/// Structure PictureSettings
+/// Struct \ref PictureEncSettings contains picture encoding settings.
 struct CV_EXPORTS_W_SIMPLE PictureEncSettings
 {
-    CV_PROP_RW Codec codec;     ///< Codec of the picture (HEVC, AVC, JPEG)
-    CV_PROP_RW int   fourcc;    ///< FourCC code of the picture
-    CV_PROP_RW int   width;     ///< Width of the picture
-    CV_PROP_RW int   height;    ///< Height of the picture
-    CV_PROP_RW int   framerate; ///< Framerate of the picture
+    CV_PROP_RW Codec codec;     ///< Codec of the picture (HEVC, AVC, JPEG).
+    CV_PROP_RW int   fourcc;    ///< FourCC code of the picture.
+    CV_PROP_RW int   width;     ///< Width of the picture.
+    CV_PROP_RW int   height;    ///< Height of the picture.
+    CV_PROP_RW int   framerate; ///< Framerate of the picture.
 
     CV_WRAP PictureEncSettings(Codec codec = Codec::HEVC,
         int fourcc = VideoWriter::fourcc('N', 'V', '1', '2'),
@@ -164,24 +165,24 @@ struct CV_EXPORTS_W_SIMPLE PictureEncSettings
     );
 };
 
-/// Struct RCSettings provides Rate Control Settings.
+/// Struct \ref RCSettings provides Rate Control Settings.
 struct CV_EXPORTS_W_SIMPLE RCSettings
 {
-    CV_PROP_RW RCMode  mode;          ///< Rate control mode (default VBR)
-    CV_PROP_RW Entropy entropy;       ///< Entropy coding mode (CAVLC or CABAC)
-    CV_PROP_RW int  bitrate;          ///< Target bitrate in kbits per second
-    CV_PROP_RW int  maxBitrate;       ///< Maximum bitrate in kbits per second
+    CV_PROP_RW RCMode  mode;          ///< Rate control mode (default VBR).
+    CV_PROP_RW Entropy entropy;       ///< Entropy coding mode (CAVLC or CABAC).
+    CV_PROP_RW int  bitrate;          ///< Target bitrate in kbits per second.
+    CV_PROP_RW int  maxBitrate;       ///< Maximum bitrate in kbits per second.
     CV_PROP_RW int  cpbSize;          ///< Coded Picture Buffer (CPB) size in milliseconds.
                                       ///< Cannot be smaller than initial-delay. Default: 3000.
     CV_PROP_RW int  initialDelay;     ///< Initial delay in milliseconds. Default: 1500.
-    CV_PROP_RW bool fillerData;       ///< Add filler data in CBR mode. Default: true;
+    CV_PROP_RW bool fillerData;       ///< Add filler data in CBR mode. Default: true.
     CV_PROP_RW int  maxQualityTarget; ///< 0-20. Maximum quality target for CAPPED_VBR. Default: 14.
     CV_PROP_RW int  maxPictureSizeI;  ///< Maximum picture size in kBytes. Default: 0 (unlimited).
-    CV_PROP_RW int  maxPictureSizeP;  ///< for CBR/VBR, for I, P, B
-    CV_PROP_RW int  maxPictureSizeB;  ///< max = (bitrate/framerate) * allowed peak margin
+    CV_PROP_RW int  maxPictureSizeP;  ///< Maximum P-frame picture size for CBR/VBR.
+    CV_PROP_RW int  maxPictureSizeB;  ///< Maximum B-frame picture size, max = (bitrate/framerate) * allowed peak margin.
     CV_PROP_RW bool skipFrame;        ///< Skip a frame when the CPB buffer size is exceeded and
-                                      ///< replace with skip MBs (or CTBs). Default: false
-    CV_PROP_RW int  maxSkip;          ///< Maximum number of skips in a row. Default: unlimited
+                                      ///< replace with skip MBs (or CTBs). Default: false.
+    CV_PROP_RW int  maxSkip;          ///< Maximum number of skips in a row. Default: unlimited.
 
     CV_WRAP RCSettings(RCMode mode = RCMode::VBR, Entropy entropy = Entropy::CABAC,
         int bitrate = 4000, int maxBitrate = 4000, int cpbSize = 3000, int initialDelay = 1500,
@@ -189,40 +190,40 @@ struct CV_EXPORTS_W_SIMPLE RCSettings
         int maxPictureSizeP = 0, int maxPictureSizeB = 0, bool skipFrame = false,  int maxSkip = -1);
 };
 
-/// Struct GOPSettings specifies the structure of the Group Of Pictures (GOP).
+/// Struct \ref GOPSettings specifies the structure of the Group Of Pictures (GOP).
 struct CV_EXPORTS_W_SIMPLE GOPSettings
 {
     CV_PROP_RW GOPMode mode;      ///< Group of pictures mode.
-    CV_PROP_RW GDRMode gdrMode;   ///< Gradual Decoder Refresh scheme used for low delay gop-mode
+    CV_PROP_RW GDRMode gdrMode;   ///< Gradual Decoder Refresh scheme used for low delay gop-mode.
     CV_PROP_RW int  gopLength;    ///< Distance between two consecutive I-frames.
-                                  ///< Default: 30. Range 0-1000. (0,1 is intra-only)
+                                  ///< Default: 30. Range 0-1000. (0,1 is intra-only).
     CV_PROP_RW int  nrBFrames;    ///< Number of B-frames between two consecutive P-frames. For
                                   ///< basic and pyramidal modes. 0-4 for basic GOP mode.
                                   ///< 3,5, or 7 for pyramidal GOP mode. Default: 0.
     CV_PROP_RW bool longTermRef;  ///< Specify that a long-term reference can be dynamically
-                                  ///< inserted. Default: false
+                                  ///< inserted. Default: false.
     CV_PROP_RW int  longTermFreq; ///< Specify the periodicity in frames; the distance between two
                                   ///< consecutive long-term reference pictures. Default: 0.
     CV_PROP_RW int  periodIDR;    ///< The number of frames between consecutive Instantaneous
                                   ///< Decoder Refresh (IDR) pictures. This might be rounded to a
                                   ///< multiple of the GOP length.
-                                  ///< -1 disables, 0 (default) first frame is IDR
+                                  ///< -1 disables, 0 (default) first frame is IDR.
     CV_WRAP GOPSettings(GOPMode mode = GOPMode::BASIC, GDRMode gdrMode = GDRMode::DISABLE,
         int gopLength = 30, int nrBFrames = 0, bool longTermRef = false,
         int longTermFreq = 0, int periodIDR = 0);
 };
 
-/// @brief Struct ProfileSettings specifies the encoder profile, level and tier.
+/// Struct \ref ProfileSettings specifies the encoder profile, level and tier.
 struct CV_EXPORTS_W_SIMPLE ProfileSettings
 {
     CV_PROP_RW String profile; ///< Encoder profile (e.g., "main", "high"). Empty = auto-detect from FourCC.
     CV_PROP_RW String level;   ///< Encoder level (e.g., "4.1", "5.0"). Empty = library default.
-    CV_PROP_RW Tier   tier;    ///< Encoder tier (e.g., Tier::MAIN, Tier::HIGH)
+    CV_PROP_RW Tier   tier;    ///< Encoder tier (e.g., Tier::MAIN, Tier::HIGH).
 
     CV_WRAP ProfileSettings(String profile = "", String level = "", Tier tier = Tier::MAIN);
 };
 
-/// @brief Struct SliceSettings specifies slice configuration for the encoder.
+/// Struct \ref SliceSettings specifies slice configuration for the encoder.
 struct CV_EXPORTS_W_SIMPLE SliceSettings
 {
     CV_PROP_RW int  numSlices;        ///< Number of slices per frame. Default: 1.
@@ -235,29 +236,30 @@ struct CV_EXPORTS_W_SIMPLE SliceSettings
     CV_WRAP SliceSettings(int numSlices = 1, bool dependentSlice = false, bool subframeLatency = false);
 };
 
+/// Struct \ref GlobalMotionVector specifies a global motion vector for a frame.
 struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
 {
-    CV_PROP_RW int frameIndex;   ///< Frame index
-    CV_PROP_RW int gmVectorX;    ///< Global motion vector in X direction
-    CV_PROP_RW int gmVectorY;    ///< Global motion vector in Y direction
+    CV_PROP_RW int frameIndex;   ///< Frame index.
+    CV_PROP_RW int gmVectorX;    ///< Global motion vector in X direction.
+    CV_PROP_RW int gmVectorY;    ///< Global motion vector in Y direction.
 
     CV_WRAP GlobalMotionVector(int frameIndex = -1, int gmVectorX = 0, int gmVectorY = 0);
 };
 
-/// Struct EncoderInitParams contains encoder parameters and statistics
+/// Struct \ref EncoderInitParams contains encoder initialization parameters.
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams
 {
-    CV_PROP_RW PictureEncSettings pictureEncSettings;
-    CV_PROP_RW RCSettings         rcSettings;
-    CV_PROP_RW GOPSettings        gopSettings;
-    CV_PROP_RW ProfileSettings    profileSettings;
-    CV_PROP_RW SliceSettings      sliceSettings;
-    CV_PROP_RW GlobalMotionVector globalMotionVector;
+    CV_PROP_RW PictureEncSettings pictureEncSettings; ///< Picture encoding settings.
+    CV_PROP_RW RCSettings         rcSettings;         ///< Rate control settings.
+    CV_PROP_RW GOPSettings        gopSettings;        ///< Group of pictures settings.
+    CV_PROP_RW ProfileSettings    profileSettings;    ///< Profile, level and tier settings.
+    CV_PROP_RW SliceSettings      sliceSettings;      ///< Slice configuration settings.
+    CV_PROP_RW GlobalMotionVector globalMotionVector; ///< Global motion vector settings.
 
     CV_WRAP EncoderInitParams() = default;
 };
 
-/// @brief Class EncoderCallback reports encoder progress (not supported in Python).
+/// Class \ref EncoderCallback reports encoder progress (not supported in Python).
 class CV_EXPORTS_W EncoderCallback
 {
 public:
@@ -266,7 +268,7 @@ public:
     virtual void onFinished() = 0;
 };
 
-/// @brief Class Encoder is the interface for encoding video frames to a stream.
+/// Class \ref Encoder is the interface for encoding video frames to a stream.
 /// This interface provides methods to encode video frames and manage encoding parameters.
 class CV_EXPORTS_W Encoder
 {
@@ -277,18 +279,18 @@ public:
     /// Encode a video frame; either write() or writeFile() can be used, not both.
     CV_WRAP virtual void write(InputArray frame) = 0;
 
-    // Get frames from RAW YUV input file and encode them; when numFrames=0, encode until EOF
-    // Either write() or writeFile() can be used, not both.
+    /// Get frames from RAW YUV input file and encode them; when numFrames=0, encode until EOF.
+    /// Either write() or writeFile() can be used, not both.
     CV_WRAP virtual void writeFile(
-        const String& filename, ///< Input RAW YUV file name
-        int startFrame = 0,     ///< Start frame index in the input file
-        int numFrames = 0,      ///< Number of frames to encode, 0 for all frames until EOF
+        const String& filename, ///< Input RAW YUV file name.
+        int startFrame = 0,     ///< Start frame index in the input file.
+        int numFrames = 0,      ///< Number of frames to encode, 0 for all frames until EOF.
         Ptr<PictureEncSettings> picSettings = nullptr ///< Optional per-file picture settings
-                                                      ///< (resolution must be <= initial)
+                                                      ///< (resolution must be <= initial).
     ) = 0;
 
     /// Signal the end of the stream to the encoder and wait until final frame is encoded.
-    /// @return true if encoding completed successfully, false if timeout or error occurred
+    /// @return true if encoding completed successfully, false if timeout or error occurred.
     CV_WRAP virtual bool eos() = 0;
 
 
@@ -299,15 +301,15 @@ public:
     CV_WRAP virtual String statistics() const = 0;
 
     /// Set a property for the encoder.
-    /// @return true if the property was set successfully, false otherwise
+    /// @return true if the property was set successfully, false otherwise.
     CV_WRAP virtual bool set(
-        int propId,  ///< Property identifier
-        double value ///< Value to set for the property
+        int propId,  ///< Property identifier.
+        double value ///< Value to set for the property.
     ) = 0;
 
     /// Get the value of a property.
     CV_WRAP virtual double get(
-        int propId ///< Property identifier
+        int propId ///< Property identifier.
     ) const = 0;
 
 
@@ -453,15 +455,15 @@ public:
 
 /// Factory function to create a decoder instance.
 CV_EXPORTS_W Ptr<Decoder> createDecoder(
-    const String& filename,         ///< Input video file name or stream URL
-    const DecoderInitParams& params ///< Decoder initialization parameters
+    const String& filename,         ///< Input video file name or stream URL.
+    const DecoderInitParams& params ///< Decoder initialization parameters.
 );
 
-/// Factory function to create a decoder instance.
+/// Factory function to create an encoder instance.
 CV_EXPORTS_W Ptr<Encoder> createEncoder(
-    const String& filename,           ///< Output video file name or stream URL
-    const EncoderInitParams& params,  ///< %Encoder initialization parameters
-    Ptr<EncoderCallback> callback = 0 ///< Callback (not supported for Python API)
+    const String& filename,           ///< Output video file name or stream URL.
+    const EncoderInitParams& params,  ///< Encoder initialization parameters.
+    Ptr<EncoderCallback> callback = 0 ///< Callback (not supported for Python API).
 );
 
 //! @}

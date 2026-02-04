@@ -1,5 +1,5 @@
 
-Copyright © 2025  Advanced Micro Devices, Inc. (AMD)
+**Copyright © 2025-2026  Advanced Micro Devices, Inc. (AMD)**
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,24 +27,37 @@ enabling high-performance video encoding and decoding in OpenCV applications.
 ## Supported Platforms
 
 - **VCU2** - Second generation Video Codec Unit (Versal Gen 2)
-- **VDU** - Video Decode Unit (Versal)
 - **VCU** - Original Video Codec Unit (Zynq UltraScale+)
 
+support for VDU will be added in future:
+- **VDU** - Video Decode Unit (Versal)
+
 ## Repository Structure
+The API for the `vcucodec` module is `vcucodec.hpp`, which includes `vcutypes.hpp`.
 
 ```
-modules/
-└── vcucodec/                   # Main VCU/VDU codec module
-    ├── CMakeLists.txt          # Build configuration
-    ├── include/                # Public headers
-    │   └── opencv2/
-    │       └── vcucodec.hpp    # Main module header
-    └── src/                    # Implementation
-        ├── vcudecoder.cpp      # Video decoder implementation
-        ├── vcuencoder.cpp      # Video encoder implementation
-        └── private/            # Internal headers and utilities
-            ├── vcuutils.hpp    # VCU utility functions
-            └── vcuutils.cpp    # VCU utility implementation
+modules
+└── vcucodec
+    ├── cmake
+    │   └── hooks
+    │       └── INIT_MODULE_SOURCES_opencv_vcucodec.cmake
+    ├── CMakeLists.txt
+    ├── doc
+    │   ├── decoder_python_examples.dox
+    │   └── versal_zynq.md
+    ├── include
+    │   └── opencv2
+    │       ├── vcucodec.hpp
+    │       └── vcutypes.hpp
+    └── src
+        ├── private
+        │   ├── ...
+        ├── vcucodec.cpp
+        ├── vcudec.cpp
+        ├── vcudec.hpp
+        ├── vcuenc.cpp
+        ├── vcuenc.hpp
+        └── vcutypes.cpp
 ```
 
 ## Module: vcucodec
@@ -54,7 +67,7 @@ APIs.
 
 ### Platform-Specific Support
 
-The module uses conditional compilation to support different Xilinx video platforms:
+The module uses conditional compilation to support different AMD/Xilinx video platforms:
 
 ```cpp
 #ifdef HAVE_VCU2_CTRLSW
@@ -97,5 +110,5 @@ The module is automatically included when:
 
 - **Public API**: `include/opencv2/vcucodec.hpp` - Main module interface
 - **Implementation**: `src/*.cpp` - Core encoding/decoding logic
-- **Platform abstraction**: `src/private/vcuutils.*` - VCU-specific utilities
+- **Platform abstraction**: `src/private/*` - VCU-specific code
 - **Build configuration**: `CMakeLists.txt` - Module build settings
