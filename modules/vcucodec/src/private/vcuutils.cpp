@@ -257,6 +257,191 @@ template <> void convert(HDRSEIs& to, const AL_THDRSEIs& from)
         convert(to.st2094_40, from.tST2094_40);
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Reverse conversions: OpenCV -> Allegro (for encoder)
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <> void convert(AL_TChromaCoordinates& to, const ChromaCoordinates& from)
+{
+    to.x = static_cast<uint16_t>(from.x);
+    to.y = static_cast<uint16_t>(from.y);
+}
+
+template <> void convert(AL_TMasteringDisplayColourVolume& to, const MasteringDisplayColourVolume& from)
+{
+    for (size_t i = 0; i < 3 && i < from.display_primaries.size(); i++)
+    {
+        convert(to.display_primaries[i], from.display_primaries[i]);
+    }
+    convert(to.white_point, from.white_point);
+    to.max_display_mastering_luminance = static_cast<uint32_t>(from.max_display_mastering_luminance);
+    to.min_display_mastering_luminance = static_cast<uint32_t>(from.min_display_mastering_luminance);
+}
+
+template <> void convert(AL_TContentLightLevel& to, const ContentLightLevel& from)
+{
+    to.max_content_light_level = static_cast<uint16_t>(from.max_content_light_level);
+    to.max_pic_average_light_level = static_cast<uint16_t>(from.max_pic_average_light_level);
+}
+
+template <> void convert(AL_TAlternativeTransferCharacteristics& to, const AlternativeTransferCharacteristics& from)
+{
+    to.preferred_transfer_characteristics = static_cast<AL_ETransferCharacteristics>(from.preferred_transfer_characteristics);
+}
+
+template <> void convert(AL_TProcessingWindow_ST2094_10& to, const ProcessingWindow_ST2094_10& from)
+{
+    to.active_area_left_offset = static_cast<uint16_t>(from.active_area_left_offset);
+    to.active_area_right_offset = static_cast<uint16_t>(from.active_area_right_offset);
+    to.active_area_top_offset = static_cast<uint16_t>(from.active_area_top_offset);
+    to.active_area_bottom_offset = static_cast<uint16_t>(from.active_area_bottom_offset);
+}
+
+template <> void convert(AL_TImageCharacteristics_ST2094_10& to, const ImageCharacteristics_ST2094_10& from)
+{
+    to.min_pq = static_cast<uint16_t>(from.min_pq);
+    to.max_pq = static_cast<uint16_t>(from.max_pq);
+    to.avg_pq = static_cast<uint16_t>(from.avg_pq);
+}
+
+template <> void convert(AL_TManualAdjustment_ST2094_10& to, const ManualAdjustment_ST2094_10& from)
+{
+    to.target_max_pq = static_cast<uint16_t>(from.target_max_pq);
+    to.trim_slope = static_cast<uint16_t>(from.trim_slope);
+    to.trim_offset = static_cast<uint16_t>(from.trim_offset);
+    to.trim_power = static_cast<uint16_t>(from.trim_power);
+    to.trim_chroma_weight = static_cast<uint16_t>(from.trim_chroma_weight);
+    to.trim_saturation_gain = static_cast<uint16_t>(from.trim_saturation_gain);
+    to.ms_weight = static_cast<int16_t>(from.ms_weight);
+}
+
+template <> void convert(AL_TDynamicMeta_ST2094_10& to, const DynamicMeta_ST2094_10& from)
+{
+    to.application_version = static_cast<uint8_t>(from.application_version);
+    to.processing_window_flag = from.processing_window_flag;
+    if (from.processing_window_flag)
+        convert(to.processing_window, from.processing_window);
+
+    convert(to.image_characteristics, from.image_characteristics);
+    to.num_manual_adjustments = static_cast<uint8_t>(std::min(from.manual_adjustments.size(),
+                                                     static_cast<size_t>(AL_MAX_MANUAL_ADJUSTMENT_ST2094_10)));
+    for (int i = 0; i < to.num_manual_adjustments; i++)
+    {
+        convert(to.manual_adjustments[i], from.manual_adjustments[i]);
+    }
+}
+
+template <> void convert(AL_TProcessingWindow_ST2094_1& to, const ProcessingWindow_ST2094_1& from)
+{
+    to.upper_left_corner_x = static_cast<uint16_t>(from.upper_left_corner_x);
+    to.upper_left_corner_y = static_cast<uint16_t>(from.upper_left_corner_y);
+    to.lower_right_corner_x = static_cast<uint16_t>(from.lower_right_corner_x);
+    to.lower_right_corner_y = static_cast<uint16_t>(from.lower_right_corner_y);
+}
+
+template <> void convert(AL_TProcessingWindow_ST2094_40& to, const ProcessingWindow_ST2094_40& from)
+{
+    convert(to.base_processing_window, from.base_processing_window);
+    to.center_of_ellipse_x = static_cast<uint16_t>(from.center_of_ellipse_x);
+    to.center_of_ellipse_y = static_cast<uint16_t>(from.center_of_ellipse_y);
+    to.rotation_angle = static_cast<uint8_t>(from.rotation_angle);
+    to.semimajor_axis_internal_ellipse = static_cast<uint16_t>(from.semimajor_axis_internal_ellipse);
+    to.semimajor_axis_external_ellipse = static_cast<uint16_t>(from.semimajor_axis_external_ellipse);
+    to.semiminor_axis_external_ellipse = static_cast<uint16_t>(from.semiminor_axis_external_ellipse);
+    to.overlap_process_option = static_cast<uint8_t>(from.overlap_process_option);
+}
+
+template <> void convert(AL_TDisplayPeakLuminance_ST2094_40& to,
+                        const DisplayPeakLuminance_ST2094_40& from)
+{
+    to.actual_peak_luminance_flag = from.actual_peak_luminance_flag;
+    to.num_rows_actual_peak_luminance = static_cast<uint8_t>(from.num_rows_actual_peak_luminance);
+    to.num_cols_actual_peak_luminance = static_cast<uint8_t>(from.num_cols_actual_peak_luminance);
+    for (int i = 0; i < to.num_rows_actual_peak_luminance && i < AL_MAX_ROW_ACTUAL_PEAK_LUMINANCE_ST2094_40; i++)
+    {
+        for (int j = 0; j < to.num_cols_actual_peak_luminance && j < AL_MAX_COL_ACTUAL_PEAK_LUMINANCE_ST2094_40; j++)
+        {
+            to.actual_peak_luminance[i][j] = static_cast<uint8_t>(from.actual_peak_luminance[i][j]);
+        }
+    }
+}
+
+template <> void convert(AL_TTargetedSystemDisplay_ST2094_40& to,
+                         const TargetedSystemDisplay_ST2094_40& from)
+{
+    to.maximum_luminance = from.maximum_luminance;
+    convert(to.peak_luminance, from.peak_luminance);
+}
+
+template <> void convert(AL_TToneMapping_ST2094_40& to, const ToneMapping_ST2094_40& from)
+{
+    to.tone_mapping_flag = from.tone_mapping_flag;
+    if (from.tone_mapping_flag)
+    {
+        to.knee_point_x = static_cast<uint16_t>(from.knee_point_x);
+        to.knee_point_y = static_cast<uint16_t>(from.knee_point_y);
+        to.num_bezier_curve_anchors = static_cast<uint8_t>(std::min(from.bezier_curve_anchors.size(),
+                                                          static_cast<size_t>(AL_MAX_BEZIER_CURVE_ANCHORS_ST2094_40)));
+        for (int i = 0; i < to.num_bezier_curve_anchors; i++)
+        {
+            to.bezier_curve_anchors[i] = static_cast<uint16_t>(from.bezier_curve_anchors[i]);
+        }
+    }
+}
+
+template <> void convert(AL_TProcessingWindowTransform_ST2094_40& to,
+                         const ProcessingWindowTransform_ST2094_40& from)
+{
+    for (size_t i = 0; i < 3 && i < from.maxscl.size(); i++)
+    {
+        to.maxscl[i] = static_cast<uint32_t>(from.maxscl[i]);
+    }
+    to.average_maxrgb = static_cast<uint32_t>(from.average_maxrgb);
+    to.num_distribution_maxrgb_percentiles = static_cast<uint8_t>(std::min(from.distribution_maxrgb_percentages.size(),
+                                                                  static_cast<size_t>(AL_MAX_MAXRGB_PERCENTILES_ST2094_40)));
+    for (int i = 0; i < to.num_distribution_maxrgb_percentiles; i++)
+    {
+        to.distribution_maxrgb_percentages[i] = static_cast<uint8_t>(from.distribution_maxrgb_percentages[i]);
+        to.distribution_maxrgb_percentiles[i] = static_cast<uint32_t>(from.distribution_maxrgb_percentiles[i]);
+    }
+}
+
+template <> void convert(AL_TDynamicMeta_ST2094_40& to, const DynamicMeta_ST2094_40& from)
+{
+    to.application_version = static_cast<uint8_t>(from.application_version);
+    to.num_windows = static_cast<uint8_t>(std::min(from.processing_windows.size(),
+                                          static_cast<size_t>(AL_MAX_WINDOW_ST2094_40)));
+    for (int i = 0; i < to.num_windows; i++)
+    {
+        convert(to.processing_windows[i], from.processing_windows[i]);
+    }
+    convert(to.targeted_system_display, from.targeted_system_display);
+    convert(to.mastering_display_peak_luminance, from.mastering_display_peak_luminance);
+    for (int i = 0; i < to.num_windows; i++)
+    {
+        convert(to.processing_window_transforms[i], from.processing_window_transforms[i]);
+    }
+}
+
+template <> void convert(AL_THDRSEIs& to, const HDRSEIs& from)
+{
+    to.bHasMDCV = from.hasMDCV;
+    to.bHasCLL = from.hasCLL;
+    to.bHasATC = from.hasATC;
+    to.bHasST2094_10 = from.hasST2094_10;
+    to.bHasST2094_40 = from.hasST2094_40;
+    if(from.hasMDCV)
+        convert(to.tMDCV, from.mdcv);
+    if(from.hasCLL)
+        convert(to.tCLL, from.cll);
+    if(from.hasATC)
+        convert(to.tATC, from.atc);
+    if(from.hasST2094_10)
+        convert(to.tST2094_10, from.st2094_10);
+    if(from.hasST2094_40)
+        convert(to.tST2094_40, from.st2094_40);
+}
+
 namespace { // anonymous
 
 struct _FormatInfo { int fourcc; bool decodeable; bool encodeable; AL_TPicFormat format; };

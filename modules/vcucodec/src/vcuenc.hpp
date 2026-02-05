@@ -70,6 +70,8 @@ public:
     virtual void set(const GlobalMotionVector& gmVector) override;
     virtual void get(GlobalMotionVector& gmVector) const override;
 
+    virtual int add(const HDRSEIs& hdrSeis) override;
+
     //
     // Dynamic commands
     //

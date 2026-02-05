@@ -639,6 +639,11 @@ void VCUEncoder::get(GlobalMotionVector& gmVector) const
     gmVector = currentSettings_.gmv_;
 }
 
+int VCUEncoder::add(const HDRSEIs& hdrSeis)
+{
+    return enc_->setHDRSEIs(hdrSeis);
+}
+
 void VCUEncoder::set(const ProfileSettings& profileSettings)
 {
     std::lock_guard lock(settingsMutex_);
@@ -1008,7 +1013,7 @@ bool VCUEncoder::validateSettings()
     valid = rc.maxQualityTarget >= 0 && rc.maxQualityTarget <= 20;
     if (!valid) CV_Error(Error::StsBadArg, "maxQualityTarget must be in the range [0, 20]");
     // Slice count limits: AVC supports 1-256, HEVC supports 1-128
-    uint16_t maxSlices = (pic.codec == Codec::AVC) ? 256 : 128;
+    int maxSlices = (pic.codec == Codec::AVC) ? 256 : 128;
     valid = slice.numSlices >= 1 && slice.numSlices <= maxSlices;
     if (!valid) CV_Error(Error::StsBadArg,
         "Number of slices must be in the range [1, " + std::to_string(maxSlices) + "] for "

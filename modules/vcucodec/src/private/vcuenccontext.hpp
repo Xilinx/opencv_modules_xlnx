@@ -59,6 +59,7 @@ public:
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() = 0;
     virtual bool waitForCompletion() = 0;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) = 0;
+    virtual int setHDRSEIs(const HDRSEIs& hdrSeis) = 0;
     virtual String statistics() const = 0;
     virtual AL_HEncoder hEnc() = 0;
 

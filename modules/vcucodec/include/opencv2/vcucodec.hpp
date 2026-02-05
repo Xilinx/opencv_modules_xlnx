@@ -84,7 +84,7 @@ public:
 
 /// Class \ref Decoder is the interface for decoding video streams.
 /// This interface provides methods to decode video frames from a stream.
-/// See: @ref dec_python_ex
+/// See: @ref dec_python_examples_anchor "Decoder Python Examples"
 class CV_EXPORTS_W Decoder
 {
 public:
@@ -270,6 +270,7 @@ public:
 
 /// Class \ref Encoder is the interface for encoding video frames to a stream.
 /// This interface provides methods to encode video frames and manage encoding parameters.
+/// See: @ref enc_python_examples_anchor "Encoder Python Examples"
 class CV_EXPORTS_W Encoder
 {
 public:
@@ -337,6 +338,9 @@ public:
     CV_WRAP virtual void set(const GlobalMotionVector& gmVector) = 0;
     /// Get global motion vector.
     CV_WRAP virtual void get(GlobalMotionVector& gmVector) const = 0;
+
+    /// Add HDR SEIs to the encoder. Returns an index that can be used with setHDRIndex().
+    CV_WRAP virtual int add(const HDRSEIs& hdrSeis) = 0;
 
     //
     // Dynamic commands

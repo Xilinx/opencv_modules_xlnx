@@ -1,0 +1,82 @@
+/**
+\page enc_python_ex Encoder Python Examples
+\ingroup vcucodec
+\anchor enc_python_examples_anchor
+
+More comprehensive examples can be found in the python folder of the `opencv_modules_xlnx` repository.
+
+#### Example encoding from RAW YUV file
+
+This example shows how to encode directly from a RAW YUV file using `writeFile()`.
+
+\code{.py}
+#! /usr/bin/env python3
+import cv2
+
+def FOURCC(str_fourcc):
+    str_fourcc = str_fourcc[:4].ljust(4)  # ensure exactly 4 characters (space padded)
+    return cv2.VideoWriter_fourcc(*str_fourcc)
+
+# Configure encoder parameters
+params = cv2.vcucodec.EncoderInitParams()
+params.pictureEncSettings.codec = cv2.vcucodec.CODEC_HEVC
+params.pictureEncSettings.fourcc = FOURCC("NV12")
+params.pictureEncSettings.width = 1280
+params.pictureEncSettings.height = 720
+params.pictureEncSettings.framerate = 30
+
+# Create encoder instance
+enc = cv2.vcucodec.createEncoder("./output.h265", params)
+print(enc.settings())
+
+# Encode from RAW YUV file
+enc.writeFile('./input.yuv', startFrame=0, numFrames=0)  # 0 = encode all frames
+
+enc.eos()
+print(enc.statistics())
+
+del enc
+\endcode
+
+#### Example transcoding (decode + encode)
+
+\code{.py}
+#! /usr/bin/env python3
+import cv2
+
+def FOURCC(str_fourcc):
+    str_fourcc = str_fourcc[:4].ljust(4)  # ensure exactly 4 characters (space padded)
+    return cv2.VideoWriter_fourcc(*str_fourcc)
+
+decoderInitParams = cv2.vcucodec.DecoderInitParams(
+    codec=cv2.vcucodec.CODEC_AVC,
+    fourcc=FOURCC("NV12"),
+    fourccConvert=0,
+    maxFrames=0,
+    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST)
+
+dec = cv2.vcucodec.createDecoder('./input.avc', decoderInitParams)
+params = cv2.vcucodec.EncoderInitParams()
+enc = cv2.vcucodec.createEncoder("./out.h265", params)
+print(enc.settings())
+
+frame_idx = 1;
+while True:
+    ret, frame, info = dec.nextFrame()
+    if not ret:
+        print(f"\ngot no frame: EOS: {info.eos}")
+        if info.eos:
+            break
+    else:
+        enc.write(frame)
+        print(f"\rEncoded frame {frame_idx}", end='')
+        frame_idx += 1
+
+enc.eos()
+print(enc.statistics())
+
+del dec
+del enc
+\endcode
+
+*/

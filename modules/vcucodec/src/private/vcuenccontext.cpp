@@ -196,8 +196,6 @@ struct EncoderSink
 
         m_pictureType = cfg.RunInfo.printPictureType ? AL_SLICE_MAX_ENUM : -1;
 
-        // TODO: AL_Encoder_SetHDRSEIs(hEnc, &tHDRSEIs);
-
         iPendingStreamCnt = 1;
     }
 
@@ -1128,6 +1126,7 @@ public:
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
     virtual bool waitForCompletion() override;
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) override;
+    virtual int setHDRSEIs(const HDRSEIs& hdrSeis) override;
     virtual String statistics() const override;
     virtual AL_HEncoder hEnc() override { return enc_->hEnc; }
 
@@ -1441,6 +1440,13 @@ void EncoderContext::notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gm
     (void)gmVectorX;
     (void)gmVectorY;
 #endif
+}
+
+int EncoderContext::setHDRSEIs(const HDRSEIs& hdrSeis)
+{
+    AL_THDRSEIs tHDRSEIs = {};
+    convert(tHDRSEIs, hdrSeis);
+    return AL_Encoder_SetHDRSEIs(enc_->hEnc, &tHDRSEIs);
 }
 
 String EncoderContext::statistics() const

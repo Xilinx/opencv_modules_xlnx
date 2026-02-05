@@ -64,6 +64,7 @@ template <typename T, typename F>
 void convert(T& to, const F& from);
 
 template <> void convert(HDRSEIs& to, const AL_THDRSEIs& from);
+template <> void convert(AL_THDRSEIs& to, const HDRSEIs& from);
 
 // Template specialization for AL_TPicFormat toString
 template<> String toString<AL_TPicFormat>(AL_TPicFormat const& format);
