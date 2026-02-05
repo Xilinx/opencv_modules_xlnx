@@ -40,7 +40,7 @@ namespace vcucodec {
 /// (for which also 'AUTO' or 'NULL' FOURCC codes can be passed).
 const int VCU_FOURCC_AUTO = 0;
 
-/// Enum class \ref Codec defines the codec types supported by the VCU codec module.
+/// Enum class Codec defines the codec types supported by the VCU codec module.
 enum class Codec
 {
     AVC  = 0,  ///< AVC/H.264 codec.
@@ -48,7 +48,7 @@ enum class Codec
     JPEG = 2   ///< JPEG only (VCU2 and decode only).
 };
 
-/// Enum class \ref PicStruct defines the picture structure of the frames or fields.
+/// Enum class PicStruct defines the picture structure of the frames or fields.
 enum class PicStruct
 {
     FRAME          =  0, ///< Frame picture structure.
@@ -66,7 +66,7 @@ enum class PicStruct
     BOT_NEXT_TOP   = 12, ///< Bottom field with next top field.
 };
 
-/// Enum class \ref BitDepth defines which bit depth to use for the frames.
+/// Enum class BitDepth defines which bit depth to use for the frames.
 /// Note that truncation of bit depth is not supported; for example, if the stream has 10, or 12
 /// bits per component, it will not truncate to 8. It will pad 8, or 10 to 12 bits per component
 /// when specified.
@@ -81,7 +81,7 @@ enum class BitDepth
     B12    = 12  ///< 12 bits per component.
 };
 
-/// Enum class \ref Tier defines the tier for encoding.
+/// Enum class Tier defines the tier for encoding.
 enum class Tier {
     MAIN = 0,  ///< Use Main Tier profile.
     HIGH = 1   ///< Use High Tier profile.
@@ -90,7 +90,7 @@ enum class Tier {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //  RATE CONTROL
 
-/// Enum class \ref RCMode defines the Rate Control Mode to use for encoding.
+/// Enum class RCMode defines the Rate Control Mode to use for encoding.
 enum class RCMode
 {
     CONST_QP    = 0, ///< Constant QP.
@@ -100,7 +100,7 @@ enum class RCMode
     CAPPED_VBR  = 4  ///< Capped variable bitrate.
 };
 
-/// Enum class \ref Entropy specifies which entropy coding to use, CAVLC or CABAC.
+/// Enum class Entropy specifies which entropy coding to use, CAVLC or CABAC.
 enum class Entropy
 {
     CAVLC, ///< Context-based Adaptive Variable Length Coding.
@@ -110,7 +110,7 @@ enum class Entropy
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //  GROUP OF PICTURES
 
-/// Enum class \ref GOPMode specifies the structure of the Group Of Pictures.
+/// Enum class GOPMode specifies the structure of the Group Of Pictures.
 enum class GOPMode
 {
     BASIC        = 2, ///< (default) IBBPBBP… or IPPPPP….
@@ -122,7 +122,7 @@ enum class GOPMode
     ADAPTIVE     = 16 ///< Use an adaptive number of consecutive B-frames.
 };
 
-/// Enum class \ref GDRMode specifies the decoder refresh scheme to use.
+/// Enum class GDRMode specifies the decoder refresh scheme to use.
 enum class GDRMode
 {
     DISABLE    = 0, ///< No Gradual %Decoder Refresh.

@@ -35,3 +35,6 @@
 # Python
 __pycache__/
 *.pyc
+
+# Build artifacts
+docs/doxygen.warn
