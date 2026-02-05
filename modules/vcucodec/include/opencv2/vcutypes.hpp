@@ -66,7 +66,8 @@ enum class PicStruct
     BOT_NEXT_TOP   = 12, ///< Bottom field with next top field.
 };
 
-/// Enum class BitDepth defines which bit depth to use for the frames.
+/// @brief Enum class BitDepth defines which bit depth to use for the frames.
+///
 /// Note that truncation of bit depth is not supported; for example, if the stream has 10, or 12
 /// bits per component, it will not truncate to 8. It will pad 8, or 10 to 12 bits per component
 /// when specified.
@@ -133,14 +134,14 @@ enum class GDRMode
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //  HDR SEI
 
-/// Struct \ref ChromaCoordinates holds CIE 1931 xy chromaticity coordinates.
+/// Struct ChromaCoordinates holds CIE 1931 xy chromaticity coordinates.
 struct CV_EXPORTS_W_SIMPLE ChromaCoordinates
 {
     CV_PROP_RW int x; ///< x chromaticity coordinate scaled by 50000.
     CV_PROP_RW int y; ///< y chromaticity coordinate scaled by 50000.
 };
 
-/// Struct \ref MasteringDisplayColourVolume contains the Mastering Display Colour Volume SEI information.
+/// Struct MasteringDisplayColourVolume contains the Mastering Display Colour Volume SEI information.
 struct CV_EXPORTS_W_SIMPLE MasteringDisplayColourVolume
 {
     CV_PROP_RW std::vector<ChromaCoordinates> display_primaries; ///< Display primaries as (x,y) for R, G, B.
@@ -149,21 +150,20 @@ struct CV_EXPORTS_W_SIMPLE MasteringDisplayColourVolume
     CV_PROP_RW int min_display_mastering_luminance;   ///< Min display mastering luminance in cd/m^2.
 };
 
-/// Struct \ref ContentLightLevel contains the Content Light Level SEI information.
+/// Struct ContentLightLevel contains the Content Light Level SEI information.
 struct CV_EXPORTS_W_SIMPLE ContentLightLevel
 {
     CV_PROP_RW int max_content_light_level;       ///< Max content light level in cd/m^2.
     CV_PROP_RW int max_pic_average_light_level;   ///< Max picture average light level in cd/m^2.
 };
 
-/// Struct \ref AlternativeTransferCharacteristics contains the Alternative Transfer Characteristics
-/// SEI information.
+/// Struct AlternativeTransferCharacteristics contains the Alternative Transfer Characteristics SEI information.
 struct CV_EXPORTS_W_SIMPLE AlternativeTransferCharacteristics
 {
     CV_PROP_RW int preferred_transfer_characteristics; ///< Preferred transfer characteristics.
 };
 
-/// Struct \ref ProcessingWindow_ST2094_10 defines the active area offsets for ST 2094-10 metadata.
+/// Struct ProcessingWindow_ST2094_10 defines the active area offsets for ST 2094-10 metadata.
 struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_10
 {
     CV_PROP_RW int active_area_left_offset;   ///< Left offset of the active area in pixels.
@@ -172,7 +172,7 @@ struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_10
     CV_PROP_RW int active_area_bottom_offset; ///< Bottom offset of the active area in pixels.
 };
 
-/// Struct \ref ImageCharacteristics_ST2094_10 contains PQ-encoded luminance characteristics.
+/// Struct ImageCharacteristics_ST2094_10 contains PQ-encoded luminance characteristics.
 struct CV_EXPORTS_W_SIMPLE ImageCharacteristics_ST2094_10
 {
     CV_PROP_RW int min_pq; ///< Minimum PQ-encoded luminance value.
@@ -180,7 +180,7 @@ struct CV_EXPORTS_W_SIMPLE ImageCharacteristics_ST2094_10
     CV_PROP_RW int avg_pq; ///< Average PQ-encoded luminance value.
 };
 
-/// Struct \ref ManualAdjustment_ST2094_10 contains trim parameters for display mapping.
+/// Struct ManualAdjustment_ST2094_10 contains trim parameters for display mapping.
 struct CV_EXPORTS_W_SIMPLE ManualAdjustment_ST2094_10
 {
     CV_PROP_RW int target_max_pq;        ///< Target maximum PQ value.
@@ -193,7 +193,7 @@ struct CV_EXPORTS_W_SIMPLE ManualAdjustment_ST2094_10
 };
 
 
-/// Struct \ref DynamicMeta_ST2094_10 contains the Dynamic Metadata ST 2094-10 SEI information.
+/// Struct DynamicMeta_ST2094_10 contains the Dynamic Metadata ST 2094-10 SEI information.
 struct CV_EXPORTS_W_SIMPLE DynamicMeta_ST2094_10
 {
     CV_PROP_RW int application_version;  ///< Application version, should be 0.
@@ -203,7 +203,7 @@ struct CV_EXPORTS_W_SIMPLE DynamicMeta_ST2094_10
     CV_PROP_RW std::vector<ManualAdjustment_ST2094_10> manual_adjustments; ///< Manual adjustment parameters per target display.
 };
 
-/// Struct \ref ProcessingWindow_ST2094_1 defines a rectangular processing window.
+/// Struct ProcessingWindow_ST2094_1 defines a rectangular processing window.
 struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_1
 {
     CV_PROP_RW int upper_left_corner_x;  ///< X coordinate of upper left corner.
@@ -212,7 +212,7 @@ struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_1
     CV_PROP_RW int lower_right_corner_y; ///< Y coordinate of lower right corner.
 };
 
-/// Struct \ref ProcessingWindow_ST2094_40 defines an elliptical processing window for ST 2094-40.
+/// Struct ProcessingWindow_ST2094_40 defines an elliptical processing window for ST 2094-40.
 struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_40
 {
     CV_PROP_RW ProcessingWindow_ST2094_1 base_processing_window; ///< Base rectangular window.
@@ -225,7 +225,7 @@ struct CV_EXPORTS_W_SIMPLE ProcessingWindow_ST2094_40
     CV_PROP_RW int overlap_process_option;          ///< Overlap processing option.
 };
 
-/// Struct \ref DisplayPeakLuminance_ST2094_40 contains peak luminance distribution data.
+/// Struct DisplayPeakLuminance_ST2094_40 contains peak luminance distribution data.
 struct CV_EXPORTS_W_SIMPLE DisplayPeakLuminance_ST2094_40
 {
     CV_PROP_RW bool actual_peak_luminance_flag;        ///< True if actual peak luminance data is present.
@@ -234,14 +234,14 @@ struct CV_EXPORTS_W_SIMPLE DisplayPeakLuminance_ST2094_40
     CV_PROP_RW std::vector<std::vector<int>> actual_peak_luminance; ///< 2D array of peak luminance values.
 };
 
-/// Struct \ref TargetedSystemDisplay_ST2094_40 describes the target display characteristics.
+/// Struct TargetedSystemDisplay_ST2094_40 describes the target display characteristics.
 struct CV_EXPORTS_W_SIMPLE TargetedSystemDisplay_ST2094_40
 {
     CV_PROP_RW uint32_t maximum_luminance;                ///< Maximum luminance of the target display in cd/m^2.
     CV_PROP_RW DisplayPeakLuminance_ST2094_40 peak_luminance; ///< Peak luminance distribution.
 };
 
-/// Struct \ref ToneMapping_ST2094_40 contains tone mapping curve parameters.
+/// Struct ToneMapping_ST2094_40 contains tone mapping curve parameters.
 struct CV_EXPORTS_W_SIMPLE ToneMapping_ST2094_40
 {
     CV_PROP_RW bool tone_mapping_flag;              ///< True if tone mapping data is present.
@@ -250,7 +250,7 @@ struct CV_EXPORTS_W_SIMPLE ToneMapping_ST2094_40
     CV_PROP_RW std::vector<int> bezier_curve_anchors; ///< Bezier curve anchor points.
 };
 
-/// Struct \ref ProcessingWindowTransform_ST2094_40 contains per-window HDR transform parameters.
+/// Struct ProcessingWindowTransform_ST2094_40 contains per-window HDR transform parameters.
 struct CV_EXPORTS_W_SIMPLE ProcessingWindowTransform_ST2094_40
 {
     CV_PROP_RW std::vector<int> maxscl;                        ///< Maximum content light level per color component.
@@ -264,7 +264,7 @@ struct CV_EXPORTS_W_SIMPLE ProcessingWindowTransform_ST2094_40
 };
 
 
-/// Struct \ref DynamicMeta_ST2094_40 contains the Dynamic Metadata ST 2094-40 SEI information.
+/// Struct DynamicMeta_ST2094_40 contains the Dynamic Metadata ST 2094-40 SEI information.
 struct CV_EXPORTS_W_SIMPLE DynamicMeta_ST2094_40
 {
     CV_PROP_RW int application_version; ///< Application version.
@@ -274,7 +274,7 @@ struct CV_EXPORTS_W_SIMPLE DynamicMeta_ST2094_40
     CV_PROP_RW std::vector<ProcessingWindowTransform_ST2094_40> processing_window_transforms; ///< Per-window transform parameters.
 };
 
-/// Struct \ref HDRSEIs contains the HDR SEI information to insert in the stream.
+/// Struct HDRSEIs contains the HDR SEI information to insert in the stream.
 struct CV_EXPORTS_W_SIMPLE HDRSEIs
 {
     CV_PROP_RW bool hasMDCV;           ///< True if mdcv contains valid data.

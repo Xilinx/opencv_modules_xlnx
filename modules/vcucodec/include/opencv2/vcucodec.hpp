@@ -27,7 +27,15 @@
            Zynq UltraScale+ MPSoC platforms
 
     This module provides support for encoding and decoding video streams using the VCU
-    (Video Codec Unit)
+    (Video Codec Unit). Support for decoding by VDU (Video Decode Unit) will be added in a future
+    release.
+
+    The VCU codec module includes the following main classes:
+    - cv::vcucodec::Decoder : Interface for decoding video streams.
+    - cv::vcucodec::Encoder : Interface for encoding video streams.
+
+    The doc/ folder contains .dox files describing decoder and encoder and are inlined in the
+    Decoder and Encoder class definitions when generating Doxygen documentation.
   @}
 **/
 
@@ -37,7 +45,7 @@ namespace vcucodec {
 //! @addtogroup vcucodec
 //! @{
 
-/// Struct \ref RawInfo defines a raw YUV frame containing metadata such as format, dimensions, and stride.
+/// Struct RawInfo defines a raw YUV frame containing metadata such as format, dimensions, and stride.
 struct CV_EXPORTS_W_SIMPLE RawInfo {
     CV_PROP_RW bool eos;            ///< End-of-stream flag, below information valid only if false.
     CV_PROP_RW int  fourcc;         ///< Output format as FOURCC code.
@@ -58,7 +66,7 @@ struct CV_EXPORTS_W_SIMPLE RawInfo {
 
 };
 
-/// Struct \ref DecoderInitParams contains initialization parameters for the decoder.
+/// Struct DecoderInitParams contains initialization parameters for the decoder.
 struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 {
     CV_PROP_RW Codec codec;       ///< Codec type (AVC, HEVC, JPEG).
@@ -75,14 +83,14 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
         int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC);
 };
 
-/// Class \ref FrameToken is a token to manage frame reference lifetime.
+/// Class FrameToken is a token to manage frame reference lifetime.
 class CV_EXPORTS_W FrameToken
 {
 public:
     virtual ~FrameToken() {};
 };
 
-/// Class \ref Decoder is the interface for decoding video streams.
+/// Class Decoder is the interface for decoding video streams.
 /// This interface provides methods to decode video frames from a stream.
 /// See: @ref dec_python_examples_anchor "Decoder Python Examples"
 class CV_EXPORTS_W Decoder
@@ -122,8 +130,6 @@ public:
 
     /// Set a property for the decoder.
     /// @return true if the property was set successfully, false otherwise.
-    /// Properties that user can set:
-    /// - None
     CV_WRAP virtual bool set(
         int propId,  ///< Property identifier.
         double value ///< Value to set for the property.
@@ -136,21 +142,25 @@ public:
     /// - CAP_PROP_FRAME_WIDTH: Width of the decoded frames.
     /// - CAP_PROP_FRAME_HEIGHT: Height of the decoded frames.
     /// - CAP_PROP_POS_FRAMES: Current frame position in the stream.
+    /// - CAP_PROP_FPS: Frame rate from stream (frames per second).
     CV_WRAP virtual double get(
         int propId ///< Property identifier.
     ) const = 0;
 
-    /// Get the information of the stream that was parsed (if any sofar).
+    /// Get the information of the stream that was parsed (if any so far).
+    /// Returns a multi-line string containing: resolution, FourCC, profile, level, bit depth,
+    /// crop offsets (if any), display resolution, sequence picture mode, and buffer count/size.
     CV_WRAP virtual String streamInfo() const = 0;
 
     /// Get the statistics of the stream that was decoded (if any).
+    /// Returns a string containing: decoding time, frame rate (fps), and concealed frame count.
     CV_WRAP virtual String statistics() const = 0;
 
     /// Get comma separated list of supported FOURCC codes for decoding.
     static CV_WRAP String getFourCCs();
 };
 
-/// Struct \ref PictureEncSettings contains picture encoding settings.
+/// Struct PictureEncSettings contains picture encoding settings.
 struct CV_EXPORTS_W_SIMPLE PictureEncSettings
 {
     CV_PROP_RW Codec codec;     ///< Codec of the picture (HEVC, AVC, JPEG).
@@ -165,7 +175,7 @@ struct CV_EXPORTS_W_SIMPLE PictureEncSettings
     );
 };
 
-/// Struct \ref RCSettings provides Rate Control Settings.
+/// Struct RCSettings provides Rate Control Settings.
 struct CV_EXPORTS_W_SIMPLE RCSettings
 {
     CV_PROP_RW RCMode  mode;          ///< Rate control mode (default VBR).
@@ -190,7 +200,7 @@ struct CV_EXPORTS_W_SIMPLE RCSettings
         int maxPictureSizeP = 0, int maxPictureSizeB = 0, bool skipFrame = false,  int maxSkip = -1);
 };
 
-/// Struct \ref GOPSettings specifies the structure of the Group Of Pictures (GOP).
+/// Struct GOPSettings specifies the structure of the Group Of Pictures (GOP).
 struct CV_EXPORTS_W_SIMPLE GOPSettings
 {
     CV_PROP_RW GOPMode mode;      ///< Group of pictures mode.
@@ -213,7 +223,7 @@ struct CV_EXPORTS_W_SIMPLE GOPSettings
         int longTermFreq = 0, int periodIDR = 0);
 };
 
-/// Struct \ref ProfileSettings specifies the encoder profile, level and tier.
+/// Struct ProfileSettings specifies the encoder profile, level and tier.
 struct CV_EXPORTS_W_SIMPLE ProfileSettings
 {
     CV_PROP_RW String profile; ///< Encoder profile (e.g., "main", "high"). Empty = auto-detect from FourCC.
@@ -223,7 +233,7 @@ struct CV_EXPORTS_W_SIMPLE ProfileSettings
     CV_WRAP ProfileSettings(String profile = "", String level = "", Tier tier = Tier::MAIN);
 };
 
-/// Struct \ref SliceSettings specifies slice configuration for the encoder.
+/// Struct SliceSettings specifies slice configuration for the encoder.
 struct CV_EXPORTS_W_SIMPLE SliceSettings
 {
     CV_PROP_RW int  numSlices;        ///< Number of slices per frame. Default: 1.
@@ -236,7 +246,7 @@ struct CV_EXPORTS_W_SIMPLE SliceSettings
     CV_WRAP SliceSettings(int numSlices = 1, bool dependentSlice = false, bool subframeLatency = false);
 };
 
-/// Struct \ref GlobalMotionVector specifies a global motion vector for a frame.
+/// Struct GlobalMotionVector specifies a global motion vector for a frame.
 struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
 {
     CV_PROP_RW int frameIndex;   ///< Frame index.
@@ -246,7 +256,7 @@ struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
     CV_WRAP GlobalMotionVector(int frameIndex = -1, int gmVectorX = 0, int gmVectorY = 0);
 };
 
-/// Struct \ref EncoderInitParams contains encoder initialization parameters.
+/// Struct EncoderInitParams contains encoder initialization parameters.
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams
 {
     CV_PROP_RW PictureEncSettings pictureEncSettings; ///< Picture encoding settings.
@@ -259,7 +269,7 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
     CV_WRAP EncoderInitParams() = default;
 };
 
-/// Class \ref EncoderCallback reports encoder progress (not supported in Python).
+/// Class EncoderCallback reports encoder progress (not supported in Python).
 class CV_EXPORTS_W EncoderCallback
 {
 public:
@@ -268,7 +278,7 @@ public:
     virtual void onFinished() = 0;
 };
 
-/// Class \ref Encoder is the interface for encoding video frames to a stream.
+/// Class Encoder is the interface for encoding video frames to a stream.
 /// This interface provides methods to encode video frames and manage encoding parameters.
 /// See: @ref enc_python_examples_anchor "Encoder Python Examples"
 class CV_EXPORTS_W Encoder

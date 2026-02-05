@@ -17,7 +17,7 @@ EXTRACT_LOCAL_CLASSES  = YES
 EXTRACT_LOCAL_METHODS  = NO
 HIDE_UNDOC_MEMBERS     = NO
 HIDE_UNDOC_CLASSES     = NO
-HIDE_SCOPE_NAMES       = YES
+HIDE_SCOPE_NAMES       = NO
 SHOW_NAMESPACES        = YES
 INLINE_SOURCES         = NO
 SOURCE_BROWSER         = NO
@@ -38,7 +38,7 @@ INCLUDE_PATH           = modules/vcucodec/include
 # Preprocessor and macros to mimic OpenCV's wrappers
 ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
-EXPAND_ONLY_PREDEF     = YES
+EXPAND_ONLY_PREDEF     = NO
 PREDEFINED             = \
   CV_EXPORTS= \
   CV_EXPORTS_W= \
@@ -90,7 +90,7 @@ WARN_IF_UNDOCUMENTED   = NO
 WARN_IF_DOC_ERROR      = YES
 
 # Misc
-JAVADOC_AUTOBRIEF      = YES
+JAVADOC_AUTOBRIEF      = NO
 MULTILINE_CPP_IS_BRIEF = NO
 TAB_SIZE               = 4
 OPTIMIZE_OUTPUT_FOR_C  = NO
@@ -98,6 +98,7 @@ MARKDOWN_SUPPORT       = YES
 TOC_INCLUDE_HEADINGS   = 5
 LAYOUT_FILE            = DoxygenLayout.xml
 
-# Custom aliases
-ALIASES                = "TABLEBRIEF{1}=<tr><td>@ref cv::vcucodec::\1 \"\1\"</td><td> @copybrief cv::vcucodec::\1 </td></tr>" \
-                         "TABLEBRIEF{2}=<tr><td><span style=\"padding-left:\2em\">@ref cv::vcucodec::\1 \"\1\"</span></td><td> @copybrief cv::vcucodec::\1 </td></tr>"
+# NOTE: Do not add custom ALIASES here. This Doxyfile is for standalone builds only.
+# The OpenCV Doxyfile.in does not include module-specific aliases, so any aliases
+# defined here will not work when building documentation with the main OpenCV build.
+# Use explicit @ref cv::vcucodec::Symbol "Symbol" syntax instead.

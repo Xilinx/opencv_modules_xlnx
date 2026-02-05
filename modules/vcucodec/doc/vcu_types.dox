@@ -4,38 +4,42 @@
 \anchor vcu_types_anchor
 
 Basic enums used for decoder/encoder settings:
+\n
 
 <table>
-@TABLEBRIEF{Codec}
-@TABLEBRIEF{PicStruct}
-@TABLEBRIEF{BitDepth}
-@TABLEBRIEF{Tier}
-@TABLEBRIEF{RCMode}
-@TABLEBRIEF{Entropy}
-@TABLEBRIEF{GOPMode}
-@TABLEBRIEF{GDRMode}
+<tr><td>@ref cv::vcucodec::Codec "Codec"</td><td> @copybrief cv::vcucodec::Codec </td></tr>
+<tr><td>@ref cv::vcucodec::PicStruct "PicStruct"</td><td> @copybrief cv::vcucodec::PicStruct </td></tr>
+<tr><td>@ref cv::vcucodec::BitDepth "BitDepth"</td><td> @copybrief cv::vcucodec::BitDepth </td></tr>
+<tr><td>@ref cv::vcucodec::Tier "Tier"</td><td> @copybrief cv::vcucodec::Tier </td></tr>
+<tr><td>@ref cv::vcucodec::RCMode "RCMode"</td><td> @copybrief cv::vcucodec::RCMode </td></tr>
+<tr><td>@ref cv::vcucodec::Entropy "Entropy"</td><td> @copybrief cv::vcucodec::Entropy </td></tr>
+<tr><td>@ref cv::vcucodec::GOPMode "GOPMode"</td><td> @copybrief cv::vcucodec::GOPMode </td></tr>
+<tr><td>@ref cv::vcucodec::GDRMode "GDRMode"</td><td> @copybrief cv::vcucodec::GDRMode </td></tr>
 </table>
 
 \n
-HDR SEI structure:
+HDR SEI structures for encoding. Use @ref cv::vcucodec::Encoder::add "Encoder::add()" to register
+HDR metadata and @ref cv::vcucodec::Encoder::setHDRIndex "Encoder::setHDRIndex()" to select which
+metadata to embed in subsequent frames.
+\n
 
 <table>
-@TABLEBRIEF{HDRSEIs}
-@TABLEBRIEF{MasteringDisplayColourVolume,1}
-@TABLEBRIEF{ChromaCoordinates,2}
-@TABLEBRIEF{ContentLightLevel,1}
-@TABLEBRIEF{AlternativeTransferCharacteristics,1}
-@TABLEBRIEF{DynamicMeta_ST2094_10,1}
-@TABLEBRIEF{ProcessingWindow_ST2094_10,2}
-@TABLEBRIEF{ImageCharacteristics_ST2094_10,2}
-@TABLEBRIEF{ManualAdjustment_ST2094_10,2}
-@TABLEBRIEF{DynamicMeta_ST2094_40,1}
-@TABLEBRIEF{ProcessingWindow_ST2094_40,2}
-@TABLEBRIEF{ProcessingWindow_ST2094_1,2}
-@TABLEBRIEF{TargetedSystemDisplay_ST2094_40,2}
-@TABLEBRIEF{DisplayPeakLuminance_ST2094_40,2}
-@TABLEBRIEF{ToneMapping_ST2094_40,2}
-@TABLEBRIEF{ProcessingWindowTransform_ST2094_40,2}
+<tr><td>@ref cv::vcucodec::HDRSEIs "HDRSEIs"</td><td> @copybrief cv::vcucodec::HDRSEIs </td></tr>
+<tr><td><span style="padding-left:1em">@ref cv::vcucodec::MasteringDisplayColourVolume "MasteringDisplayColourVolume"</span></td><td> @copybrief cv::vcucodec::MasteringDisplayColourVolume </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::ChromaCoordinates "ChromaCoordinates"</span></td><td> @copybrief cv::vcucodec::ChromaCoordinates </td></tr>
+<tr><td><span style="padding-left:1em">@ref cv::vcucodec::ContentLightLevel "ContentLightLevel"</span></td><td> @copybrief cv::vcucodec::ContentLightLevel </td></tr>
+<tr><td><span style="padding-left:1em">@ref cv::vcucodec::AlternativeTransferCharacteristics "AlternativeTransferCharacteristics"</span></td><td> @copybrief cv::vcucodec::AlternativeTransferCharacteristics </td></tr>
+<tr><td><span style="padding-left:1em">@ref cv::vcucodec::DynamicMeta_ST2094_10 "DynamicMeta_ST2094_10"</span></td><td> @copybrief cv::vcucodec::DynamicMeta_ST2094_10 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::ProcessingWindow_ST2094_10 "ProcessingWindow_ST2094_10"</span></td><td> @copybrief cv::vcucodec::ProcessingWindow_ST2094_10 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::ImageCharacteristics_ST2094_10 "ImageCharacteristics_ST2094_10"</span></td><td> @copybrief cv::vcucodec::ImageCharacteristics_ST2094_10 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::ManualAdjustment_ST2094_10 "ManualAdjustment_ST2094_10"</span></td><td> @copybrief cv::vcucodec::ManualAdjustment_ST2094_10 </td></tr>
+<tr><td><span style="padding-left:1em">@ref cv::vcucodec::DynamicMeta_ST2094_40 "DynamicMeta_ST2094_40"</span></td><td> @copybrief cv::vcucodec::DynamicMeta_ST2094_40 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::ProcessingWindow_ST2094_40 "ProcessingWindow_ST2094_40"</span></td><td> @copybrief cv::vcucodec::ProcessingWindow_ST2094_40 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::ProcessingWindow_ST2094_1 "ProcessingWindow_ST2094_1"</span></td><td> @copybrief cv::vcucodec::ProcessingWindow_ST2094_1 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::TargetedSystemDisplay_ST2094_40 "TargetedSystemDisplay_ST2094_40"</span></td><td> @copybrief cv::vcucodec::TargetedSystemDisplay_ST2094_40 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::DisplayPeakLuminance_ST2094_40 "DisplayPeakLuminance_ST2094_40"</span></td><td> @copybrief cv::vcucodec::DisplayPeakLuminance_ST2094_40 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::ToneMapping_ST2094_40 "ToneMapping_ST2094_40"</span></td><td> @copybrief cv::vcucodec::ToneMapping_ST2094_40 </td></tr>
+<tr><td><span style="padding-left:2em">@ref cv::vcucodec::ProcessingWindowTransform_ST2094_40 "ProcessingWindowTransform_ST2094_40"</span></td><td> @copybrief cv::vcucodec::ProcessingWindowTransform_ST2094_40 </td></tr>
 </table>
 
 */

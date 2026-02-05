@@ -1,0 +1,19 @@
+/**
+@class cv::vcucodec::Encoder
+@brief VCU Encoder interface for encoding video streams
+
+The VCU Encoder provides hardware-accelerated video encoding on AMD/Xilinx Versal and
+Zynq UltraScale+ MPSoC platforms.
+
+Supported codecs:
+- AVC/H.264
+- HEVC/H.265
+
+Features include:
+- Multiple rate control modes (CBR, VBR, Constant QP, etc.)
+- HDR SEI support
+- Dynamic parameter adjustment
+- GOP configuration
+
+See @ref enc_python_examples_anchor "Encoder Python Examples" for usage examples.
+*/

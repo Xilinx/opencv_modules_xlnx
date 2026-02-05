@@ -1,0 +1,71 @@
+/**
+@class cv::vcucodec::Decoder
+@brief VCU Decoder interface for decoding video streams
+
+The VCU Decoder provides hardware-accelerated video decoding on AMD/Xilinx Versal and
+Zynq UltraScale+ MPSoC platforms.
+
+Supported codecs:
+- AVC/H.264
+- HEVC/H.265
+- JPEG (VCU2 only)
+
+Use @ref cv::vcucodec::createDecoder "createDecoder" to create an instance, passing the input filename or URL
+and a @ref cv::vcucodec::DecoderInitParams "DecoderInitParams" structure to configure codec type, output format, and bit depth.
+
+Supported output FOURCC codes (use @ref cv::vcucodec::Decoder::getFourCCs "Decoder::getFourCCs()" to query at runtime):
+
+| FOURCC | Format | Bit Depth | Chroma | Notes |
+|--------|--------|-----------|--------|-------|
+| Y800   | Monochrome | 8-bit | 4:0:0 | Grayscale |
+| Y010   | Monochrome | 10-bit | 4:0:0 | Grayscale |
+| Y012   | Monochrome | 12-bit | 4:0:0 | VCU2 only |
+| NV12   | YUV | 8-bit | 4:2:0 | Semi-planar (Y + interleaved UV) |
+| I420   | YUV | 8-bit | 4:2:0 | Planar (Y + U + V) (software conversion) |
+| P010   | YUV | 10-bit | 4:2:0 | Semi-planar |
+| P012   | YUV | 12-bit | 4:2:0 | VCU2 only |
+| NV16   | YUV | 8-bit | 4:2:2 | Semi-planar |
+| P210   | YUV | 10-bit | 4:2:2 | Semi-planar |
+| P212   | YUV | 12-bit | 4:2:2 | VCU2 only |
+| I444   | YUV | 8-bit | 4:4:4 | VCU2 only |
+| I4AL   | YUV | 10-bit | 4:4:4 | VCU2 only |
+| I4CL   | YUV | 12-bit | 4:4:4 | VCU2 only |
+
+Optional software conversion to BGR or BGRA can be enabled via the
+@ref cv::vcucodec::DecoderInitParams::fourccConvert "DecoderInitParams::fourccConvert" parameter.
+
+The decoder supports multiple output methods:
+- @ref cv::vcucodec::Decoder::nextFrame "nextFrame(frame, frameInfo)" - returns a single-plane copy of the decoded frame
+- @ref cv::vcucodec::Decoder::nextFramePlanes "nextFramePlanes(planes, frameInfo)" - returns separate Y and UV planes as copies
+- @ref cv::vcucodec::Decoder::nextFramePlanesRef "nextFramePlanesRef(planes, frameInfo, frameToken)" - returns planes by reference with a @ref cv::vcucodec::FrameToken "FrameToken" for lifetime management
+
+The `frame` parameter (OutputArray) receives the decoded frame as a single cv::Mat. For semi-planar
+formats like NV12, the UV plane is appended below the Y plane.
+
+The `planes` parameter (OutputArrayOfArrays) receives a vector of cv::Mat, typically planes[0] for Y
+and planes[1] for UV (or U and V separately for planar formats).
+
+The @ref cv::vcucodec::RawInfo "RawInfo" structure (frameInfo) contains metadata about the decoded frame including
+format, dimensions, stride, crop offsets, and picture structure.
+
+Properties can be queried via @ref cv::vcucodec::Decoder::get "get(propId)" and set via
+@ref cv::vcucodec::Decoder::set "set(propId, value)":
+
+| Property | get | set | Description |
+|----------|-----|-----|-------------|
+| CAP_PROP_FOURCC | ✓ | | Codec type (H264, HEVC, MJPG) |
+| CAP_PROP_CODEC_PIXEL_FORMAT | ✓ | | Pixel format of decoded frames (NV12, ...) |
+| CAP_PROP_FRAME_WIDTH | ✓ | | Width of decoded frames |
+| CAP_PROP_FRAME_HEIGHT | ✓ | | Height of decoded frames |
+| CAP_PROP_POS_FRAMES | ✓ | | Current frame position in the stream |
+| CAP_PROP_FPS | ✓ | | Frame rate from stream (frames per second) |
+
+Additional information methods:
+- @ref cv::vcucodec::Decoder::streamInfo "streamInfo()" - returns a multi-line string with stream details:
+  resolution, FourCC, profile, level, bit depth, crop offsets (if any), display resolution,
+  sequence picture mode, and buffer count/size.
+- @ref cv::vcucodec::Decoder::statistics "statistics()" - returns a string with decoding performance:
+  total decoding time, frame rate (fps), and number of concealed frames.
+
+See @ref dec_python_examples_anchor "Decoder Python Examples" for usage examples.
+*/
