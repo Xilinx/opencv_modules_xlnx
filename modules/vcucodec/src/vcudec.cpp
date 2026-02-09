@@ -92,6 +92,11 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
 
     pDecConfig->iOutputBitDepth = static_cast<int>(params_.bitDepth);
 
+    // Set frame rate from init params (used when stream doesn't contain timing info)
+    pDecConfig->tDecSettings.uFrameRate = params_.fpsNum;
+    pDecConfig->tDecSettings.uClkRatio = params_.fpsDen;
+    pDecConfig->tDecSettings.bForceFrameRate = params_.forceFps;
+
     rawInfo_.eos = true; // use as uninitialized indicator
     decodeCtx_ = DecContext::create(pDecConfig, rawOutput_, wCfg);
     initialized_ = decodeCtx_ != nullptr;

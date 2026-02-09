@@ -77,10 +77,19 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
     CV_PROP_RW BitDepth bitDepth; ///< Specify output bit depth (first, alloc, stream, 8, 10, 12).
     CV_PROP_RW int extraFrames;   ///< Number of extra frame buffers to allocate for processing,
                                   ///< including the ones held at display side.
+    CV_PROP_RW int fpsNum;        ///< Frame rate numerator (default 60000). FPS = fpsNum / fpsDen.
+                                  ///< The decoder hardware has limited throughput per core. The
+                                  ///< scheduler uses frame rate to allocate enough cores to sustain
+                                  ///< real-time decoding, reject channels if insufficient resources
+                                  ///< are available, and time-share cores between multiple channels.
+    CV_PROP_RW int fpsDen;        ///< Frame rate denominator (default 1000). FPS = fpsNum / fpsDen.
+    CV_PROP_RW bool forceFps;     ///< Force use of fpsNum/fpsDen instead of stream timing info.
+                                  ///< Default: false.
 
     /// Constructor to initialize decoder parameters with default values.
     CV_WRAP DecoderInitParams(Codec codec = Codec::HEVC, int fourcc = VCU_FOURCC_AUTO,
-        int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC);
+        int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC,
+        int fpsNum = 60000, int fpsDen = 1000, bool forceFps = false);
 };
 
 /// Class FrameToken is a token to manage frame reference lifetime.
@@ -492,9 +501,12 @@ CV_EXPORTS_W Ptr<Encoder> createEncoder(
 // interface to have the same parameter names as the struct member names; this maps nicely to python
 // wrapper. Not doing this there would lead to a lot of Wshadow warnings.
 inline DecoderInitParams::DecoderInitParams(Codec _codec, int _fourcc, int _fourccConvert,
-                                            int _maxFrames, BitDepth _bitDepth)
+                                            int _maxFrames, BitDepth _bitDepth,
+                                            int _fpsNum, int _fpsDen,
+                                            bool _forceFps)
     : codec(_codec), fourcc(_fourcc), fourccConvert(_fourccConvert), maxFrames(_maxFrames),
-      bitDepth(_bitDepth), extraFrames(0) {}
+      bitDepth(_bitDepth), extraFrames(0), fpsNum(_fpsNum), fpsDen(_fpsDen),
+      forceFps(_forceFps) {}
 
 inline PictureEncSettings::PictureEncSettings(Codec _codec, int _fourcc, int _width, int _height,
                                               int _framerate)

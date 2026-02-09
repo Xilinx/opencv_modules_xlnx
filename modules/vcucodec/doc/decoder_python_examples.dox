@@ -40,7 +40,10 @@ decoderInitParams = cv2.vcucodec.DecoderInitParams(
     fourcc=FOURCC("NV12"),
     fourccConvert=0,  # No conversion, output raw NV12
     maxFrames=0,
-    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST)
+    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST,
+    fpsNum=60000,     # Frame rate numerator (default 60000)
+    fpsDen=1000,      # Frame rate denominator (default 1000), gives 60 fps
+    forceFps=False)   # Use stream timing if available
 
 # Create decoder instance
 dec = cv2.vcucodec.createDecoder('./input.avc', decoderInitParams)
@@ -76,6 +79,11 @@ del dec
 - Set `codec` for different codec types (CODEC_AVC, CODEC_HEVC)
 - Set `fourcc` to specify the desired output format (e.g., "NV12", "Y800")
 - Set `fourccConvert` to 0 for no conversion, or use FOURCC("BGR") for BGR output
+- Set `fpsNum` and `fpsDen` for frame rate (fpsNum/fpsDen). The decoder hardware has limited
+  throughput per core. The scheduler uses frame rate to allocate enough cores to sustain real-time
+  decoding, reject channels if insufficient resources are available, and time-share cores between
+  multiple channels.
+- Set `forceFps` to True to force the decoder to use fpsNum/fpsDen instead of stream timing info
 - Frame information is provided in the `RawInfo` structure
 - NextFrame will return after a time-out if no data is available, i.e. it will not block
   indefinitely. The boolean info.eos is set to true when the end of the stream is reached. When set
@@ -95,7 +103,9 @@ decoderInitParams = cv2.vcucodec.DecoderInitParams(
     fourcc=FOURCC("NV12"),
     fourccConvert=FOURCC("BGR"),  # Convert to BGR
     maxFrames=0,
-    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST)
+    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST,
+    fpsNum=30000,     # 30 fps example
+    fpsDen=1000)
 \endcode
 
 #### Example with separate planes for Y and UV
@@ -125,7 +135,9 @@ decoderInitParams = cv2.vcucodec.DecoderInitParams(
     fourcc=FOURCC("NV12"),
     fourccConvert=0, # FOURCC("BGR"),
     maxFrames=0,
-    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST)
+    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST,
+    fpsNum=60000,
+    fpsDen=1000)
 
 dec = cv2.vcucodec.createDecoder('./input.avc', decoderInitParams)
 info = cv2.vcucodec.RawInfo()
