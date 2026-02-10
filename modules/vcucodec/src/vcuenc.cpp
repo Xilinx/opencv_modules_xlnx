@@ -123,7 +123,10 @@ AL_EProfile getProfile(Codec codec, String profile)
 #ifdef HAVE_VCU2_CTRLSW
     case Codec::JPEG:
         profileEnum = AL_PROFILE_JPEG_EXT_HUFF;
+        break;
 #endif
+    default:
+        break;
     }
     return profileEnum;
 }

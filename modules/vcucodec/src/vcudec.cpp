@@ -57,7 +57,10 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     std::shared_ptr<DecContext::Config> pDecConfig
             = std::shared_ptr<DecContext::Config>(new DecContext::Config());
     pDecConfig->sIn = (std::string)filename;
-    pDecConfig->tDecSettings.uNumBuffersHeldByNextComponent = std::max(1, params_.extraFrames);
+    pDecConfig->iExtraBuffers = std::max(1, params_.extraFrames);
+#ifdef HAVE_VCU2_CTRLSW
+    pDecConfig->tDecSettings.uNumBuffersHeldByNextComponent = pDecConfig->iExtraBuffers;
+#endif
 
     switch(params_.codec)
     {
@@ -117,7 +120,7 @@ VCUDecoder::~VCUDecoder()
 bool VCUDecoder::validateParams(const DecoderInitParams& params)
 {
     bool valid = params.codec == Codec::HEVC || params.codec == Codec::AVC;
-#if HAVE_VCU2_CTRLSW
+#ifdef HAVE_VCU2_CTRLSW
     valid |= params.codec == Codec::JPEG;
 #endif
     if (!valid)

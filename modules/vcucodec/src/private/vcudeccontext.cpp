@@ -164,6 +164,7 @@ private:
     int32_t iNumDecodedFrames_ = 0;
     AL_TDecCallBacks CB_{};
     AL_TDecSettings *pDecSettings_;
+    int32_t iExtraBuffers_ = 1;
     bool bUsePreAlloc_ = false;
     PixMapBufPool baseBufPool_;
     AL_TDecOutputSettings *pUserOutputSettings_;
@@ -179,7 +180,7 @@ private:
 };
 namespace { // anonymous
 
-AL_EFbStorageMode getMainOutputStorageMode(AL_TDecOutputSettings tUserOutputSettings,
+AL_EFbStorageMode getMainOutputStorageMode([[maybe_unused]] AL_TDecOutputSettings tUserOutputSettings,
                                            AL_EFbStorageMode eOutstorageMode)
 {
     AL_EFbStorageMode eOutputStorageMode = eOutstorageMode;
@@ -251,7 +252,7 @@ std::string sequencePictureToString(AL_ESequenceMode sequencePicture)
     return "max enum";
 }
 
-String getStreamInfo(int32_t BufferNumber, int32_t BufferSize, int32_t extraBuffers,
+[[maybe_unused]] String getStreamInfo(int32_t BufferNumber, int32_t BufferSize, int32_t extraBuffers,
                      AL_TStreamSettings const *pStreamSettings, AL_TCropInfo const *pCropInfo,
                      TFourCC tFourCC, AL_TDimension outputDim)
 {
@@ -478,6 +479,7 @@ DecoderContext::DecoderContext(DecContext::Config &config, AL_TAllocator *pAlloc
 {
     pAllocator_ = pAlloc;
     pDecSettings_ = &config.tDecSettings;
+    iExtraBuffers_ = config.iExtraBuffers;
     pUserOutputSettings_ = &config.tUserOutputSettings;
     rawOutput_->configure(config.tOutputFourCC, config.iOutputBitDepth, config.iMaxFrames);
     running_ = false;
@@ -573,7 +575,7 @@ AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
     {
         auto lock = std::lock_guard(mutex_);
         streamInfo_ = getStreamInfo(iBufferNumber, iBufferSize,
-                pDecSettings_->uNumBuffersHeldByNextComponent, pStreamSettings, &pUserCropInfo,
+                iExtraBuffers_, pStreamSettings, &pUserCropInfo,
                 AL_GetFourCC(pUserOutputSettings_->tPicFormat), outputDim);
     }
 
@@ -581,7 +583,7 @@ AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
         return AL_SUCCESS;
 
     /* Create the buffers */
-    int32_t iNumBuf = iBufferNumber + pDecSettings_->uNumBuffersHeldByNextComponent;
+    int32_t iNumBuf = iBufferNumber + iExtraBuffers_;
 
     if (!baseBufPool_.Init(pAllocator_, iNumBuf, "decoded picture buffer"))
         return AL_ERR_NO_MEMORY;

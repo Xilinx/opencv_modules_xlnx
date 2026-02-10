@@ -1463,7 +1463,7 @@ std::unique_ptr<EncoderSink> EncoderContext::channelMain(Config& cfg,
         std::vector<std::unique_ptr<LayerResources>>& pLayerResources,
         Ptr<Device> device, int32_t chanId, DataCallback dataCallback)
 {
-    auto& Settings = cfg.Settings;
+    [[maybe_unused]] auto& Settings = cfg.Settings;
 
     /* null if not supported */
     //void* pTraceHook {};

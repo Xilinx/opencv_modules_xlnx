@@ -64,7 +64,7 @@ namespace vcucodec {
 
 namespace { // anonymous
 
-const std::string versionToStr(uint32_t const& version)
+[[maybe_unused]] const std::string versionToStr(uint32_t const& version)
 {
     uint8_t major = static_cast<uint8_t>(version >> 20);
     uint8_t minor = static_cast<uint8_t>(version >> 12);
@@ -77,7 +77,7 @@ const std::string versionToStr(uint32_t const& version)
     return ss.str();
 }
 
-std::string_view deviceID(Device::ID id)
+[[maybe_unused]] std::string_view deviceID(Device::ID id)
 {
     static std::string emptyString = "";
     std::string_view deviceString;
@@ -303,7 +303,7 @@ VCUEncDevice::~VCUEncDevice()
         AL_IEncScheduler_Destroy(scheduler_);
 }
 
-void VCUEncDevice::configureMcu(AL_TDriver* driver)
+void VCUEncDevice::configureMcu([[maybe_unused]] AL_TDriver* driver)
 {
   std::string g_EncDevicePath = "/dev/allegroIP";
   allocator_ = CreateBoardAllocator(g_EncDevicePath.c_str(), AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE);

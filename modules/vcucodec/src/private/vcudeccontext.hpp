@@ -124,6 +124,7 @@ struct DecContext::Config
     int32_t iMaxFrames = INT32_MAX;
     bool bUsePreAlloc = false;
     EDecErrorLevel eExitCondition = DEC_ERROR;
+    int32_t iExtraBuffers = 1; ///< Number of extra buffers held by next component (display pipeline)
 };
 
 struct DecContext::WorkerConfig
