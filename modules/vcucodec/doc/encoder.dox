@@ -15,5 +15,77 @@ Features include:
 - Dynamic parameter adjustment
 - GOP configuration
 
+Use @ref cv::vcucodec::createEncoder "createEncoder" to create an instance.
+
+@anchor enc_fourcc_table
+Supported input FOURCC codes (set via
+@ref cv::vcucodec::PictureEncSettings::fourcc "PictureEncSettings::fourcc"):
+
+| FOURCC | Format | Bit Depth | Chroma | Notes |
+|--------|--------|-----------|--------|-------|
+| Y800   | Monochrome | 8-bit | 4:0:0 | Grayscale |
+| Y010   | Monochrome | 10-bit | 4:0:0 | Grayscale |
+| Y012   | Monochrome | 12-bit | 4:0:0 | VCU2 only |
+| NV12   | YUV | 8-bit | 4:2:0 | Semi-planar (Y + interleaved UV) |
+| P010   | YUV | 10-bit | 4:2:0 | Semi-planar |
+| P012   | YUV | 12-bit | 4:2:0 | VCU2 only |
+| NV16   | YUV | 8-bit | 4:2:2 | Semi-planar |
+| P210   | YUV | 10-bit | 4:2:2 | Semi-planar |
+| P212   | YUV | 12-bit | 4:2:2 | VCU2 only |
+| I444   | YUV | 8-bit | 4:4:4 | VCU2 only |
+| I4AL   | YUV | 10-bit | 4:4:4 | VCU2 only |
+| I4CL   | YUV | 12-bit | 4:4:4 | VCU2 only |
+
+### Feeding frames
+
+Two mutually exclusive methods are available for providing input to the encoder:
+
+- @ref cv::vcucodec::Encoder::write "write(frame)" — Encode a single cv::Mat frame. The frame
+  must match the FourCC and dimensions specified in PictureEncSettings. Call repeatedly for each
+  frame, then call eos() to finalize.
+
+- @ref cv::vcucodec::Encoder::writeFile "writeFile(filename, startFrame, numFrames, picSettings)"
+  — Read and encode frames directly from a RAW YUV file on disk.
+  Parameters:
+  - @p filename — Path to a RAW YUV file (no container, just packed pixel data).
+  - @p startFrame — 0-based frame index to start encoding from (default: 0).
+  - @p numFrames — Number of frames to encode; 0 encodes all frames until EOF (default: 0).
+  - @p picSettings — Optional per-file PictureEncSettings to override resolution
+    (must be <= the initial resolution).
+
+  writeFile() can be called multiple times with different files before calling eos().
+
+After all frames have been submitted (via either method), call
+@ref cv::vcucodec::Encoder::eos "eos()" to signal end-of-stream and wait for the encoder to
+flush its pipeline.
+
+
+
+### Properties
+
+Properties can be queried via @ref cv::vcucodec::Encoder::get "get(propId)" and set via
+@ref cv::vcucodec::Encoder::set "set(propId, value)":
+
+| Property | get | set | Description |
+|----------|-----|-----|-------------|
+| CAP_PROP_FOURCC | ✓ | | Codec type (H264, HEVC, MJPG) |
+| CAP_PROP_CODEC_PIXEL_FORMAT | ✓ | | Input pixel format FOURCC (e.g. NV12) |
+| CAP_PROP_FRAME_WIDTH | ✓ | | Width of the picture in pixels |
+| CAP_PROP_FRAME_HEIGHT | ✓ | | Height of the picture in pixels |
+| CAP_PROP_FPS | ✓ | ✓ | Framerate of the encoding session |
+| CAP_PROP_BITRATE | ✓ | ✓ | Target bitrate in kbits per second |
+| CAP_PROP_POS_FRAMES | ✓ | | Number of frames encoded so far |
+| CAP_PROP_POS_MSEC | ✓ | | Current position in milliseconds |
+
+@note Setting properties via set(propId, value) updates cached settings only.
+Use the dynamic commands (@ref cv::vcucodec::Encoder::setFrameRate "setFrameRate()",
+@ref cv::vcucodec::Encoder::setBitRate "setBitRate()") to change parameters mid-stream.
+
+Additional information methods:
+- @ref cv::vcucodec::Encoder::settings "settings()" — returns a multi-line string with all
+  current encoder settings (picture, rate control, GOP, profile, slice, GMV).
+- @ref cv::vcucodec::Encoder::statistics "statistics()" — returns a string with encoding
+  performance: number of pictures encoded and average frame rate (fps).
+
 See @ref enc_python_examples_anchor "Encoder Python Examples" for usage examples.
 */

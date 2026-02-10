@@ -13,6 +13,7 @@ Supported codecs:
 Use @ref cv::vcucodec::createDecoder "createDecoder" to create an instance, passing the input filename or URL
 and a @ref cv::vcucodec::DecoderInitParams "DecoderInitParams" structure to configure codec type, output format, and bit depth.
 
+@anchor dec_fourcc_table
 Supported output FOURCC codes (use @ref cv::vcucodec::Decoder::getFourCCs "Decoder::getFourCCs()" to query at runtime):
 
 | FOURCC | Format | Bit Depth | Chroma | Notes |

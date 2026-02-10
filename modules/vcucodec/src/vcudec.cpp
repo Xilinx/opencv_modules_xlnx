@@ -104,7 +104,8 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
     {
         CV_Error(cv::Error::StsError, "VCU2 decoder initialization failed");
     }
-    setCaptureProperty(CAP_PROP_POS_FRAMES, frameIndex_, true);
+    setCaptureProperty(CAP_PROP_FPS, (double)params_.fpsNum / (double)params_.fpsDen, false);
+    updateFramePosition();
 }
 
 VCUDecoder::~VCUDecoder()
@@ -189,7 +190,8 @@ bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override *
     if(pFrame)
     {
         retrieveVideoFrame(frame, pFrame, frame_info, false, false);
-        setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
+        ++frameIndex_;
+        updateFramePosition();
     } else  {
         if(decodeCtx_->eos())
         {
@@ -231,7 +233,8 @@ bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info
     if(pFrame)
     {
         retrieveVideoFrame(planes, pFrame, frame_info, true, false);
-        setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
+        ++frameIndex_;
+        updateFramePosition();
     } else  {
         if(decodeCtx_->eos())
         {
@@ -276,7 +279,8 @@ bool VCUDecoder::nextFramePlanesRef(OutputArrayOfArrays planes, RawInfo& frame_i
         FrameTokenImpl *token = new FrameTokenImpl(pFrame);
         frameToken.reset(token);
         retrieveVideoFrame(planes, pFrame, frame_info, true, true);
-        setCaptureProperty(CAP_PROP_POS_FRAMES, ++frameIndex_, true);
+        ++frameIndex_;
+        updateFramePosition();
     } else  {
         if(decodeCtx_->eos())
         {
@@ -635,13 +639,10 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
     } // end switch
 }
 
-/*
-CAP_PROP_FRAME_TYPE
-CAP_PROP_SAR_NUM
-CAP_PROP_SAR_DEN
-CAP_PROP_BITRATE
-CAP_PROP_FRAME_TYPE (I,P,B)
-*/
+// Not available from the Allegro decoder SDK:
+// CAP_PROP_SAR_NUM/DEN: SAR is in AL_TVuiParam (SPS), not exposed by decoder public API.
+// CAP_PROP_BITRATE: No bitrate accessor; would need manual byte accumulation.
+// CAP_PROP_FRAME_TYPE: AL_TPictureDecMetaData has no eType field (encoder-only).
 
 
 void VCUDecoder::updateRawInfo(RawInfo& frame_info)
@@ -662,6 +663,13 @@ void VCUDecoder::updateRawInfo(RawInfo& frame_info)
         }
         rawInfo_ = frame_info;
     }
+}
+
+void VCUDecoder::updateFramePosition()
+{
+    double fps = (double)params_.fpsNum / (double)params_.fpsDen;
+    setCaptureProperty(CAP_PROP_POS_FRAMES, (double)frameIndex_, false);
+    setCaptureProperty(CAP_PROP_POS_MSEC, (fps > 0) ? frameIndex_ * 1000.0 / fps : 0.0, false);
 }
 
 bool VCUDecoder::setCaptureProperty(int propId, double value, bool external)

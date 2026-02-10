@@ -49,6 +49,7 @@ private:
     void   updateRawInfo(RawInfo& frame_info);
     bool   setCaptureProperty(int propId, double value, bool external);
     double getCaptureProperty(int propId) const;
+    void   updateFramePosition();
 
     String filename_;
     DecoderInitParams params_;

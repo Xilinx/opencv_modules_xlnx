@@ -32,10 +32,18 @@
 
     The VCU codec module includes the following main classes:
     - cv::vcucodec::Decoder : Interface for decoding video streams.
+      Use cv::vcucodec::createDecoder to create an instance.
     - cv::vcucodec::Encoder : Interface for encoding video streams.
+      Use cv::vcucodec::createEncoder to create an instance.
 
     The doc/ folder contains .dox files describing decoder and encoder and are inlined in the
     Decoder and Encoder class definitions when generating Doxygen documentation.
+
+    Current limitations:
+    - Support for VDU (Video Decode Unit) hardware to be added in a future release.
+    - No tiled format support on VCU2 devices.
+    - Only file input supported for decoder currently.
+
   @}
 **/
 
@@ -66,12 +74,18 @@ struct CV_EXPORTS_W_SIMPLE RawInfo {
 
 };
 
-/// Struct DecoderInitParams contains initialization parameters for the decoder.
+/// @brief Initialization parameters for the decoder.
+///
+/// Passed to @ref cv::vcucodec::createDecoder "createDecoder()" to configure the codec type,
+/// output pixel format, bit depth, frame rate, and decode limits. The pixel format can be set
+/// explicitly via fourcc or left as VCU_FOURCC_AUTO for automatic selection based on the
+/// stream. See @ref dec_fourcc_table "Supported output FOURCC codes" for accepted values.
 struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 {
     CV_PROP_RW Codec codec;       ///< Codec type (AVC, HEVC, JPEG).
     CV_PROP_RW int fourcc;        ///< Format of the output raw data as FOURCC code.
                                   ///< Default is VCU_FOURCC_AUTO (determined automatically).
+                                  ///< See @ref dec_fourcc_table "Supported output FOURCC codes".
     CV_PROP_RW int fourccConvert; ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none).
     CV_PROP_RW int maxFrames;     ///< Maximum number of frames to decode, 0 for unlimited.
     CV_PROP_RW BitDepth bitDepth; ///< Specify output bit depth (first, alloc, stream, 8, 10, 12).
@@ -80,8 +94,9 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
     CV_PROP_RW int fpsNum;        ///< Frame rate numerator (default 60000). FPS = fpsNum / fpsDen.
                                   ///< The decoder hardware has limited throughput per core. The
                                   ///< scheduler uses frame rate to allocate enough cores to sustain
-                                  ///< real-time decoding, reject channels if insufficient resources
-                                  ///< are available, and time-share cores between multiple channels.
+                                  ///< real-time decoding, reject decode requests if insufficient
+                                  ///< resources are available, and time-share cores between
+                                  ///< multiple decode requests.
     CV_PROP_RW int fpsDen;        ///< Frame rate denominator (default 1000). FPS = fpsNum / fpsDen.
     CV_PROP_RW bool forceFps;     ///< Force use of fpsNum/fpsDen instead of stream timing info.
                                   ///< Default: false.
@@ -99,7 +114,10 @@ public:
     virtual ~FrameToken() {};
 };
 
-/// Class Decoder is the interface for decoding video streams.
+
+// see decoder.dox for documentation of Decoder class
+
+/// @brief Class Decoder is the interface for decoding video streams.
 /// This interface provides methods to decode video frames from a stream.
 /// See: @ref dec_python_examples_anchor "Decoder Python Examples"
 class CV_EXPORTS_W Decoder
@@ -144,24 +162,26 @@ public:
         double value ///< Value to set for the property.
     ) = 0;
 
-    /// Get the value of a property.
+    /// @brief Get the value of a property.
     /// Provided properties:
     /// - CAP_PROP_FOURCC: The codec type (H264, HEVC, MJPG).
     /// - CAP_PROP_CODEC_PIXEL_FORMAT: The pixel format of the decoded frames (NV12, ...).
     /// - CAP_PROP_FRAME_WIDTH: Width of the decoded frames.
     /// - CAP_PROP_FRAME_HEIGHT: Height of the decoded frames.
     /// - CAP_PROP_POS_FRAMES: Current frame position in the stream.
-    /// - CAP_PROP_FPS: Frame rate from stream (frames per second).
+    /// - CAP_PROP_POS_MSEC: Current position in milliseconds (derived from POS_FRAMES / FPS).
+    /// - CAP_PROP_FPS: Frame rate (frames per second). Initialized from DecoderInitParams
+    ///   fpsNum/fpsDen. Can be overridden via set().
     CV_WRAP virtual double get(
         int propId ///< Property identifier.
     ) const = 0;
 
-    /// Get the information of the stream that was parsed (if any so far).
+    /// @brief Get the information of the stream that was parsed (if any so far).
     /// Returns a multi-line string containing: resolution, FourCC, profile, level, bit depth,
     /// crop offsets (if any), display resolution, sequence picture mode, and buffer count/size.
     CV_WRAP virtual String streamInfo() const = 0;
 
-    /// Get the statistics of the stream that was decoded (if any).
+    /// @brief Get the statistics of the stream that was decoded (if any).
     /// Returns a string containing: decoding time, frame rate (fps), and concealed frame count.
     CV_WRAP virtual String statistics() const = 0;
 
@@ -169,11 +189,24 @@ public:
     static CV_WRAP String getFourCCs();
 };
 
-/// Struct PictureEncSettings contains picture encoding settings.
+/// @brief Struct PictureEncSettings defines the core picture parameters for encoding.
+///
+/// These settings specify the codec standard, input pixel format, frame dimensions, and
+/// framerate. They are provided at encoder creation via
+/// @ref cv::vcucodec::EncoderInitParams::pictureEncSettings "EncoderInitParams::pictureEncSettings"
+/// and determine the initial encoding configuration.
+///
+/// See @ref enc_fourcc_table "Supported input FOURCC codes" for the list of accepted
+/// pixel formats.
+///
+/// A separate PictureEncSettings can also be passed per file when using
+/// @ref cv::vcucodec::Encoder::writeFile "writeFile()" to encode with a different resolution
+/// (must be &lt;= the initial resolution).
 struct CV_EXPORTS_W_SIMPLE PictureEncSettings
 {
     CV_PROP_RW Codec codec;     ///< Codec of the picture (HEVC, AVC, JPEG).
     CV_PROP_RW int   fourcc;    ///< FourCC code of the picture.
+                                ///< See @ref enc_fourcc_table "Supported input FOURCC codes".
     CV_PROP_RW int   width;     ///< Width of the picture.
     CV_PROP_RW int   height;    ///< Height of the picture.
     CV_PROP_RW int   framerate; ///< Framerate of the picture.
@@ -184,7 +217,18 @@ struct CV_EXPORTS_W_SIMPLE PictureEncSettings
     );
 };
 
-/// Struct RCSettings provides Rate Control Settings.
+/// @brief Struct RCSettings provides rate control settings for the encoder.
+///
+/// Rate control governs how the encoder distributes bits across frames to meet a target
+/// bitrate while maintaining quality. The mode (CBR, VBR, CAPPED_VBR, etc.) determines the
+/// overall strategy, while parameters such as bitrate, maxBitrate, cpbSize, and initialDelay
+/// fine-tune the buffering model. Per-frame size limits (maxPictureSizeI/P/B) and frame
+/// skipping provide additional control over bitrate peaks.
+///
+/// These settings can be changed mid-stream via @ref cv::vcucodec::Encoder::set(const RCSettings&)
+/// "Encoder::set(rcSettings)" or via the dynamic commands
+/// @ref cv::vcucodec::Encoder::setBitRate "setBitRate()" and
+/// @ref cv::vcucodec::Encoder::setMaxBitRate "setMaxBitRate()".
 struct CV_EXPORTS_W_SIMPLE RCSettings
 {
     CV_PROP_RW RCMode  mode;          ///< Rate control mode (default VBR).
@@ -198,7 +242,8 @@ struct CV_EXPORTS_W_SIMPLE RCSettings
     CV_PROP_RW int  maxQualityTarget; ///< 0-20. Maximum quality target for CAPPED_VBR. Default: 14.
     CV_PROP_RW int  maxPictureSizeI;  ///< Maximum picture size in kBytes. Default: 0 (unlimited).
     CV_PROP_RW int  maxPictureSizeP;  ///< Maximum P-frame picture size for CBR/VBR.
-    CV_PROP_RW int  maxPictureSizeB;  ///< Maximum B-frame picture size, max = (bitrate/framerate) * allowed peak margin.
+    CV_PROP_RW int  maxPictureSizeB;  ///< Maximum B-frame picture size,
+                                      ///< max = (bitrate/framerate) * allowed peak margin.
     CV_PROP_RW bool skipFrame;        ///< Skip a frame when the CPB buffer size is exceeded and
                                       ///< replace with skip MBs (or CTBs). Default: false.
     CV_PROP_RW int  maxSkip;          ///< Maximum number of skips in a row. Default: unlimited.
@@ -265,7 +310,11 @@ struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
     CV_WRAP GlobalMotionVector(int frameIndex = -1, int gmVectorX = 0, int gmVectorY = 0);
 };
 
-/// Struct EncoderInitParams contains encoder initialization parameters.
+/// @brief Initialization parameters for the encoder.
+///
+/// Passed to @ref cv::vcucodec::createEncoder "createEncoder()" to configure picture settings,
+/// rate control, GOP structure, profile/level/tier, slice configuration, and global motion
+/// vectors. All sub-structures have sensible defaults and can be customized as needed.
 struct CV_EXPORTS_W_SIMPLE EncoderInitParams
 {
     CV_PROP_RW PictureEncSettings pictureEncSettings; ///< Picture encoding settings.
@@ -278,16 +327,28 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
     CV_WRAP EncoderInitParams() = default;
 };
 
-/// Class EncoderCallback reports encoder progress (not supported in Python).
+/// @brief Callback interface for receiving encoded data from the encoder (C++ only).
+///
+/// Implement this interface and pass it to @ref cv::vcucodec::createEncoder "createEncoder()"
+/// to receive encoded NAL units as they are produced by the hardware encoder. This is useful
+/// for streaming or custom muxing scenarios where direct access to the encoded bitstream is
+/// needed instead of writing to a file.
+///
+/// @note Not available from the Python API.
 class CV_EXPORTS_W EncoderCallback
 {
 public:
     virtual ~EncoderCallback() {}
+    /// Called each time the encoder produces encoded data (one or more NAL units).
     virtual void onEncoded(std::vector<std::string_view>& encodedData) = 0;
+    /// Called once when the encoder has finished processing all frames after @ref cv::vcucodec::Encoder::eos "eos()".
     virtual void onFinished() = 0;
 };
 
-/// Class Encoder is the interface for encoding video frames to a stream.
+
+// see encoder.dox for documentation of Encoder class
+
+/// @brief Class Encoder is the interface for encoding video frames to a stream.
 /// This interface provides methods to encode video frames and manage encoding parameters.
 /// See: @ref enc_python_examples_anchor "Encoder Python Examples"
 class CV_EXPORTS_W Encoder
@@ -314,20 +375,43 @@ public:
     CV_WRAP virtual bool eos() = 0;
 
 
-    /// Get the settings of the encoder.
+    /// @brief Get the current settings of the encoder as a human-readable multi-line string.
+    /// Returns picture settings (codec, fourcc, resolution, framerate), rate control
+    /// (mode, bitrate, CPB), GOP structure, profile/level/tier, slice configuration, and
+    /// global motion vector settings.
     CV_WRAP virtual String settings() const = 0;
 
-    /// Get the statistics of the stream that was encoded (if any).
+    /// @brief Get the statistics of the encoding session.
+    /// Returns a string containing: number of pictures encoded and average frame rate (fps).
+    /// Available after encoding has started.
     CV_WRAP virtual String statistics() const = 0;
 
-    /// Set a property for the encoder.
+    /// @brief Set a property for the encoder.
+    ///
+    /// Supported properties:
+    /// - CAP_PROP_FPS: Framerate of the encoding session.
+    /// - CAP_PROP_BITRATE: Target bitrate in kbits per second.
+    ///
+    /// @note Setting FPS or bitrate via this method updates the cached settings only;
+    /// use the dynamic commands (setFrameRate(), setBitRate()) to change them mid-stream.
     /// @return true if the property was set successfully, false otherwise.
     CV_WRAP virtual bool set(
         int propId,  ///< Property identifier.
         double value ///< Value to set for the property.
     ) = 0;
 
-    /// Get the value of a property.
+    /// @brief Get the value of a property.
+    ///
+    /// Supported properties:
+    /// - CAP_PROP_FOURCC: The codec type (H264, HEVC, MJPG).
+    /// - CAP_PROP_CODEC_PIXEL_FORMAT: Input pixel format FOURCC (e.g. NV12).
+    /// - CAP_PROP_FRAME_WIDTH: Width of the picture in pixels.
+    /// - CAP_PROP_FRAME_HEIGHT: Height of the picture in pixels.
+    /// - CAP_PROP_FPS: Framerate of the encoding session.
+    /// - CAP_PROP_BITRATE: Target bitrate in kbits per second.
+    /// - CAP_PROP_POS_FRAMES: Number of frames encoded so far.
+    /// - CAP_PROP_POS_MSEC: Current position in milliseconds (derived from frame count and FPS).
+    ///
     CV_WRAP virtual double get(
         int propId ///< Property identifier.
     ) const = 0;
@@ -365,103 +449,103 @@ public:
     // Dynamic commands
     //
 
-    /// Indicate a scene change at frameIdx with lookAhead frames
+    /// Dynamically indicate a scene change at frameIdx with lookAhead frames
     CV_WRAP virtual void setSceneChange(int32_t frameIdx, int32_t lookAhead) = 0;
 
-    /// Indicate that frameIdx is a long-term reference
+    /// Dynamically indicate that frameIdx is a long-term reference
     CV_WRAP virtual void setIsLongTerm(int32_t frameIdx) = 0;
 
-    /// Indicate that frameIdx is a long-term reference
+    /// Dynamically indicate that frameIdx should use a long-term reference
     CV_WRAP virtual void setUseLongTerm(int32_t frameIdx) = 0;
 
-    /// Restart the GOP at frameIdx (next frame will be an IDR)
+    /// Dynamically restart the GOP at frameIdx (next frame will be an IDR)
     CV_WRAP virtual void restartGop(int32_t frameIdx) = 0;
 
-    /// Restart the GOP at frameIdx with a recovery point SEI
+    /// Dynamically restart the GOP at frameIdx with a recovery point SEI
     CV_WRAP virtual void restartGopRecoveryPoint(int32_t frameIdx) = 0;
 
-    /// Set the GOP length at frameIdx
+    /// Dynamically set the GOP length at frameIdx
     CV_WRAP virtual void setGopLength(int32_t frameIdx, int32_t gopLength) = 0;
 
-    /// Set the number of B-frames at frameIdx
+    /// Dynamically set the number of B-frames at frameIdx
     CV_WRAP virtual void setNumB(int32_t frameIdx, int32_t numB) = 0;
 
-    /// Set the frequency of IDR frames at frameIdx
+    /// Dynamically set the frequency of IDR frames at frameIdx
     CV_WRAP virtual void setFreqIDR(int32_t frameIdx, int32_t freqIDR) = 0;
 
-    /// Set the frame rate at frameIdx
+    /// Dynamically set the frame rate at frameIdx
     CV_WRAP virtual void setFrameRate(int32_t frameIdx, int32_t frameRate, int32_t clockRatio) = 0;
 
-    /// Set the target and maximum bitrate at frameIdx
+    /// Dynamically set the target bitrate at frameIdx
     CV_WRAP virtual void setBitRate(int32_t frameIdx, int32_t bitRate) = 0;
 
-    /// Set the target and maximum bitrate at frameIdx
+    /// Dynamically set the target and maximum bitrate at frameIdx
     CV_WRAP virtual void setMaxBitRate(int32_t frameIdx, int32_t iTargetBitRate, int32_t iMaxBitRate) = 0;
 
-    /// Set the QP (Quantization Parameter) at a specific frame index.
+    /// Dynamically set the QP (Quantization Parameter) at a specific frame index.
     CV_WRAP virtual void setQP(int32_t frameIdx, int32_t qp) = 0;
 
-    /// Set the QP offset at a specific frame index.
+    /// Dynamically set the QP offset at a specific frame index.
     CV_WRAP virtual void setQPOffset(int32_t frameIdx, int32_t iQpOffset) = 0;
 
-    /// Set the QP bounds for a specific frame index.
+    /// Dynamically set the QP bounds at a specific frame index.
     CV_WRAP virtual void setQPBounds(int32_t frameIdx, int32_t iMinQP, int32_t iMaxQP) = 0;
 
-    /// Set the QP bounds for I-frames at a specific frame index.
+    /// Dynamically set the QP bounds for I-frames at a specific frame index.
     CV_WRAP virtual void setQPBoundsI(int32_t frameIdx, int32_t iMinQP_I, int32_t iMaxQP_I) = 0;
 
-    /// Set the QP bounds for P-frames at a specific frame index.
+    /// Dynamically set the QP bounds for P-frames at a specific frame index.
     CV_WRAP virtual void setQPBoundsP(int32_t frameIdx, int32_t iMinQP_P, int32_t iMaxQP_P) = 0;
 
-    /// Set the QP bounds for B-frames at a specific frame index.
+    /// Dynamically set the QP bounds for B-frames at a specific frame index.
     CV_WRAP virtual void setQPBoundsB(int32_t frameIdx, int32_t iMinQP_B, int32_t iMaxQP_B) = 0;
 
-    /// Set the QP delta between I and P frames at a specific frame index.
+    /// Dynamically set the QP delta between I and P frames at a specific frame index.
     CV_WRAP virtual void setQPIPDelta(int32_t frameIdx, int32_t iQPDelta) = 0;
 
-    /// Set the QP delta between P and B frames at a specific frame index.
+    /// Dynamically set the QP delta between P and B frames at a specific frame index.
     CV_WRAP virtual void setQPPBDelta(int32_t frameIdx, int32_t iQPDelta) = 0;
 
-    /// Set the loop filter mode at a specific frame index.
+    /// Dynamically set the loop filter mode at a specific frame index.
     CV_WRAP virtual void setLFMode(int32_t frameIdx, int32_t iMode) = 0;
 
-    /// Set the loop filter beta offset at a specific frame index.
+    /// Dynamically set the loop filter beta offset at a specific frame index.
     CV_WRAP virtual void setLFBetaOffset(int32_t frameIdx, int32_t iBetaOffset) = 0;
 
-    /// Set the loop filter tc offset at a specific frame index.
+    /// Dynamically set the loop filter tc offset at a specific frame index.
     CV_WRAP virtual void setLFTcOffset(int32_t frameIdx, int32_t iTcOffset) = 0;
 
-    /// Set the cost mode at a specific frame index.
+    /// Dynamically set the cost mode at a specific frame index.
     CV_WRAP virtual void setCostMode(int32_t frameIdx, bool bCostMode) = 0;
 
-    /// Set the maximum picture size at a specific frame index.
+    /// Dynamically set the maximum picture size at a specific frame index.
     CV_WRAP virtual void setMaxPictureSize(int32_t frameIdx, int32_t iMaxPictureSize) = 0;
 
-    /// Set the maximum picture size for I-frames at a specific frame index.
+    /// Dynamically set the maximum picture size for I-frames at a specific frame index.
     CV_WRAP virtual void setMaxPictureSizeI(int32_t frameIdx, int32_t iMaxPictureSize_I) = 0;
 
-    /// Set the maximum picture size for P-frames at a specific frame index.
+    /// Dynamically set the maximum picture size for P-frames at a specific frame index.
     CV_WRAP virtual void setMaxPictureSizeP(int32_t frameIdx, int32_t iMaxPictureSize_P) = 0;
 
-    /// Set the maximum picture size for B-frames at a specific frame index.
+    /// Dynamically set the maximum picture size for B-frames at a specific frame index.
     CV_WRAP virtual void setMaxPictureSizeB(int32_t frameIdx, int32_t iMaxPictureSize_B) = 0;
 
-    /// Set the chroma QP offsets at a specific frame index.
+    /// Dynamically set the chroma QP offsets at a specific frame index.
     CV_WRAP virtual void setQPChromaOffsets(int32_t frameIdx, int32_t iQp1Offset, int32_t iQp2Offset) = 0;
 
-    /// Set whether to use Auto QP at a specific frame index.
+    /// Dynamically set whether to use Auto QP at a specific frame index.
     CV_WRAP virtual void setAutoQP(int32_t frameIdx, bool bUseAutoQP) = 0;
 
-    /// Set the HDR index at a specific frame index.
+    /// Dynamically set the HDR SEI index at a specific frame index.
     CV_WRAP virtual void setHDRIndex(int32_t frameIdx, int32_t iHDRIdx) = 0;
 
-    /// Indicate that frameIdx is a skip frame
+    /// Dynamically indicate that frameIdx is a skip frame
     CV_WRAP virtual void setIsSkip(int32_t frameIdx) = 0;
 
-    /// Indicate whether SAO (Sample Adaptive Offset) is enabled for the frame
+    /// Dynamically set whether SAO (Sample Adaptive Offset) is enabled for the frame
     CV_WRAP virtual void setSAO(int32_t frameIdx, bool bSAOEnabled) = 0;
 
-    /// Set Auto QP threshold QP and delta QP at a specific frame index.
+    /// Dynamically set Auto QP threshold QP and delta QP at a specific frame index.
     CV_WRAP virtual void setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUserAutoQPValues,
             std::vector<int> thresholdQP, std::vector<int> deltaQP) = 0;
 
@@ -469,24 +553,80 @@ public:
     // static functions
     //
 
-    /// Get comma separated list of supported profiles
+    /// @brief Get a comma-separated list of supported encoder profiles for the given codec.
+    ///
+    /// The returned profile names can be used in
+    /// @ref cv::vcucodec::ProfileSettings::profile "ProfileSettings::profile" when configuring
+    /// an encoder via @ref cv::vcucodec::EncoderInitParams "EncoderInitParams".
+    ///
+    /// For HEVC, profiles include "main", "main-10", "main-422-10", etc.
+    /// For AVC, profiles include "baseline", "main", "high", "high-10", etc.
+    /// For JPEG, returns "JPEG" (JPEG does not define profiles).
+    ///
+    /// Example:
+    /// @code{.py}
+    ///     profiles = cv2.vcucodec.Encoder.getProfiles(cv2.vcucodec.Codec_HEVC)
+    ///     print(profiles)  # "main,main-10,main-12,..."
+    /// @endcode
     static CV_WRAP String getProfiles(Codec codec);
 
-    /// Get comma separated list of supported levels
+    /// @brief Get a comma-separated list of supported encoder levels for the given codec.
+    ///
+    /// The returned level strings can be used in
+    /// @ref cv::vcucodec::ProfileSettings::level "ProfileSettings::level" when configuring
+    /// an encoder via @ref cv::vcucodec::EncoderInitParams "EncoderInitParams".
+    ///
+    /// For HEVC, levels range from "1.0" to "6.2".
+    /// For AVC, levels range from "0.9" to "6.2".
+    /// For JPEG, returns an empty string (JPEG does not define levels).
+    ///
+    /// Example:
+    /// @code{.py}
+    ///     levels = cv2.vcucodec.Encoder.getLevels(cv2.vcucodec.Codec_AVC)
+    ///     print(levels)  # "0.9,1.0,1.1,...,6.2"
+    /// @endcode
     static CV_WRAP String getLevels(Codec codec);
 };
 
-/// Factory function to create a decoder instance.
+/// @brief Create a decoder instance for the given input file or stream.
+///
+/// Opens the input and initializes the VCU decoder hardware with the specified parameters.
+/// The returned @ref cv::vcucodec::Decoder "Decoder" can then be used to decode frames
+/// via nextFrame(), nextFramePlanes(), or nextFramePlanesRef().
+///
+/// Example:
+/// @code{.py}
+///     params = cv2.vcucodec.DecoderInitParams()
+///     params.codec = cv2.vcucodec.Codec_HEVC
+///     decoder = cv2.vcucodec.createDecoder("input.h265", params)
+/// @endcode
 CV_EXPORTS_W Ptr<Decoder> createDecoder(
     const String& filename,         ///< Input video file name or stream URL.
     const DecoderInitParams& params ///< Decoder initialization parameters.
 );
 
-/// Factory function to create an encoder instance.
+/// @brief Create an encoder instance for the given output file or stream.
+///
+/// Opens the output and initializes the VCU encoder hardware with the specified parameters.
+/// The returned @ref cv::vcucodec::Encoder "Encoder" can then be fed frames via write()
+/// or writeFile(), and finalized with eos().
+///
+/// Example:
+/// @code{.py}
+///     params = cv2.vcucodec.EncoderInitParams()
+///     params.pictureEncSettings.codec = cv2.vcucodec.Codec_HEVC
+///     params.pictureEncSettings.width = 1920
+///     params.pictureEncSettings.height = 1080
+///     encoder = cv2.vcucodec.createEncoder("output.h265", params)
+/// @endcode
 CV_EXPORTS_W Ptr<Encoder> createEncoder(
     const String& filename,           ///< Output video file name or stream URL.
     const EncoderInitParams& params,  ///< Encoder initialization parameters.
-    Ptr<EncoderCallback> callback = 0 ///< Callback (not supported for Python API).
+    Ptr<EncoderCallback> callback = 0 ///< Optional callback for receiving encoded data (C++ only).
+                                      ///< When provided, @ref cv::vcucodec::EncoderCallback::onEncoded
+                                      ///< "onEncoded()" is called with each encoded NAL unit, and
+                                      ///< @ref cv::vcucodec::EncoderCallback::onFinished "onFinished()"
+                                      ///< is called when encoding completes. Not available from Python.
 );
 
 //! @}

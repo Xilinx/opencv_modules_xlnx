@@ -589,17 +589,59 @@ String VCUEncoder::statistics() const
 bool VCUEncoder::set(int propId, double value)
 {
     std::lock_guard lock(settingsMutex_);
-    (void)propId;
-    (void)value;
-    return false;
+    switch (propId)
+    {
+    case CAP_PROP_FPS:
+        currentSettings_.pic_.framerate = static_cast<int>(value);
+        return true;
+    case CAP_PROP_BITRATE:
+        currentSettings_.rc_.bitrate = static_cast<int>(value);
+        return true;
+    default:
+        return false;
+    }
+}
+
+static int codecToFourCC(Codec codec)
+{
+    switch (codec)
+    {
+    case Codec::AVC:  return FOURCC(H264);
+    case Codec::HEVC: return FOURCC(HEVC);
+    case Codec::JPEG: return FOURCC(MJPG);
+    default:          return 0;
+    }
 }
 
 double VCUEncoder::get(int propId) const
 {
     std::lock_guard lock(settingsMutex_);
-    (void)propId;
-    double result = 0.0;
-    return result; // Placeholder implementation
+    switch (propId)
+    {
+    case CAP_PROP_FOURCC:
+        return static_cast<double>(codecToFourCC(currentSettings_.pic_.codec));
+    case CAP_PROP_CODEC_PIXEL_FORMAT:
+        return static_cast<double>(currentSettings_.pic_.fourcc);
+    case CAP_PROP_FRAME_WIDTH:
+        return static_cast<double>(currentSettings_.pic_.width);
+    case CAP_PROP_FRAME_HEIGHT:
+        return static_cast<double>(currentSettings_.pic_.height);
+    case CAP_PROP_FPS:
+        return static_cast<double>(currentSettings_.pic_.framerate);
+    case CAP_PROP_BITRATE:
+        return static_cast<double>(currentSettings_.rc_.bitrate);
+    case CAP_PROP_POS_FRAMES:
+        return static_cast<double>(currentFrameIndex_);
+    case CAP_PROP_POS_MSEC:
+    {
+        double fps = static_cast<double>(currentSettings_.pic_.framerate);
+        if (fps > 0)
+            return static_cast<double>(currentFrameIndex_) * 1000.0 / fps;
+        return 0.0;
+    }
+    default:
+        return 0.0;
+    }
 }
 
 void VCUEncoder::set(const RCSettings& rcSettings)

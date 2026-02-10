@@ -126,9 +126,9 @@ enum class GOPMode
 /// Enum class GDRMode specifies the decoder refresh scheme to use.
 enum class GDRMode
 {
-    DISABLE    = 0, ///< No Gradual %Decoder Refresh.
-    VERTICAL   = 2, ///< Vertical Gradual %Decoder Refresh.
-    HORIZONTAL = 3  ///< Horizontal Gradual %Decoder Refresh.
+    DISABLE    = 0, ///< No Gradual Decoder Refresh.
+    VERTICAL   = 2, ///< Vertical Gradual Decoder Refresh.
+    HORIZONTAL = 3  ///< Horizontal Gradual Decoder Refresh.
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
