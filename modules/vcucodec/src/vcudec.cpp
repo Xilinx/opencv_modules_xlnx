@@ -48,7 +48,8 @@ private:
 
 } // anonymous namespace
 
-VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
+VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params,
+                       Ptr<DecoderCallback> callback)
     : filename_(filename), params_(params), rawOutput_(RawOutput::create())
 {
     if (!validateParams(params))
@@ -94,6 +95,8 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params)
         pDecConfig->iMaxFrames = params_.maxFrames;
 
     pDecConfig->iOutputBitDepth = static_cast<int>(params_.bitDepth);
+
+    pDecConfig->decoderCallback = callback;
 
     // Set frame rate from init params (used when stream doesn't contain timing info)
     pDecConfig->tDecSettings.uFrameRate = params_.fpsNum;

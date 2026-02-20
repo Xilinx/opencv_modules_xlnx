@@ -787,8 +787,9 @@ void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
         // Setup the reader of bitstream in the file.
         // It will send bitstream chunk to the decoder
 
-        auto reader = Reader::createReader(getBaseDecoderHandle(), tInputPool);
-        if (!reader->setPath(config.sIn))
+        auto reader = Reader::createReader(getBaseDecoderHandle(), tInputPool,
+                                           config.decoderCallback);
+        if (!config.decoderCallback && !reader->setPath(config.sIn))
         {
             CV_Error(cv::Error::StsBadArg, "Failed to set input file path");
         }

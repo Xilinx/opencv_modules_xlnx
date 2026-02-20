@@ -42,7 +42,6 @@
     Current limitations:
     - Support for VDU (Video Decode Unit) hardware to be added in a future release.
     - No tiled format support on VCU2 devices.
-    - Only file input supported for decoder currently.
 
   @}
 **/
@@ -327,6 +326,26 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
     CV_WRAP EncoderInitParams() = default;
 };
 
+/// @brief Callback interface for feeding encoded data to the decoder (C++ only).
+///
+/// Implement this interface and pass it to @ref cv::vcucodec::createDecoder "createDecoder()"
+/// to provide encoded bitstream data from a custom source (e.g., network stream, memory buffer)
+/// instead of reading from a file. The decoder calls onData() when it needs more input,
+/// and the implementation should fill the buffer with encoded bitstream data.
+///
+/// @note Not available from the Python API.
+class CV_EXPORTS_W DecoderCallback
+{
+public:
+    virtual ~DecoderCallback() {}
+    /// Called when the decoder needs more encoded data. Write up to @p maxSize bytes of
+    /// encoded bitstream into @p buffer and return the number of bytes written.
+    /// Return 0 to signal end-of-stream.
+    virtual size_t onData(uint8_t* buffer, size_t maxSize) = 0;
+    /// Called once when the decoder has finished processing all frames.
+    virtual void onFinished() = 0;
+};
+
 /// @brief Callback interface for receiving encoded data from the encoder (C++ only).
 ///
 /// Implement this interface and pass it to @ref cv::vcucodec::createEncoder "createEncoder()"
@@ -601,8 +620,12 @@ public:
 ///     decoder = cv2.vcucodec.createDecoder("input.h265", params)
 /// @endcode
 CV_EXPORTS_W Ptr<Decoder> createDecoder(
-    const String& filename,         ///< Input video file name or stream URL.
-    const DecoderInitParams& params ///< Decoder initialization parameters.
+    const String& filename,             ///< Input video file name (ignored when @p callback is provided).
+    const DecoderInitParams& params,    ///< Decoder initialization parameters.
+    Ptr<DecoderCallback> callback = 0   ///< Optional callback providing encoded bitstream data (C++ only).
+                                        ///< When provided, encoded data is read via
+                                        ///< @ref cv::vcucodec::DecoderCallback::onData "onData()"
+                                        ///< instead of from the file. Not available from Python.
 );
 
 /// @brief Create an encoder instance for the given output file or stream.

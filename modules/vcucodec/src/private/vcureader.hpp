@@ -17,6 +17,7 @@
 #define OPENCV_VCUCODEC_VCUREADER_HPP
 
 #include <opencv2/core.hpp>
+#include <opencv2/vcucodec.hpp>
 
 extern "C" {
 #include "config.h"
@@ -38,7 +39,8 @@ public:
     virtual void start() = 0;
     virtual void stop() = 0;
 
-    static std::unique_ptr<Reader> createReader(AL_HDecoder hDec, BufPool& bufPool);
+    static std::unique_ptr<Reader> createReader(AL_HDecoder hDec, BufPool& bufPool,
+                                                  Ptr<DecoderCallback> callback = 0);
 };
 
 } // namespace vcucodec

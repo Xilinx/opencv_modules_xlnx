@@ -25,12 +25,13 @@
 namespace cv {
 namespace vcucodec {
 
-Ptr<Decoder> createDecoder(const String& filename, const DecoderInitParams& params)
+Ptr<Decoder> createDecoder(const String& filename, const DecoderInitParams& params,
+    Ptr<DecoderCallback> callback)
 {
     Ptr<Decoder> decoder;
     try
     {
-        decoder = makePtr<VCUDecoder>(filename, params);
+        decoder = makePtr<VCUDecoder>(filename, params, callback);
     }
     catch (const cv::Exception& e) {
         throw;

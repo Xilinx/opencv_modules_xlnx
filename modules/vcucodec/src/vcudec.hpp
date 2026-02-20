@@ -27,7 +27,8 @@ class VCUDecoder : public Decoder
 {
 public:
     virtual ~VCUDecoder();
-    VCUDecoder(const String& filename, const DecoderInitParams& params);
+    VCUDecoder(const String& filename, const DecoderInitParams& params,
+               Ptr<DecoderCallback> callback = 0);
 
     // Implementation of the pure virtual functions from base class
     virtual bool   nextFrame(OutputArray frame, RawInfo& frame_info) override;

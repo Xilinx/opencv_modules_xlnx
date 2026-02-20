@@ -18,6 +18,7 @@
 #define OPENCV_VCUCODEC_VCUDECCONTEXT_HPP
 
 #include <opencv2/core.hpp>
+#include <opencv2/vcucodec.hpp>
 
 #include "vcurawout.hpp"
 #include "vcudevice.hpp"
@@ -125,6 +126,7 @@ struct DecContext::Config
     bool bUsePreAlloc = false;
     EDecErrorLevel eExitCondition = DEC_ERROR;
     int32_t iExtraBuffers = 1; ///< Number of extra buffers held by next component (display pipeline)
+    Ptr<DecoderCallback> decoderCallback; ///< Optional callback for feeding bitstream data.
 };
 
 struct DecContext::WorkerConfig
