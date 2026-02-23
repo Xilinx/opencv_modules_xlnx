@@ -37,7 +37,7 @@ Ptr<Decoder> createDecoder(const String& filename, const DecoderInitParams& para
         throw;
     }
     catch (const std::exception& e) {
-        CV_Error(cv::Error::StsError, "Error creating VCUDecoder");
+        CV_Error(cv::Error::StsError, std::string("Error creating VCUDecoder: ") + e.what());
     }
     return decoder;
 }

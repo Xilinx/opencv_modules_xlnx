@@ -451,6 +451,7 @@ const bool d = false;
 const bool e = false;
 std::map<int, _FormatInfo> const formatInfos =
 {
+    {0,            {0,            D, E, {}}},
     {FOURCC(NULL), {FOURCC(NULL), D, E, {}}},
     {FOURCC(AUTO), {FOURCC(AUTO), D, E, {}}},
     {FOURCC(Y800), {FOURCC(Y800), D, E, {}}},
@@ -478,6 +479,7 @@ std::map<int, _FormatInfo> const formatInfos =
 
 FormatInfo::FormatInfo(int fourcc_) : format(formatInfos.at(fourcc_).format)
 {
+
     static std::once_flag once;
     std::call_once(once,
         []()
@@ -485,7 +487,7 @@ FormatInfo::FormatInfo(int fourcc_) : format(formatInfos.at(fourcc_).format)
             for (auto& f : formatInfos)
             {
                 const struct _FormatInfo& fi = f.second;
-                if (fi.fourcc == FOURCC(NULL) || fi.fourcc == FOURCC(AUTO))
+                if (fi.fourcc == 0 || fi.fourcc == FOURCC(NULL) || fi.fourcc == FOURCC(AUTO))
                     continue;
                 AL_GetPicFormat(fi.fourcc, const_cast<AL_TPicFormat*>(&fi.format));
             }

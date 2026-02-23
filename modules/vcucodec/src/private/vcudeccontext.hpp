@@ -18,7 +18,6 @@
 #define OPENCV_VCUCODEC_VCUDECCONTEXT_HPP
 
 #include <opencv2/core.hpp>
-#include <opencv2/vcucodec.hpp>
 
 #include "vcurawout.hpp"
 #include "vcudevice.hpp"
@@ -39,6 +38,8 @@ extern "C" {
 
 namespace cv {
 namespace vcucodec {
+
+class DecoderCallback; // forward declaration
 
 
 class DecContext
