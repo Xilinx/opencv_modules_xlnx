@@ -9,6 +9,20 @@ def fourcc_to_string(fourcc):
     """Convert FourCC integer to readable string"""
     return "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
 
+# Planar formats have 3 planes (Y, U, V); semi-planar have 2 (Y, UV);
+# monochrome have 1 (Y only).
+_PLANAR_FOURCCS  = {FOURCC('I420'), FOURCC('I422'), FOURCC('I444'),
+                    FOURCC('I4AL'), FOURCC('I4CL')}
+_MONO_FOURCCS    = {FOURCC('Y800'), FOURCC('Y010'), FOURCC('Y012')}
+
+def numPlanes(fourcc):
+    """Return the number of YUV planes for a given FourCC."""
+    if fourcc in _MONO_FOURCCS:
+        return 1
+    if fourcc in _PLANAR_FOURCCS:
+        return 3
+    return 2  # semi-planar: NV12, NV16, P010, P210, etc.
+
 def bitdepth_str_to_enum(bd_str):
     if bd_str == "8":
         return cv2.vcucodec.BIT_DEPTH_B8
@@ -45,7 +59,7 @@ def members_str(obj) -> str:
             value = getattr(obj, attr)
             if callable(value):
                 continue
-            if attr in ['fourcc', 'fourccConvert'] and value != 0:
+            if attr in ['fourcc'] and value != 0:
                 value = fourcc_to_string(value)
             if str(type(value)).startswith("<class 'cv2."):
                 attrs.append(f"{attr}: {members_str(value)}")

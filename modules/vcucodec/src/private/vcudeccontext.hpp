@@ -57,6 +57,10 @@ class DecContext
     /// Wait for the decoder context to finish processing.
     virtual void finish() = 0;
 
+    /// Destroy the underlying hardware decoder.  Must be called after all
+    /// Frame references have been released and after finish().
+    virtual void destroyDecoder() = 0;
+
     /// Check if the decoder context is running.
     virtual bool running() const = 0;
 

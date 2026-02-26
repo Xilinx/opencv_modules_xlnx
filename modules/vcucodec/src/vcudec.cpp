@@ -14,6 +14,7 @@
    limitations under the License.
 */
 #include "vcudec.hpp"
+#include "vcuvideoframe.hpp"
 
 extern "C" {
 #include "config.h"
@@ -36,17 +37,231 @@ namespace { // anonymous
 const int fourcc_BGR = 0x20524742; // can't use FOURCC(BGR ) as that would ignore white spaces
 const int fourcc_BGRA = FOURCC(BGRA);
 
-class FrameTokenImpl : public FrameToken
+/// Build Mat headers wrapping the HW buffer planes for a given fourcc/frame.
+/// These Mats do NOT own the data — they point directly into the CMA buffer.
+std::vector<Mat> buildSrcPlanes(AL_TBuffer* pFrame, const RawInfo& info)
 {
-public:
-    FrameTokenImpl(Ptr<Frame> frame) : frame_(frame) {}
-    ~FrameTokenImpl() override {}
-
-private:
-    Ptr<Frame> frame_;
-};
+    std::vector<Mat> planes;
+    switch(info.fourcc)
+    {
+    case FOURCC(Y800):
+    {
+        Size sz(info.width, info.height);
+        planes.push_back(Mat(sz, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(Y010):
+    case FOURCC(Y012):
+    {
+        Size sz(info.width, info.height);
+        planes.push_back(Mat(sz, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(NV12):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height / 2);
+        planes.push_back(Mat(szY,  CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y),  (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_8UC2,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(I420):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height / 2);
+        size_t stepUV = info.stride / 2;
+        planes.push_back(Mat(szY,  CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepUV));
+        planes.push_back(Mat(szUV, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV));
+        break;
+    }
+    case FOURCC(P010):
+    case FOURCC(P012):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height / 2);
+        planes.push_back(Mat(szY,  CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y),  (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_16UC2,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(NV16):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height);
+        planes.push_back(Mat(szY,  CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y),  (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_8UC2,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(P210):
+    case FOURCC(P212):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height);
+        planes.push_back(Mat(szY,  CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y),  (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_16UC2,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(I444):
+    {
+        Size sz(info.width, info.height);
+        planes.push_back(Mat(sz, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        planes.push_back(Mat(sz, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), (size_t)info.stride));
+        planes.push_back(Mat(sz, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(I4AL):
+    case FOURCC(I4CL):
+    {
+        Size sz(info.width, info.height);
+        planes.push_back(Mat(sz, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        planes.push_back(Mat(sz, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), (size_t)info.stride));
+        planes.push_back(Mat(sz, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), (size_t)info.stride));
+        break;
+    }
+    default:
+        CV_Error(Error::StsUnsupportedFormat, "Unsupported pixel format");
+    }
+    return planes;
+}
 
 } // anonymous namespace
+
+// ---- VideoFrameImpl method definitions ----
+
+VideoFrameImpl::VideoFrameImpl(Ptr<Frame> frame, const RawInfo& info,
+                               std::vector<Mat> srcPlanes,
+                               const std::shared_ptr<PinRegistry>& registry)
+    : anchor_(std::make_shared<PinAnchor>(std::move(frame))), info_(info),
+      srcPlanes_(std::move(srcPlanes))
+{
+    if (registry) registry->track(anchor_);
+}
+
+const RawInfo& VideoFrameImpl::info() const { return info_; }
+std::vector<Mat> VideoFrameImpl::planes() const { return srcPlanes_; }
+
+void VideoFrameImpl::copyToVec(std::vector<Mat>& planes) const
+{
+    planes.resize(srcPlanes_.size());
+    for (size_t i = 0; i < srcPlanes_.size(); ++i)
+        planes[i] = srcPlanes_[i].clone();
+}
+
+void VideoFrameImpl::copyTo(Mat& dst, int stride) const
+{
+    int bpp = (info_.bitsPerLuma > 8) ? 2 : 1;
+    int yWidthBytes = info_.width * bpp;
+    int yPitch = (stride > 0) ? stride : yWidthBytes;
+    CV_Assert(yPitch >= yWidthBytes);
+
+    // Compute total height across all planes
+    int nPlanes = (int)srcPlanes_.size();
+    int totalHeight = 0;
+    for (int i = 0; i < nPlanes; i++)
+        totalHeight += srcPlanes_[i].rows;
+
+    // Allocate contiguous byte buffer; zero-fill for chroma padding
+    dst.create(totalHeight, yPitch, CV_8UC1);
+    dst = Scalar(0);
+
+    uint8_t* dstPtr = dst.ptr<uint8_t>();
+    for (int i = 0; i < nPlanes; i++)
+    {
+        const Mat& src = srcPlanes_[i];
+        // Actual data bytes per source row: cols × channels × element size
+        int dataRowBytes = src.cols * src.channels() * (int)src.elemSize1();
+        int copyBytes = std::min(dataRowBytes, yPitch);
+
+        for (int y = 0; y < src.rows; y++)
+        {
+            std::memcpy(dstPtr, src.ptr(y), copyBytes);
+            dstPtr += yPitch;
+        }
+    }
+}
+
+void VideoFrameImpl::convertTo(Mat& dst, int fourCC) const
+{
+    CV_Assert(fourCC == fourcc_BGR || fourCC == fourcc_BGRA);
+    convertColor(dst, fourCC);
+}
+
+const Mat& VideoFrameImpl::planeRef(int index) const
+{
+    CV_Assert(index >= 0 && index < (int)srcPlanes_.size());
+    return srcPlanes_[index];
+}
+
+std::shared_ptr<void> VideoFrameImpl::pin() const
+{
+    // Return the PinAnchor as a shared_ptr<void>.  While any PyCapsule
+    // (or other caller) holds this, the HW buffer stays pinned — unless
+    // PinRegistry::revokeAll() clears anchor_->frame first.
+    return anchor_;
+}
+
+void VideoFrameImpl::convertColor(Mat& dst, int targetFourcc) const
+{
+    int nPlanes = (int)srcPlanes_.size();
+    if (nPlanes == 1)
+    {
+        if (targetFourcc == fourcc_BGR)
+            cvtColor(srcPlanes_[0], dst, COLOR_GRAY2BGR);
+        else
+            cvtColor(srcPlanes_[0], dst, COLOR_GRAY2BGRA);
+    }
+    else if (nPlanes == 2)
+    {
+        if (srcPlanes_[1].rows == srcPlanes_[0].rows)
+        {
+            // 4:2:2 semi-planar (NV16, P210, P212): not supported by cvtColorTwoPlane
+            CV_Error(Error::StsNotImplemented,
+                     "BGR/BGRA conversion is not supported for 4:2:2 semi-planar formats (NV16/P210/P212)");
+        }
+        else
+        {
+            // 4:2:0 semi-planar (NV12, P010, P012): UV has half height
+            if (targetFourcc == fourcc_BGR)
+                cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGR_NV12);
+            else
+                cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGRA_NV12);
+        }
+    }
+    else if (nPlanes == 3)
+    {
+        Mat packed;
+        merge(srcPlanes_, packed);
+        if (targetFourcc == fourcc_BGR)
+        {
+            cvtColor(packed, dst, COLOR_YUV2BGR);
+        }
+        else
+        {
+            Mat bgr;
+            cvtColor(packed, bgr, COLOR_YUV2BGR);
+            cvtColor(bgr, dst, COLOR_BGR2BGRA);
+        }
+    }
+}
 
 VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params,
                        Ptr<DecoderCallback> callback)
@@ -103,7 +318,6 @@ VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params,
     pDecConfig->tDecSettings.uClkRatio = params_.fpsDen;
     pDecConfig->tDecSettings.bForceFrameRate = params_.forceFps;
 
-    rawInfo_.eos = true; // use as uninitialized indicator
     decodeCtx_ = DecContext::create(pDecConfig, rawOutput_, wCfg);
     initialized_ = decodeCtx_ != nullptr;
     if (!initialized_)
@@ -138,14 +352,6 @@ bool VCUDecoder::validateParams(const DecoderInitParams& params)
         CV_Error(cv::Error::StsBadArg, "Unsupported output fourcc");
         return false;
     }
-    valid = params.fourccConvert == 0 || params.fourccConvert == FOURCC(NULL) ||
-            params.fourccConvert == FOURCC(AUTO) ||
-            params.fourccConvert == fourcc_BGR || params.fourccConvert == fourcc_BGRA;
-    if (!valid)
-    {
-        CV_Error(cv::Error::StsBadArg, "Unsupported fourccConvert");
-        return false;
-    }
     valid = params.bitDepth == BitDepth::FIRST || params.bitDepth == BitDepth::ALLOC ||
             params.bitDepth == BitDepth::STREAM || params.bitDepth == BitDepth::B8 ||
             params.bitDepth == BitDepth::B10 || params.bitDepth == BitDepth::B12;
@@ -167,137 +373,45 @@ bool VCUDecoder::validateParams(const DecoderInitParams& params)
     return valid;
 }
 
-bool VCUDecoder::nextFrame(OutputArray frame, RawInfo& frame_info) /* override */
+// New single API entry point
+DecodeStatus VCUDecoder::nextFrame(Ptr<VideoFrame>& frame) /* override */
 {
-    Ptr<Frame> pFrame = nullptr;
+    if (!initialized_ || !decodeCtx_)
+        CV_Error(cv::Error::StsError, "Decoder not initialized");
 
-    if (!initialized_)
-    {
-        CV_LOG_DEBUG(NULL, "VCU2 not available or not initialized");
-        return false;
-    }
-
-    if(!decodeCtx_)
-        return false;
-
-    if(!decodeCtx_->running())
-    {
+    if (!decodeCtx_->running() && !decodeCtx_->eos())
         decodeCtx_->start(wCfg);
-    }
 
-    if(decodeCtx_->eos())
-    {
+    Ptr<Frame> pFrame;
+    if (decodeCtx_->eos())
         pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
-    } else {
+    else
         pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
-    }
 
-    frame_info.eos = false;
-    if(pFrame)
+    if (pFrame)
     {
-        retrieveVideoFrame(frame, pFrame, frame_info, false, false);
+        RawInfo fi;
+        pFrame->rawInfo(fi);
+        fi.width  -= fi.cropLeft + fi.cropRight;
+        fi.height -= fi.cropTop  + fi.cropBottom;
+        fi.fourcc  = pFrame->getFourCC();
+        updateRawInfo(fi);
+
+        frame = makePtr<VideoFrameImpl>(pFrame, fi,
+                                        buildSrcPlanes(pFrame->getBuffer(), fi),
+                                        pinRegistry_);
         ++frameIndex_;
         updateFramePosition();
-    } else  {
-        if(decodeCtx_->eos())
-        {
-            frame_info.eos = true;
-            decodeCtx_->finish();
-        }
-        return false;
+        return DECODE_FRAME;
     }
 
-    return true;
-}
-
-bool VCUDecoder::nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info)
-{
-    Ptr<Frame> pFrame = nullptr;
-    if (!initialized_)
+    frame.reset();
+    if (decodeCtx_->eos())
     {
-        CV_LOG_WARNING(NULL, "VCU2 not available or not initialized");
-        return false;
+        decodeCtx_->finish();
+        return DECODE_EOS;
     }
-
-    if(!decodeCtx_)
-        return false;
-
-    if(!decodeCtx_->running())
-    {
-        decodeCtx_->start(wCfg);
-    }
-
-    CV_LOG_DEBUG(NULL, "VCU2 nextFramePlanes called (placeholder implementation)");
-    if(decodeCtx_->eos())
-    {
-        pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
-    } else {
-        pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
-    }
-
-    frame_info.eos = false;
-    if(pFrame)
-    {
-        retrieveVideoFrame(planes, pFrame, frame_info, true, false);
-        ++frameIndex_;
-        updateFramePosition();
-    } else  {
-        if(decodeCtx_->eos())
-        {
-            frame_info.eos = true;
-            decodeCtx_->finish();
-        }
-        return false;
-    }
-
-    return true;
-}
-
-bool VCUDecoder::nextFramePlanesRef(OutputArrayOfArrays planes, RawInfo& frame_info,
-                                 Ptr<FrameToken>& frameToken)
-{
-    Ptr<Frame> pFrame = nullptr;
-
-    if (!initialized_)
-    {
-        CV_LOG_WARNING(NULL, "VCU2 not available or not initialized");
-        return false;
-    }
-
-    if(!decodeCtx_)
-        return false;
-
-    if(!decodeCtx_->running())
-    {
-        decodeCtx_->start(wCfg);
-    }
-
-    if(decodeCtx_->eos())
-    {
-        pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
-    } else {
-        pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
-    }
-
-    frame_info.eos = false;
-    if(pFrame)
-    {
-        FrameTokenImpl *token = new FrameTokenImpl(pFrame);
-        frameToken.reset(token);
-        retrieveVideoFrame(planes, pFrame, frame_info, true, true);
-        ++frameIndex_;
-        updateFramePosition();
-    } else  {
-        if(decodeCtx_->eos())
-        {
-            frame_info.eos = true;
-            decodeCtx_->finish();
-        }
-        return false;
-    }
-
-    return true;
-
+    return DECODE_TIMEOUT;
 }
 
 bool VCUDecoder::set(int propId, double value)
@@ -333,316 +447,17 @@ void VCUDecoder::cleanup()
     if (initialized_)
     {
         decodeCtx_->finish();
+        // Drain any frames that were enqueued into the raw-output queue
+        // between finish()'s initial flush and the worker thread join.
+        // These frames hold AL_Buffer refs that must be released before
+        // AL_Decoder_Destroy, otherwise its pool cleanup asserts.
+        rawOutput_->flush();
+        pinRegistry_->revokeAll();
+        decodeCtx_->destroyDecoder();
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         AL_Lib_Decoder_DeInit();
     }
     initialized_ = false;
-}
-
-void VCUDecoder::copyToDestination(OutputArray dst, std::vector<Mat>& src,
-    int fourccConvert, bool vector_output, bool single_output_buffer, bool by_reference)
-{
-    int nr_components = src.size();
-    if (fourccConvert == fourcc_BGR || fourccConvert == fourcc_BGRA)
-        nr_components = 1; // force single output for BGR/A conversion
-
-    std::vector<Mat> planes(nr_components);
-    Mat& planeY = planes[0];
-    Mat& planeU = planes[1];
-    Mat& planeV = planes[2];
-    Mat& planeUV = planes[1];
-    Mat& planeRGB = planes[0];
-    Mat& planeYUV = planes[0];
-
-    if (nr_components == 1) {
-        Mat& srcY = src[0];
-        Size szY = src[0].size();
-        int depth = CV_MAT_DEPTH(srcY.type());
-
-        if (fourccConvert == fourcc_BGR)
-        {
-            planeRGB.create(szY, CV_8UC3);
-            cvtColor(srcY, planeRGB, COLOR_GRAY2BGR);
-        }
-        else if (fourccConvert == fourcc_BGRA)
-        {
-            planeRGB.create(szY, CV_8UC4);
-            cvtColor(srcY, planeRGB, COLOR_GRAY2BGRA);
-        }
-        else
-        {
-            if (by_reference)
-            {
-                planeY = srcY;
-            }
-            else
-            {
-                if(depth == CV_8U)
-                    planeY.create(Size(szY.width, szY.height), CV_8UC1);
-                else if(depth == CV_16U)
-                    planeY.create(Size(szY.width, szY.height), CV_16UC1);
-                srcY.copyTo(planeY(Rect(0, 0, szY.width, szY.height)));
-            }
-        }
-    }
-    else if (nr_components == 2)
-    {
-        Mat& srcY = src[0];
-        Mat& srcUV = src[1];
-        Size szY = src[0].size();
-        Size szUV = src[1].size();
-        int depth = CV_MAT_DEPTH(srcY.type());
-
-        if (fourccConvert == fourcc_BGR)
-        {
-            planeRGB.create(szY, CV_8UC3);
-            cvtColorTwoPlane(srcY, srcUV, planeRGB, COLOR_YUV2BGR_NV12);
-        }
-        else if (fourccConvert == fourcc_BGRA)
-        {
-            planeRGB.create(szY, CV_8UC4);
-            cvtColorTwoPlane(srcY, srcUV, planeRGB, COLOR_YUV2BGRA_NV12);
-        }
-        else
-        {
-            if (by_reference)
-            {
-                planeY = srcY;
-                planeUV = srcUV;
-            }
-            else if (single_output_buffer)
-            {
-                if(depth == CV_8U)
-                    planeYUV.create(Size(szY.width, szY.height + szUV.height), CV_8UC1);
-                else if(depth == CV_16U)
-                    planeYUV.create(Size(szY.width, szY.height + szUV.height), CV_16UC1);
-                srcY.copyTo(planeYUV(Rect(0, 0, szY.width, szY.height)));
-                srcUV.reshape(1, srcUV.rows).copyTo(planeYUV(Rect(0, szY.height, szUV.width*2,
-                    szUV.height)));
-            } else {
-                srcY.copyTo(planeY);
-                srcUV.copyTo(planeUV);
-            }
-        }
-    }
-    else if (nr_components == 3)
-    {
-        Mat& srcY = src[0];
-        Mat& srcU = src[1];
-        Mat& srcV = src[2];
-        Size szY = src[0].size();
-        Size szU = src[1].size();
-        Size szV = src[2].size();
-        int depth = CV_MAT_DEPTH(srcY.type());
-
-        if (fourccConvert == fourcc_BGR)
-        {
-            planeRGB.create(szY, CV_8UC3);
-            Mat imgYUVpacked;
-            merge(src, imgYUVpacked); // expensive extra copy
-            cvtColor(imgYUVpacked, planeRGB, COLOR_YUV2BGR);
-        }
-        else if (fourccConvert == fourcc_BGRA)
-        {
-            planeRGB.create(szY, CV_8UC4);
-            Mat imgYUVpacked;
-            merge(src, imgYUVpacked); // expensive extra copy
-            Mat imgBGR;
-            imgBGR.create(szY, CV_8UC3);
-            cvtColor(imgYUVpacked, imgBGR, COLOR_YUV2BGR); // another expensive extra copy
-            cvtColor(imgBGR, planeRGB, COLOR_BGR2BGRA);
-        }
-        else
-        {
-            if (by_reference)
-            {
-                planeY = srcY;
-                planeU = srcU;
-                planeV = srcV;
-            }
-            else if (single_output_buffer)
-            {
-                if(depth == CV_8U)
-                    planeYUV.create(Size(szY.width, szY.height * 3), CV_8UC1);
-                else if(depth == CV_16U)
-                    planeYUV.create(Size(szY.width, szY.height * 3), CV_16UC1);
-                srcY.copyTo(planeYUV(Rect(0, 0, szY.width, szY.height)));
-                srcU.copyTo(planeYUV(Rect(0, szY.height, szU.width, szU.height)));
-                srcV.copyTo(planeYUV(Rect(0, szY.height + szU.height, szV.width, szV.height)));
-            }
-            else
-            {
-                srcY.copyTo(planeY);
-                srcU.copyTo(planeU);
-                srcV.copyTo(planeV);
-            }
-        }
-    }
-
-    if (vector_output)
-    {
-        int sizes[] = {nr_components};  // n planes
-        dst.create(1, sizes, CV_8UC1);
-        dst.assign(planes);
-    }
-    else
-    {
-        dst.assign(planes[0]);
-    }
-
-}
-
-void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
-                                    bool vector_output, bool by_reference)
-{
-    // Formats added must also be added to vcuutils.cpp
-
-    AL_TBuffer* pFrame = frame->getBuffer();
-    frame->rawInfo(frame_info);
-    //for 1080p HEVC decode, output height is 1080 with zero crop numbers
-    //for 1080p AVC decode, output height is 1088 with crop numbers, update width/height
-    frame_info.width -= frame_info.cropLeft + frame_info.cropRight;
-    frame_info.height -= frame_info.cropTop + frame_info.cropBottom;
-    frame_info.fourcc = frame->getFourCC();
-    updateRawInfo(frame_info);
-    switch(frame_info.fourcc)
-    {
-    case FOURCC(Y800):
-    {
-        Size sz = Size(frame_info.width, frame_info.height);
-        size_t step = frame_info.stride;
-        std::vector<Mat> src =
-            { Mat(sz, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
-        bool single_output_buffer = true;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-    case FOURCC(Y010):
-    case FOURCC(Y012):
-    {
-        Size sz = Size(frame_info.width, frame_info.height);
-        size_t step = frame_info.stride;
-        std::vector<Mat> src =
-            { Mat(sz, CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), step) };
-        bool single_output_buffer = true;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-    case (FOURCC(NV12)):
-    {
-        Size szY = Size(frame_info.width, frame_info.height);
-        Size szUV = Size(frame_info.width / 2, frame_info.height / 2);
-        size_t stepY = frame_info.stride;
-        size_t stepUV = frame_info.stride;
-        std::vector<Mat> src =
-            { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
-        bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-    case (FOURCC(I420)):
-    {
-        Size szY = Size(frame_info.width, frame_info.height);
-        Size szUV = Size(frame_info.width / 2, frame_info.height / 2);
-        size_t stepY = frame_info.stride;
-        size_t stepUV = frame_info.stride/2;
-        std::vector<Mat> src =
-            { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szUV, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepUV),
-              Mat(szUV, CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV) };
-        bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-    case (FOURCC(P010)):
-    case (FOURCC(P012)):
-    {
-        Size szY = Size(frame_info.width, frame_info.height);
-        Size szUV = Size(frame_info.width / 2, frame_info.height / 2);
-        size_t stepY = frame_info.stride;
-        size_t stepUV = frame_info.stride;
-        std::vector<Mat> src =
-            { Mat(szY,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szUV, CV_16UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
-        bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-    case (FOURCC(NV16)):
-    {
-        Size szY = Size(frame_info.width, frame_info.height);
-        Size szUV = Size(frame_info.width / 2, frame_info.height);
-        size_t stepY = frame_info.stride;
-        size_t stepUV = frame_info.stride;
-        std::vector<Mat> src =
-            { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szUV, CV_8UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
-        bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-    case (FOURCC(P210)):
-    case (FOURCC(P212)):
-    {
-        Size szY = Size(frame_info.width, frame_info.height);
-        Size szUV = Size(frame_info.width / 2, frame_info.height);
-        size_t stepY = frame_info.stride;
-        size_t stepUV = frame_info.stride;
-        std::vector<Mat> src =
-            { Mat(szY,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szUV, CV_16UC2, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), stepUV) };
-        bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-    case (FOURCC(I444)):
-    {
-        Size szY = Size(frame_info.width, frame_info.height);
-        Size szU = szY;
-        Size szV = szY;
-        size_t stepY = frame_info.stride;
-        size_t stepU = stepY;
-        size_t stepV = stepY;
-        std::vector<Mat> src =
-            { Mat(szY,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szU,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepU),
-              Mat(szV,  CV_8UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepV) };
-        bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-    case (FOURCC(I4AL)):
-    case (FOURCC(I4CL)):
-    {
-        Size szY = Size(frame_info.width, frame_info.height);
-        Size szU = szY;
-        Size szV = szY;
-        size_t stepY = frame_info.stride;
-        size_t stepU = stepY;
-        size_t stepV = stepY;
-        std::vector<Mat> src =
-            { Mat(szY,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), stepY),
-              Mat(szU,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepU),
-              Mat(szV,  CV_16UC1, AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepV) };
-        bool single_output_buffer = !vector_output;
-        copyToDestination(dst, src, params_.fourccConvert, vector_output, single_output_buffer,
-                          by_reference);
-        break;
-    }
-
-    default:
-        CV_Error(Error::StsUnsupportedFormat, "Unsupported pixel format");
-        break;
-    } // end switch
 }
 
 // Not available from the Allegro decoder SDK:
@@ -651,23 +466,24 @@ void VCUDecoder::retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& 
 // CAP_PROP_FRAME_TYPE: AL_TPictureDecMetaData has no eType field (encoder-only).
 
 
-void VCUDecoder::updateRawInfo(RawInfo& frame_info)
+void VCUDecoder::updateRawInfo(const RawInfo& frame_info)
 {
-    bool changed = frame_info != rawInfo_; // false if any has .eos member set
+    bool changed = !rawInfoInitialized_ || frame_info != rawInfo_;
     if (changed)
     {
         std::lock_guard<std::mutex> lock(rawInfoMutex_);
-        if (rawInfo_.eos || rawInfo_.fourcc != frame_info.fourcc)
+        if (!rawInfoInitialized_ || rawInfo_.fourcc != frame_info.fourcc)
         {
             setCaptureProperty(CAP_PROP_CODEC_PIXEL_FORMAT, (double)frame_info.fourcc, false);
         }
-        if (rawInfo_.eos || rawInfo_.width != frame_info.width) {
+        if (!rawInfoInitialized_ || rawInfo_.width != frame_info.width) {
             setCaptureProperty(CAP_PROP_FRAME_WIDTH, (double)frame_info.width, false);
         }
-        if (rawInfo_.eos || rawInfo_.height != frame_info.height) {
+        if (!rawInfoInitialized_ || rawInfo_.height != frame_info.height) {
             setCaptureProperty(CAP_PROP_FRAME_HEIGHT, (double)frame_info.height, false);
         }
         rawInfo_ = frame_info;
+        rawInfoInitialized_ = true;
     }
 }
 

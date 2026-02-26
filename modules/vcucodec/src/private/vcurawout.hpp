@@ -18,6 +18,8 @@
 
 #include "vcuframe.hpp"
 
+#include <string>
+
 namespace cv {
 namespace vcucodec {
 

@@ -20,25 +20,17 @@ def fourcc_to_string(fourcc):
     """Convert FourCC integer to readable string"""
     return "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
 
-def writeyuv(f, frame, width, height, stride):
+def writeyuv(f, planeY, planeUV, width, height):
     """Write YUV data to a file in NV12 format."""
-    # Write Y plane
     for y in range(height):
-        f.write(frame[y, :width].tobytes())
-    # Write UV plane
-    for y in range(height // 2):
-        f.write(frame[height + y, :width].tobytes())
-
-def writebgr(f, frame):
-    """Write BGR data to a file."""
-    for y in range(frame.shape[0]):
-        f.write(frame[y, :, :].tobytes())
+        f.write(planeY[y, :width].tobytes())
+    for y in range(planeUV.shape[0]):
+        f.write(planeUV[y, :width].tobytes())
 
 # Create decoder parameters
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codec=cv2.vcucodec.CODEC_AVC,
     fourcc=FOURCC("NV12"),
-    fourccConvert=0,  # No conversion, output raw NV12
     maxFrames=0,
     bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST,
     fpsNum=60000,     # Frame rate numerator (default 60000)
@@ -47,29 +39,32 @@ decoderInitParams = cv2.vcucodec.DecoderInitParams(
 
 # Create decoder instance
 dec = cv2.vcucodec.createDecoder('./input.avc', decoderInitParams)
-info = cv2.vcucodec.RawInfo()
 file = open('output.yuv', 'wb')
 count = 0
 
 # Decode frames
 while True:
-    ret, frame, info = dec.nextFrame()
-    if not ret:
-        print(f"got no frame: EOS: {info.eos}")
-        if info.eos:
-            break
-    else:
+    status, frame = dec.nextFrame()
+    if status == cv2.vcucodec.DECODE_FRAME:
         count += 1
+        info = frame.info()
         print(f"{count} Width: {info.width}, Height: {info.height},"
               f" FourCC: {fourcc_to_string(info.fourcc)},"
               f" BitDepth: {info.bitsPerLuma}, Stride: {info.stride}")
 
-        # Write frame data based on format
-        if decoderInitParams.fourccConvert == 0:
-            writeyuv(file, frame, info.width, info.height, info.stride)
-        elif decoderInitParams.fourccConvert == FOURCC("BGR"):
-            writebgr(file, frame)
+        # Zero-copy access to Y and UV planes (no data copy)
+        planeY = cv2.vcucodec.plane_numpy(frame, 0)
+        planeUV = cv2.vcucodec.plane_numpy(frame, 1)
+        writeyuv(file, planeY, planeUV, info.width, info.height)
+    elif status == cv2.vcucodec.DECODE_TIMEOUT:
+        continue
+    elif status == cv2.vcucodec.DECODE_EOS:
+        break
 
+# Release zero-copy views and frame before destroying decoder
+planeY = None
+planeUV = None
+frame = None
 file.close()
 del dec
 \endcode
@@ -78,89 +73,84 @@ del dec
 
 - Set `codec` for different codec types (CODEC_AVC, CODEC_HEVC)
 - Set `fourcc` to specify the desired output format (e.g., "NV12", "Y800")
-- Set `fourccConvert` to 0 for no conversion, or use FOURCC("BGR") for BGR output
+- Use `convertTo(dst, fourCC)` on the VideoFrame for software color conversion (BGR or BGRA)
 - Set `fpsNum` and `fpsDen` for frame rate (fpsNum/fpsDen). The decoder hardware has limited
   throughput per core. The scheduler uses frame rate to allocate enough cores to sustain real-time
   decoding, reject channels if insufficient resources are available, and time-share cores between
   multiple channels.
 - Set `forceFps` to True to force the decoder to use fpsNum/fpsDen instead of stream timing info
-- Frame information is provided in the `RawInfo` structure
-- NextFrame will return after a time-out if no data is available, i.e. it will not block
-  indefinitely. The boolean info.eos is set to true when the end of the stream is reached. When set
-  to false the next frame has not been decoded yet. This can be the case when there are input
-  bottlenecks.
+- Frame information is available via `frame.info()` returning a `RawInfo` structure
+- `nextFrame()` returns `DECODE_TIMEOUT` when no data is available (does not block indefinitely).
+  `DECODE_EOS` signals end of stream.
+- Zero-copy numpy views from `plane_numpy()` pin the underlying DMA buffer. Release them
+  (set to `None`) before destroying the decoder to avoid "revoked outstanding pin(s)" warnings.
 
-Modify above script to get BGR output as follows. Note that a software conversion is needed which
-reduces performance.
+Modify above script to get BGR output as follows.  Call `convertTo()` on the
+VideoFrame with the desired FOURCC.  This is a software conversion and reduces performance.
 
 \code{.py}
 #!/usr/bin/env python3
 import cv2
 
-# Example with BGR conversion
-decoderInitParams = cv2.vcucodec.DecoderInitParams(
-    codec=cv2.vcucodec.CODEC_AVC,
-    fourcc=FOURCC("NV12"),
-    fourccConvert=FOURCC("BGR"),  # Convert to BGR
-    maxFrames=0,
-    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST,
-    fpsNum=30000,     # 30 fps example
-    fpsDen=1000)
+def FOURCC(s): return cv2.VideoWriter.fourcc(*s[:4].ljust(4))
+
+# ... (create decoder as above) ...
+
+while True:
+    status, frame = dec.nextFrame()
+    if status == cv2.vcucodec.DECODE_FRAME:
+        bgr = frame.convertTo(FOURCC("BGR "))
+        # ... process bgr ...
+    elif status == cv2.vcucodec.DECODE_EOS:
+        break
 \endcode
 
-#### Example with separate planes for Y and UV
-Instead of `nextFrame` this example uses `nextFramePlanes` to get separate planes for Y and UV.
+#### Example with deep-copy plane access
+Use `planes()` via the auto-generated Python binding for deep-copy access to all planes.
+These copies are safe to hold after the VideoFrame goes out of scope.
 
 \code{.py}
-#! /usr/bin/env python3
-def FOURCC(str_fourcc):
-    str_fourcc = str_fourcc[:4].ljust(4)  # ensure exactly 4 characters (space padded)
-    return cv2.VideoWriter_fourcc(*str_fourcc)
+#!/usr/bin/env python3
+import cv2
 
-def fourcc_to_string(fourcc):
-    """Convert FourCC integer to readable string"""
-    return "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
+# ... (create decoder as above) ...
 
-def writeyuv_planes(f, planeY, planeUV, width, height):
-    """Write YUV data to a file from separate Y and UV planes."""
-    # Write Y plane
-    for y in range(height):
-        f.write(planeY[y, :width].tobytes())
-    # Write UV plane
-    for y in range(planeUV.shape[0]):  # UV plane height
-        f.write(planeUV[y, :width].tobytes())
-
-decoderInitParams = cv2.vcucodec.DecoderInitParams(
-    codec=cv2.vcucodec.CODEC_AVC,
-    fourcc=FOURCC("NV12"),
-    fourccConvert=0, # FOURCC("BGR"),
-    maxFrames=0,
-    bitDepth=cv2.vcucodec.BIT_DEPTH_FIRST,
-    fpsNum=60000,
-    fpsDen=1000)
-
-dec = cv2.vcucodec.createDecoder('./input.avc', decoderInitParams)
-info = cv2.vcucodec.RawInfo()
-once = True
-file = open('output.yuv', 'wb')
-count = 0
 while True:
-    ret, planes, info = dec.nextFramePlanes()
-    if not ret:
-        print(f"got no frame: EOS: {info.eos}")
-        if info.eos:
-            break
-    else:
-        count += 1
-        print(f"{count} Width: {info.width}, Height: {info.height},"
-              f" FourCC: {fourcc_to_string(info.fourcc)},"
-              f" BitDepth: {info.bitsPerLuma}, Stride: {info.stride}, EOS: {info.eos}")
-        planeY = planes[0]
-        planeUV = planes[1]
-        writeyuv_planes(file, planeY, planeUV, info.width, info.height)
+    status, frame = dec.nextFrame()
+    if status == cv2.vcucodec.DECODE_FRAME:
+        # Deep copies via auto-generated binding (safe to hold indefinitely)
+        yuvPlanes = frame.planes()  # list of Mat: [Y, UV] or [Y, U, V]
+        planeY = yuvPlanes[0]
+        planeUV = yuvPlanes[1]
+        # ... process planeY, planeUV ...
+    elif status == cv2.vcucodec.DECODE_EOS:
+        break
+\endcode
 
-file.close()
-del dec
+#### Example: copyTo single Mat
+Use `copyTo(dst, stride)` to obtain all YUV planes in a single contiguous Mat.
+Pass `stride=0` for tight packing (no padding) or `stride=info().stride` to
+preserve the hardware buffer stride. The output is a CV_8UC1 byte buffer with
+all planes stacked vertically.
+
+\code{.py}
+#!/usr/bin/env python3
+import cv2
+
+# ... (create decoder as above) ...
+
+while True:
+    status, frame = dec.nextFrame()
+    if status == cv2.vcucodec.DECODE_FRAME:
+        # Tight-packed single Mat (no padding)
+        mat = cv2.Mat()
+        frame.copyTo(mat)
+
+        # Or with hardware stride preserved (encoder-compatible)
+        mat_strided = cv2.Mat()
+        frame.copyTo(mat_strided, frame.info().stride)
+    elif status == cv2.vcucodec.DECODE_EOS:
+        break
 \endcode
 
 */

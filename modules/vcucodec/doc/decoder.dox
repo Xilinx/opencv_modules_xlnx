@@ -32,22 +32,28 @@ Supported output FOURCC codes (use @ref cv::vcucodec::Decoder::getFourCCs "Decod
 | I4AL   | YUV | 10-bit | 4:4:4 | VCU2 only |
 | I4CL   | YUV | 12-bit | 4:4:4 | VCU2 only |
 
-Optional software conversion to BGR or BGRA can be enabled via the
-@ref cv::vcucodec::DecoderInitParams::fourccConvert "DecoderInitParams::fourccConvert" parameter.
+The decoder returns frames via a single method:
+- @ref cv::vcucodec::Decoder::nextFrame "nextFrame(frame)" - returns a @ref cv::vcucodec::DecodeStatus "DecodeStatus" and a @ref cv::vcucodec::VideoFrame "VideoFrame"
 
-The decoder supports multiple output methods:
-- @ref cv::vcucodec::Decoder::nextFrame "nextFrame(frame, frameInfo)" - returns a single-plane copy of the decoded frame
-- @ref cv::vcucodec::Decoder::nextFramePlanes "nextFramePlanes(planes, frameInfo)" - returns separate Y and UV planes as copies
-- @ref cv::vcucodec::Decoder::nextFramePlanesRef "nextFramePlanesRef(planes, frameInfo, frameToken)" - returns planes by reference with a @ref cv::vcucodec::FrameToken "FrameToken" for lifetime management
+The @ref cv::vcucodec::DecodeStatus "DecodeStatus" indicates the result:
+- `DECODE_FRAME` - a frame was successfully decoded
+- `DECODE_TIMEOUT` - no frame available yet; call again
+- `DECODE_EOS` - end of stream reached
 
-The `frame` parameter (OutputArray) receives the decoded frame as a single cv::Mat. For semi-planar
-formats like NV12, the UV plane is appended below the Y plane.
+The @ref cv::vcucodec::VideoFrame "VideoFrame" provides access to the decoded frame data:
+- `info()` returns the @ref cv::vcucodec::RawInfo "RawInfo" metadata (format, dimensions, stride, crop offsets)
+- `planes()` returns all YUV planes as Mat headers sharing the hardware buffer (zero-copy in C++, deep-copy through the auto-generated Python binding). Planes are ordered: index 0 = Y, index 1 = UV (semi-planar) or U (planar), index 2 = V (planar only).
+- `copyToVec(planes)` deep-copies all planes into a vector
+- `copyTo(dst, stride)` copies all planes into a single contiguous Mat (all planes stacked vertically).
+  Pass `stride=0` (default) for tight packing, or `stride=info().stride` to preserve the hardware buffer padding.
+  Chroma rows narrower than the Y pitch are zero-padded.
+- `convertTo(dst, fourCC)` converts to BGR or BGRA (software conversion)
 
-The `planes` parameter (OutputArrayOfArrays) receives a vector of cv::Mat, typically planes[0] for Y
-and planes[1] for UV (or U and V separately for planar formats).
+For zero-copy access from Python (avoiding the deep-copy overhead of the auto-generated binding):
+- `cv.vcucodec.plane_numpy(frame, index)` - returns a read-only numpy view of the specified plane
 
-The @ref cv::vcucodec::RawInfo "RawInfo" structure (frameInfo) contains metadata about the decoded frame including
-format, dimensions, stride, crop offsets, and picture structure.
+The zero-copy functions pin the hardware buffer and prevent it from being recycled while the
+numpy array exists. Holding too many pinned frames will stall the decoder pipeline.
 
 Properties can be queried via @ref cv::vcucodec::Decoder::get "get(propId)" and set via
 @ref cv::vcucodec::Decoder::set "set(propId, value)":

@@ -24,7 +24,6 @@ user_bitdepth = bitdepth_str_to_enum(args.bitdepth)
 decoderInitParams = cv2.vcucodec.DecoderInitParams(
     codec=cv2.vcucodec.CODEC_AVC if args.avc else cv2.vcucodec.CODEC_HEVC,
     fourcc=FOURCC(args.output_format.upper()),
-    fourccConvert=0, # FOURCC("BGR"),
     maxFrames=args.max_frames,
     bitDepth=user_bitdepth)
 
@@ -34,13 +33,15 @@ enc = cv2.vcucodec.createEncoder(args.output, params)
 print(members_str(params))
 frame_idx = 1;
 while True:
-    ret, frame, info = dec.nextFrame()
-    if not ret:
-        print(f"\ngot no frame: EOS: {info.eos}")
-        if info.eos:
-            break
-    else:
-        enc.write(frame)
+    status, frame = dec.nextFrame()
+    if status == cv2.vcucodec.DECODE_TIMEOUT:
+        continue
+    elif status == cv2.vcucodec.DECODE_EOS:
+        print(f"\nEnd of stream")
+        break
+    elif status == cv2.vcucodec.DECODE_FRAME:
+        dst = frame.copyTo()
+        enc.write(dst)
         print(f"\rEncoded frame {frame_idx}", end='')
         frame_idx += 1
 

@@ -31,9 +31,7 @@ namespace vcucodec {
 
 bool operator==(const RawInfo& lhs, const RawInfo& rhs)
 {
-    if (lhs.eos || rhs.eos)
-        return false;
-    bool equal = lhs.fourcc == rhs.fourcc &&
+    return lhs.fourcc == rhs.fourcc &&
         lhs.bitsPerLuma == rhs.bitsPerLuma &&
         lhs.bitsPerChroma == rhs.bitsPerChroma &&
         lhs.stride == rhs.stride &&
@@ -45,7 +43,6 @@ bool operator==(const RawInfo& lhs, const RawInfo& rhs)
         lhs.cropBottom == rhs.cropBottom &&
         lhs.cropLeft == rhs.cropLeft &&
         lhs.cropRight == rhs.cropRight;
-    return equal;
 }
 
 bool operator!=(const RawInfo& lhs, const RawInfo& rhs)

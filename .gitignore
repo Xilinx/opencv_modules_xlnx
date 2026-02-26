@@ -39,3 +39,4 @@ __pycache__/
 
 # Build artifacts
 docs/doxygen.warn
+docs/

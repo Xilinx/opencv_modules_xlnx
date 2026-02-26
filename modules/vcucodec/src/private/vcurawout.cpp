@@ -24,7 +24,7 @@ extern "C" {
 }
 #include "lib_app/convert.hpp"
 
-
+#include <chrono>
 #include <iostream>
 
 namespace cv {
@@ -56,7 +56,6 @@ public:
     Ptr<Frame> dequeue(std::chrono::milliseconds timeout = std::chrono::milliseconds(100)) override;
     bool idle() override;
     void flush() override;
-
 private:
     void processFrame(Ptr<Frame>, int32_t iBdOut, TFourCC tOutFourCC);
 
@@ -154,7 +153,9 @@ bool RawOutputImpl::process(Ptr<Frame> frame, int32_t iBitDepthAlloc, bool& bIsM
             int32_t iEffectiveBitDepth = iBitDepth == OUTPUT_BD_STREAM ? iCurrentBitDepth : iBitDepth;
 
             if (bHasOutput)
+            {
                 processFrame(pDFrame, iEffectiveBitDepth, tOutputFourCC);
+            }
 
             if (bIsMainDisplay)
             {

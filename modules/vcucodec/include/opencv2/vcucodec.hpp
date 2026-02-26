@@ -54,7 +54,6 @@ namespace vcucodec {
 
 /// Struct RawInfo defines a raw YUV frame containing metadata such as format, dimensions, and stride.
 struct CV_EXPORTS_W_SIMPLE RawInfo {
-    CV_PROP_RW bool eos;            ///< End-of-stream flag, below information valid only if false.
     CV_PROP_RW int  fourcc;         ///< Output format as FOURCC code.
     CV_PROP_RW int  bitsPerLuma;    ///< Bit depth of the output data, 8, 10, or 12 bits per channel.
     CV_PROP_RW int  bitsPerChroma;  ///< Bit depth of the output data, 8, 10, or 12 bits per channel.
@@ -85,7 +84,6 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
     CV_PROP_RW int fourcc;        ///< Format of the output raw data as FOURCC code.
                                   ///< Default is VCU_FOURCC_AUTO (determined automatically).
                                   ///< See @ref dec_fourcc_table "Supported output FOURCC codes".
-    CV_PROP_RW int fourccConvert; ///< FOURCC specifying to convert to BGR or BGRA, or 0 (none).
     CV_PROP_RW int maxFrames;     ///< Maximum number of frames to decode, 0 for unlimited.
     CV_PROP_RW BitDepth bitDepth; ///< Specify output bit depth (first, alloc, stream, 8, 10, 12).
     CV_PROP_RW int extraFrames;   ///< Number of extra frame buffers to allocate for processing,
@@ -102,15 +100,78 @@ struct CV_EXPORTS_W_SIMPLE DecoderInitParams
 
     /// Constructor to initialize decoder parameters with default values.
     CV_WRAP DecoderInitParams(Codec codec = Codec::HEVC, int fourcc = VCU_FOURCC_AUTO,
-        int fourccConvert = 0, int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC,
+        int maxFrames = 0, BitDepth bitDepth = BitDepth::ALLOC,
         int fpsNum = 60000, int fpsDen = 1000, bool forceFps = false);
 };
 
-/// Class FrameToken is a token to manage frame reference lifetime.
-class CV_EXPORTS_W FrameToken
+/// @brief Status returned by Decoder::nextFrame().
+enum DecodeStatus {
+    DECODE_FRAME   = 0, ///< A frame was successfully decoded and returned.
+    DECODE_TIMEOUT = 1, ///< No frame is available yet; call nextFrame() again.
+    DECODE_EOS     = 2  ///< End of stream reached; no more frames will be produced.
+};
+
+/// @brief Decoded video frame providing access to YUV plane data.
+///
+/// Returned by Decoder::nextFrame(). The underlying hardware buffer is kept alive
+/// as long as a reference to this VideoFrame (or any zero-copy numpy view obtained from it)
+/// exists. Holding frames too long may stall the decoder pipeline.
+class CV_EXPORTS_W VideoFrame
 {
 public:
-    virtual ~FrameToken() {};
+    virtual ~VideoFrame() {}
+
+    /// @brief Get frame metadata (format, dimensions, stride, crop offsets).
+    CV_WRAP virtual const RawInfo& info() const = 0;
+
+    /// @brief Get all YUV planes as Mat headers sharing the hardware buffer.
+    ///
+    /// In C++ the returned Mats share the underlying hardware memory (zero-copy).
+    /// Planes are ordered: index 0 = Y, index 1 = UV (semi-planar) or U (planar),
+    /// index 2 = V (planar only).  Use copyToVec() when you need independent deep copies.
+    ///
+    /// @note **Python zero-copy:** The OpenCV Python binding performs a deep copy when
+    /// converting Mat to numpy.  To get true zero-copy access in Python, use
+    /// @ref cv2.vcucodec.plane_numpy "cv2.vcucodec.plane_numpy(frame, index)" instead,
+    /// which returns a numpy array backed directly by the hardware DMA buffer.
+    /// The buffer stays pinned as long as the numpy array (or any view of it) is alive.
+    /// Example:
+    /// @code{.py}
+    ///     status, frame = dec.nextFrame()
+    ///     y  = cv2.vcucodec.plane_numpy(frame, 0)   # zero-copy Y plane
+    ///     uv = cv2.vcucodec.plane_numpy(frame, 1)   # zero-copy UV plane
+    /// @endcode
+    CV_WRAP virtual std::vector<Mat> planes() const = 0;
+
+    /// @brief Copy all planes into a vector (deep copy).
+    CV_WRAP virtual void copyToVec(CV_OUT std::vector<Mat>& planes) const = 0;
+
+    /// @brief Copy all planes into a single contiguous Mat.
+    ///
+    /// Produces a single-channel byte buffer (CV_8UC1 for 8-bit formats, or
+    /// CV_8UC1 with 2× width for 10/12-bit) containing all YUV planes stacked
+    /// vertically.  Each plane occupies its full height in the output; chroma
+    /// rows narrower than the Y row pitch are zero-padded.
+    ///
+    /// @param dst   Output Mat — reallocated if size/type do not match.
+    /// @param stride Row pitch in bytes for the Y plane.  Chroma pitch is
+    ///              derived from the format (equal to Y pitch for semi-planar
+    ///              and 4:4:4; half of Y pitch for planar 4:2:0 / 4:2:2
+    ///              chroma planes).  When 0 (default), tight packing is used:
+    ///              Y pitch = width × bytesPerPixel, no padding.
+    ///              Pass `info().stride` to match the hardware buffer stride.
+    CV_WRAP virtual void copyTo(CV_OUT Mat& dst, int stride = 0) const = 0;
+
+    /// @brief Convert the frame to the specified color format and store in dst.
+    ///
+    /// Performs a software color conversion from the native YUV format to the
+    /// target format specified by @p fourCC.  Currently supported targets:
+    /// - `VideoWriter::fourcc('B','G','R',' ')` — 3-channel BGR (CV_8UC3)
+    /// - `VideoWriter::fourcc('B','G','R','A')` — 4-channel BGRA (CV_8UC4)
+    ///
+    /// @param dst    Output Mat — reallocated if size/type do not match.
+    /// @param fourCC Target pixel format as a FOURCC code.
+    CV_WRAP virtual void convertTo(CV_OUT Mat& dst, int fourCC) const = 0;
 };
 
 
@@ -125,32 +186,11 @@ public:
     /// Virtual destructor for the Decoder interface.
     virtual ~Decoder() {}
 
-    /// Decode the next frame from the stream, return a copy as a single plane.
-    /// @return true if a frame was successfully decoded, false if no frames are available (yet)
-    ///         or if an error occurred.
-    CV_WRAP virtual bool nextFrame(
-        CV_OUT OutputArray frame, ///< Output array to store the decoded frame.
-        CV_OUT RawInfo& frameInfo ///< Output parameter with information about the decoded frame.
-    ) = 0;
-
-    /// Decode the next frame from the stream into separate planes, copies are made of each frame.
-    /// @return true if a frame was successfully decoded, false if no frames are available (yet)
-    ///         or if an error occurred.
-    CV_WRAP virtual bool nextFramePlanes(
-        CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame.
-        CV_OUT RawInfo& frameInfo   ///< Output parameter with information about the decoded frame.
-    ) = 0;
-
-
-    /// Decode the next frame from the stream into separate planes and return by reference.
-    /// As long as the client holds on to returned frameToken, the frame is not released and
-    /// put back on the decoder queue. Holding on to frames too long may block the decoding process.
-    /// @return true if a frame was successfully decoded, false if no frames are available (yet)
-    ///         or if an error occurred.
-    CV_WRAP virtual bool nextFramePlanesRef(
-        CV_OUT OutputArrayOfArrays planes, ///< Output array vector to store the decoded frame.
-        CV_OUT RawInfo& frameInfo,  ///< Output parameter with information about the decoded frame.
-        CV_OUT Ptr<FrameToken>& frameToken ///< Output token to manage frame reference.
+    /// @brief Decode the next frame from the stream.
+    /// @return DECODE_FRAME if a frame was decoded, DECODE_TIMEOUT if no frame is available yet,
+    ///         or DECODE_EOS when the stream has ended.
+    CV_WRAP virtual DecodeStatus nextFrame(
+        CV_OUT Ptr<VideoFrame>& frame ///< Output: the decoded video frame.
     ) = 0;
 
 
@@ -611,14 +651,7 @@ public:
 ///
 /// Opens the input and initializes the VCU decoder hardware with the specified parameters.
 /// The returned @ref cv::vcucodec::Decoder "Decoder" can then be used to decode frames
-/// via nextFrame(), nextFramePlanes(), or nextFramePlanesRef().
-///
-/// Example:
-/// @code{.py}
-///     params = cv2.vcucodec.DecoderInitParams()
-///     params.codec = cv2.vcucodec.Codec_HEVC
-///     decoder = cv2.vcucodec.createDecoder("input.h265", params)
-/// @endcode
+/// via nextFrame().
 CV_EXPORTS_W Ptr<Decoder> createDecoder(
     const String& filename,             ///< Input video file name (ignored when @p callback is provided).
     const DecoderInitParams& params,    ///< Decoder initialization parameters.
@@ -663,11 +696,11 @@ CV_EXPORTS_W Ptr<Encoder> createEncoder(
 // Putting the initializer implementation here with prefix _ to the parameters will allow the
 // interface to have the same parameter names as the struct member names; this maps nicely to python
 // wrapper. Not doing this there would lead to a lot of Wshadow warnings.
-inline DecoderInitParams::DecoderInitParams(Codec _codec, int _fourcc, int _fourccConvert,
+inline DecoderInitParams::DecoderInitParams(Codec _codec, int _fourcc,
                                             int _maxFrames, BitDepth _bitDepth,
                                             int _fpsNum, int _fpsDen,
                                             bool _forceFps)
-    : codec(_codec), fourcc(_fourcc), fourccConvert(_fourccConvert), maxFrames(_maxFrames),
+    : codec(_codec), fourcc(_fourcc), maxFrames(_maxFrames),
       bitDepth(_bitDepth), extraFrames(0), fpsNum(_fpsNum), fpsDen(_fpsDen),
       forceFps(_forceFps) {}
 

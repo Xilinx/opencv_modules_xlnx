@@ -91,6 +91,7 @@ public:
 
     void start(WorkerConfig wCfg) override;
     void finish() override;
+    void destroyDecoder() override;
 
     bool running() const override
     {
@@ -128,7 +129,6 @@ public:
 
 private:
 
-    bool waitExit(uint32_t uTimeout);
     int32_t getNumConcealedFrame() const { return iNumFrameConceal_; };
     int32_t getNumDecodedFrames() const { return iNumDecodedFrames_; };
     std::unique_lock<std::mutex> lockDisplay()
@@ -152,9 +152,11 @@ private:
     void ctrlswDecRun(WorkerConfig wCfg);
 
     mutable std::mutex mutex_;
+    mutable std::condition_variable exitEvent_;
     bool running_;
     bool eos_;
     bool await_eos_;
+    bool exitSignaled_ = false;
 
     AL_TAllocator *pAllocator_;
     AL_HDecoder hBaseDec_ = nullptr;
@@ -173,7 +175,6 @@ private:
     std::thread ctrlswThread_;
     std::map<AL_TBuffer *, std::vector<AL_TSeiMetaData *>> displaySeis_;
     EDecErrorLevel eExitCondition = DEC_ERROR;
-    AL_EVENT hExitMain_ = nullptr;
     std::mutex hDisplayMutex_;
     String streamInfo_;
     String stats_;
@@ -394,18 +395,13 @@ struct codec_error : public std::runtime_error
 };
 
 std::string getStatistics(double durationInSeconds, int32_t iNumFrameConceal,
-                          int32_t decodedFrameNumber, bool timeoutOccurred)
+                          int32_t decodedFrameNumber)
 {
-    std::string guard = "Decoded time = ";
-
-    if (timeoutOccurred)
-        guard = "TIMEOUT = ";
-
      double fps = durationInSeconds > 0.0 ? decodedFrameNumber / durationInSeconds : 0.0;
 
      std::ostringstream ss;
      ss.setf(std::ios::fixed);
-     ss << guard << std::setprecision(4) << durationInSeconds
+     ss << "Decoded time = " << std::setprecision(4) << durationInSeconds
          << " s;  Decoding FrameRate ~ " << std::setprecision(4) << fps
          << " Fps; Frame(s) conceal = " << iNumFrameConceal << '\n';
      return ss.str();
@@ -485,17 +481,22 @@ DecoderContext::DecoderContext(DecContext::Config &config, AL_TAllocator *pAlloc
     running_ = false;
     eos_ = false;
     await_eos_ = false;
+    exitSignaled_ = false;
     eExitCondition = config.eExitCondition;
-    hExitMain_ = Rtos_CreateEvent(false);
 }
 
 DecoderContext::~DecoderContext(void)
 {
-    await_eos_ = true;
-    eos_ = true;
+    {
+        auto lock = std::lock_guard(mutex_);
+        await_eos_ = true;
+        eos_ = true;
+        exitSignaled_ = true;
+    }
+    exitEvent_.notify_all();
     if (ctrlswThread_.joinable())
         ctrlswThread_.join();
-    Rtos_DeleteEvent(hExitMain_);
+    destroyDecoder();
 }
 
 AL_HANDLE DecoderContext::getDecoderHandle() const
@@ -503,8 +504,6 @@ AL_HANDLE DecoderContext::getDecoderHandle() const
     AL_HANDLE h = hBaseDec_;
     return h;
 }
-
-bool DecoderContext::waitExit(uint32_t uTimeout) { return Rtos_WaitEvent(hExitMain_, uTimeout); }
 
 AL_TDimension
 DecoderContext::computeBaseDecoderFinalResolution(AL_TStreamSettings const *pStreamSettings)
@@ -643,22 +642,47 @@ void DecoderContext::createBaseDecoder(Ptr<Device> device)
 void DecoderContext::manageError(AL_ERR eError)
 {
     if (AL_IS_ERROR_CODE(eError) || eExitCondition == DEC_WARNING)
-        Rtos_SetEvent(hExitMain_);
+    {
+        auto lock = std::lock_guard(mutex_);
+        exitSignaled_ = true;
+    }
+    exitEvent_.notify_all();
 }
 
 void DecoderContext::start(WorkerConfig wCfg)
 {
     auto lock = std::lock_guard(mutex_);
+    if (ctrlswThread_.joinable())
+        ctrlswThread_.join();  // safety: ensure previous thread finished
     ctrlswThread_ = std::thread(&DecoderContext::ctrlswDecRun, this, wCfg);
-    ctrlswThread_.detach();
     running_ = true;
 }
 
 void DecoderContext::finish()
 {
-    await_eos_ = true;
     rawOutput_->flush();
-    Rtos_SetEvent(hExitMain_);
+    {
+        auto lock = std::lock_guard(mutex_);
+        await_eos_ = true;
+        exitSignaled_ = true;
+    }
+    exitEvent_.notify_all();
+    if (ctrlswThread_.joinable())
+        ctrlswThread_.join();
+    {
+        auto lock = std::lock_guard(mutex_);
+        running_ = false;
+    }
+}
+
+void DecoderContext::destroyDecoder()
+{
+    if (hBaseDec_)
+    {
+        stopSendingBuffer();
+        AL_Decoder_Destroy(hBaseDec_);
+        hBaseDec_ = nullptr;
+    }
 }
 
 void DecoderContext::receiveFrameToDisplayFrom(Ptr<Frame> pFrame)
@@ -715,12 +739,15 @@ void DecoderContext::frameDone(Frame const &frame)
         }
     }
 
-    auto lock = std::lock_guard(mutex_);
-    if (!eos_ && await_eos_ && rawOutput_->idle())
     {
-        eos_ = true;
-        Rtos_SetEvent(hExitMain_);
+        auto lock = std::lock_guard(mutex_);
+        if (!eos_ && await_eos_ && rawOutput_->idle())
+        {
+            eos_ = true;
+            exitSignaled_ = true;
+        }
     }
+    exitEvent_.notify_all();
 }
 
 AL_ERR DecoderContext::treatError(Ptr<Frame> frame)
@@ -754,6 +781,8 @@ AL_ERR DecoderContext::treatError(Ptr<Frame> frame)
 
 void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
 {
+  try
+  {
     auto &config = *wCfg.pConfig;
     AL_TAllocator *pAllocator = nullptr;
 
@@ -772,20 +801,19 @@ void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
     auto scopeDecoder = scopeExit(
         [&]()
         {
-            stopSendingBuffer(); // Prevent to push buffer to the decoder while destroying it
-            AL_Decoder_Destroy(getBaseDecoderHandle());
+            // Destroy the decoder BEFORE tInputPool goes out of scope.
+            // AL_Decoder_Destroy releases internal refs on input buffers;
+            // if deferred to cleanup() (after the worker exits), tInputPool's
+            // destructor fires first and asserts on non-zero refcounts.
+            destroyDecoder();
         });
 
     // Start feeding the decoder
     // -------------------------
     auto const uBegin = GetPerfTime();
-    bool timeoutOccurred = false;
 
     {
         tInputPool.Commit();
-
-        // Setup the reader of bitstream in the file.
-        // It will send bitstream chunk to the decoder
 
         auto reader = Reader::createReader(getBaseDecoderHandle(), tInputPool,
                                            config.decoderCallback);
@@ -795,12 +823,12 @@ void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
         }
         reader->start();
 
-        auto const maxWait = config.iTimeoutInSeconds * 1000;
-        auto const timeout = maxWait >= 0 ? maxWait : AL_WAIT_FOREVER;
+        {
+            std::unique_lock<std::mutex> lock(mutex_);
+            exitEvent_.wait(lock, [this]{ return exitSignaled_; });
+        }
 
-        if (!waitExit(timeout))
-            timeoutOccurred = true;
-
+        reader->stop();
         tInputPool.Decommit();
     }
 
@@ -831,11 +859,32 @@ void DecoderContext::ctrlswDecRun(WorkerConfig wCfg)
     auto const duration = (uEnd - uBegin) / 1000.0;
 
     {
-        auto lock = std::lock_guard(mutex_);
-        stats_ = getStatistics(duration, getNumConcealedFrame(), getNumDecodedFrames(),
-                               timeoutOccurred);
+        auto lock2 = std::lock_guard(mutex_);
+        stats_ = getStatistics(duration, getNumConcealedFrame(), getNumDecodedFrames());
         eos_ = true;
+        // running_ stays true until finish() joins this thread
     }
+    exitEvent_.notify_all();
+    lock.unlock();
+  }
+  catch (const std::exception& e)
+  {
+    std::cerr << std::endl << "Decoder worker error: " << e.what() << std::endl;
+    auto lock = std::lock_guard(mutex_);
+    eos_ = true;
+    // running_ stays true until finish() joins this thread
+    exitSignaled_ = true;
+    exitEvent_.notify_all();
+  }
+  catch (...)
+  {
+    std::cerr << std::endl << "Decoder worker: unknown error" << std::endl;
+    auto lock = std::lock_guard(mutex_);
+    eos_ = true;
+    // running_ stays true until finish() joins this thread
+    exitSignaled_ = true;
+    exitEvent_.notify_all();
+  }
 }
 
 

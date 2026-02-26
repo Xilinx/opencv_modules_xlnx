@@ -13,7 +13,7 @@ Decode AVC/HEVC bitstreams to raw YUV files using VCU/VCU2 OpenCV API.
 ./decode.py --hevc --input video.hevc --output video --output-format NV12
 ./decode.py --hevc --input video.hevc --output video.bgr --convert BGR
 ./decode.py --hevc --input video.hevc --output video.yuv --bitdepth 10
-./decode.py --hevc --input video.hevc --output video.yuv --planes
+./decode.py --hevc --input video.hevc --output video.yuv --zero-copy
 ```
 
 **Options:**
@@ -28,8 +28,7 @@ Decode AVC/HEVC bitstreams to raw YUV files using VCU/VCU2 OpenCV API.
 | `--max-frames` | Maximum number of frames to decode (0 = unlimited) |
 | `--bitdepth`, `-bd` | Output bit depth: `8`, `10`, `12`, `alloc`, `stream`, or `first` (default) |
 | `--no-yuv` | Disable YUV output (decode only, for benchmarking) |
-| `--planes` | Use `nextFramePlanes()` to get separate Y and UV planes |
-| `--planesref` | Use `nextFramePlanesRef()` to get planes by reference |
+| `--zero-copy` | Use zero-copy numpy access (no data copy from HW buffer) |
 
 **Bit Depth Options:**
 - `first` - Use bit depth of first decoded frame (default)

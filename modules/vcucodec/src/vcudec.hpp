@@ -15,6 +15,7 @@
 */
 
 #include "opencv2/vcucodec.hpp"
+#include "vcuvideoframe.hpp"
 #include "vcudeccontext.hpp"
 
 #include <map>
@@ -31,10 +32,7 @@ public:
                Ptr<DecoderCallback> callback = 0);
 
     // Implementation of the pure virtual functions from base class
-    virtual bool   nextFrame(OutputArray frame, RawInfo& frame_info) override;
-    virtual bool   nextFramePlanes(OutputArrayOfArrays planes, RawInfo& frame_info) override;
-    virtual bool   nextFramePlanesRef(OutputArrayOfArrays planes, RawInfo& frame_info,
-                                      Ptr<FrameToken>& frameToken) override;
+    virtual DecodeStatus nextFrame(Ptr<VideoFrame>& frame) override;
     virtual bool   set(int propId, double value) override;
     virtual double get(int propId) const override;
     virtual String streamInfo() const override;
@@ -43,11 +41,7 @@ public:
 private:
     bool   validateParams(const DecoderInitParams& params);
     void   cleanup();
-    void   copyToDestination(OutputArray dst, std::vector<Mat>& src, int fourccConvert,
-                             bool vector_output, bool single_output_buffer, bool by_reference);
-    void   retrieveVideoFrame(OutputArray dst, Ptr<Frame> frame, RawInfo& frame_info,
-                              bool vector_output, bool by_reference);
-    void   updateRawInfo(RawInfo& frame_info);
+    void   updateRawInfo(const RawInfo& frame_info);
     bool   setCaptureProperty(int propId, double value, bool external);
     double getCaptureProperty(int propId) const;
     void   updateFramePosition();
@@ -56,6 +50,7 @@ private:
     DecoderInitParams params_;
     bool vcu_available_ = false;
     bool initialized_ = false;
+    bool rawInfoInitialized_ = false;
     WorkerConfig wCfg = {nullptr, nullptr};
     Ptr<RawOutput> rawOutput_ = nullptr;
     std::shared_ptr<DecContext> decodeCtx_ = nullptr;
@@ -64,6 +59,7 @@ private:
     std::map<int, double> captureProperties_;
     mutable std::mutex capturePropertiesMutex_;
     uint32_t frameIndex_ = 0;
+    std::shared_ptr<PinRegistry> pinRegistry_ = std::make_shared<PinRegistry>();
 };
 
 

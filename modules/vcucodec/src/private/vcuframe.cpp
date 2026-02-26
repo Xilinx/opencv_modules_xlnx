@@ -318,7 +318,6 @@ void Frame::rawInfo(RawInfo& rawInfo) const {
     AL_TCropInfo cropInfo = getCropInfo();
     bool cropping = cropInfo.bCropping;
 
-    // frame_info.eos : set elsewhere
     rawInfo.fourcc = fourcc;
     rawInfo.picStruct = static_cast<PicStruct>(info_->ePicStruct);
     rawInfo.bitsPerLuma = bitDepthY();
