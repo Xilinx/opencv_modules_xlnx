@@ -27,8 +27,8 @@
 // The binding code obtains a VideoFrameImpl* via dynamic_cast from the
 // Ptr<VideoFrame> it receives from Python.
 
-#ifndef OPENCV_VCUCODEC_VIDEOFRAMEIMPL_HPP
-#define OPENCV_VCUCODEC_VIDEOFRAMEIMPL_HPP
+#ifndef OPENCV_VCUCODEC_VCUVIDEOFRAME_HPP
+#define OPENCV_VCUCODEC_VCUVIDEOFRAME_HPP
 
 #include <opencv2/vcucodec.hpp>
 #include <memory>
@@ -126,4 +126,4 @@ private:
 } // namespace vcucodec
 } // namespace cv
 
-#endif // OPENCV_VCUCODEC_VIDEOFRAMEIMPL_HPP
+#endif // OPENCV_VCUCODEC_VCUVIDEOFRAME_HPP

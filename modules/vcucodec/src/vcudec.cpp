@@ -25,7 +25,6 @@ extern "C" {
 }
 
 #include "opencv2/core/utils/logger.hpp"
-#include "opencv2/imgproc.hpp"
 #include "vcuutils.hpp"
 
 
@@ -33,9 +32,6 @@ extern "C" {
 namespace cv {
 namespace vcucodec {
 namespace { // anonymous
-
-const int fourcc_BGR = 0x20524742; // can't use FOURCC(BGR ) as that would ignore white spaces
-const int fourcc_BGRA = FOURCC(BGRA);
 
 /// Build Mat headers wrapping the HW buffer planes for a given fourcc/frame.
 /// These Mats do NOT own the data — they point directly into the CMA buffer.
@@ -145,123 +141,6 @@ std::vector<Mat> buildSrcPlanes(AL_TBuffer* pFrame, const RawInfo& info)
 
 } // anonymous namespace
 
-// ---- VideoFrameImpl method definitions ----
-
-VideoFrameImpl::VideoFrameImpl(Ptr<Frame> frame, const RawInfo& info,
-                               std::vector<Mat> srcPlanes,
-                               const std::shared_ptr<PinRegistry>& registry)
-    : anchor_(std::make_shared<PinAnchor>(std::move(frame))), info_(info),
-      srcPlanes_(std::move(srcPlanes))
-{
-    if (registry) registry->track(anchor_);
-}
-
-const RawInfo& VideoFrameImpl::info() const { return info_; }
-std::vector<Mat> VideoFrameImpl::planes() const { return srcPlanes_; }
-
-void VideoFrameImpl::copyToVec(std::vector<Mat>& planes) const
-{
-    planes.resize(srcPlanes_.size());
-    for (size_t i = 0; i < srcPlanes_.size(); ++i)
-        planes[i] = srcPlanes_[i].clone();
-}
-
-void VideoFrameImpl::copyTo(Mat& dst, int stride) const
-{
-    int bpp = (info_.bitsPerLuma > 8) ? 2 : 1;
-    int yWidthBytes = info_.width * bpp;
-    int yPitch = (stride > 0) ? stride : yWidthBytes;
-    CV_Assert(yPitch >= yWidthBytes);
-
-    // Compute total height across all planes
-    int nPlanes = (int)srcPlanes_.size();
-    int totalHeight = 0;
-    for (int i = 0; i < nPlanes; i++)
-        totalHeight += srcPlanes_[i].rows;
-
-    // Allocate contiguous byte buffer; zero-fill for chroma padding
-    dst.create(totalHeight, yPitch, CV_8UC1);
-    dst = Scalar(0);
-
-    uint8_t* dstPtr = dst.ptr<uint8_t>();
-    for (int i = 0; i < nPlanes; i++)
-    {
-        const Mat& src = srcPlanes_[i];
-        // Actual data bytes per source row: cols × channels × element size
-        int dataRowBytes = src.cols * src.channels() * (int)src.elemSize1();
-        int copyBytes = std::min(dataRowBytes, yPitch);
-
-        for (int y = 0; y < src.rows; y++)
-        {
-            std::memcpy(dstPtr, src.ptr(y), copyBytes);
-            dstPtr += yPitch;
-        }
-    }
-}
-
-void VideoFrameImpl::convertTo(Mat& dst, int fourCC) const
-{
-    CV_Assert(fourCC == fourcc_BGR || fourCC == fourcc_BGRA);
-    convertColor(dst, fourCC);
-}
-
-const Mat& VideoFrameImpl::planeRef(int index) const
-{
-    CV_Assert(index >= 0 && index < (int)srcPlanes_.size());
-    return srcPlanes_[index];
-}
-
-std::shared_ptr<void> VideoFrameImpl::pin() const
-{
-    // Return the PinAnchor as a shared_ptr<void>.  While any PyCapsule
-    // (or other caller) holds this, the HW buffer stays pinned — unless
-    // PinRegistry::revokeAll() clears anchor_->frame first.
-    return anchor_;
-}
-
-void VideoFrameImpl::convertColor(Mat& dst, int targetFourcc) const
-{
-    int nPlanes = (int)srcPlanes_.size();
-    if (nPlanes == 1)
-    {
-        if (targetFourcc == fourcc_BGR)
-            cvtColor(srcPlanes_[0], dst, COLOR_GRAY2BGR);
-        else
-            cvtColor(srcPlanes_[0], dst, COLOR_GRAY2BGRA);
-    }
-    else if (nPlanes == 2)
-    {
-        if (srcPlanes_[1].rows == srcPlanes_[0].rows)
-        {
-            // 4:2:2 semi-planar (NV16, P210, P212): not supported by cvtColorTwoPlane
-            CV_Error(Error::StsNotImplemented,
-                     "BGR/BGRA conversion is not supported for 4:2:2 semi-planar formats (NV16/P210/P212)");
-        }
-        else
-        {
-            // 4:2:0 semi-planar (NV12, P010, P012): UV has half height
-            if (targetFourcc == fourcc_BGR)
-                cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGR_NV12);
-            else
-                cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGRA_NV12);
-        }
-    }
-    else if (nPlanes == 3)
-    {
-        Mat packed;
-        merge(srcPlanes_, packed);
-        if (targetFourcc == fourcc_BGR)
-        {
-            cvtColor(packed, dst, COLOR_YUV2BGR);
-        }
-        else
-        {
-            Mat bgr;
-            cvtColor(packed, bgr, COLOR_YUV2BGR);
-            cvtColor(bgr, dst, COLOR_BGR2BGRA);
-        }
-    }
-}
 
 VCUDecoder::VCUDecoder(const String& filename, const DecoderInitParams& params,
                        Ptr<DecoderCallback> callback)

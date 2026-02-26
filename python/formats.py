@@ -119,20 +119,10 @@ def write(f, frame, info):
 
 def write2file(convert, file, frame, planes, info):
     """Write frame data to a file based on conversion format."""
-    w_y = info.width
-    h_y = info.height
-    stride_y = info.stride
-    stride_uv = info.strideChroma
-
-    w_uv = (w_y + 1) // 2
-    h_uv = (h_y + 1) // 2
-
     if planes is not None:
-        writeplane(file, planes[0], w_y, h_y, stride_y)
-        if len(planes) > 1:
-            writeplane(file, planes[1], w_uv, h_uv, stride_uv)
-        if len(planes) > 2:
-            writeplane(file, planes[2], w_uv, h_uv, stride_uv)
+        for plane in planes:
+            # Use the actual Mat dimensions — works for all chroma subsampling
+            writeplane(file, plane, plane.shape[1], plane.shape[0], info.stride)
     else:
         if convert == 0:
             write(file, frame, info)
