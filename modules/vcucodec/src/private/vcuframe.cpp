@@ -28,6 +28,7 @@ extern "C" {
 #include "lib_common/PixMapBuffer.h"
 
 #include "lib_common_dec/DecInfo.h"
+#include "lib_common_dec/HDRMeta.h"
 }
 
 #include <functional>
@@ -199,6 +200,18 @@ Frame::Frame(Frame const &frame) // shallow copy constructor
         AL_MetaData_Destroy(pMetaD);
         throw std::runtime_error("Cloned DisplayInfoMetaData did not get added!\n");
     }
+    // HDR metadata is optional (not present on encoder-created or manually-constructed frames)
+    AL_THDRMetaData *pHDRMeta = (AL_THDRMetaData *)AL_Buffer_GetMetaData(
+        frame.frame_.get(), AL_META_TYPE_HDR);
+    if (pHDRMeta)
+    {
+        pMetaD = AL_MetaData_Clone((AL_TMetaData *)pHDRMeta);
+        if (pMetaD)
+        {
+            if (!AL_Buffer_AddMetaData(frame_.get(), pMetaD))
+                AL_MetaData_Destroy(pMetaD);
+        }
+    }
     AL_Buffer_Ref(frame_.get());
 }
 
@@ -332,6 +345,22 @@ void Frame::rawInfo(RawInfo& rawInfo) const {
     rawInfo.cropBottom = cropping? cropInfo.uCropOffsetBottom : 0;
     rawInfo.cropLeft = cropping? cropInfo.uCropOffsetLeft : 0;
     rawInfo.cropRight = cropping? cropInfo.uCropOffsetRight : 0;
+
+    // Extract VUI colour info from HDR metadata (if available)
+    AL_THDRMetaData *pHDRMeta = (AL_THDRMetaData *)AL_Buffer_GetMetaData(
+        pFrame, AL_META_TYPE_HDR);
+    if (pHDRMeta)
+    {
+        rawInfo.colourDescription = static_cast<ColourDescription>(pHDRMeta->eColourDescription);
+        rawInfo.transferCharacteristics = static_cast<TransferCharacteristics>(pHDRMeta->eTransferCharacteristics);
+        rawInfo.colourMatrixCoeffs = static_cast<ColourMatrixCoefficients>(pHDRMeta->eColourMatrixCoeffs);
+    }
+    else
+    {
+        rawInfo.colourDescription = ColourDescription::UNSPECIFIED;
+        rawInfo.transferCharacteristics = TransferCharacteristics::UNSPECIFIED;
+        rawInfo.colourMatrixCoeffs = ColourMatrixCoefficients::UNSPECIFIED;
+    }
 }
 
 

@@ -132,6 +132,71 @@ enum class GDRMode
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+//  VUI Colour Info (ISO/IEC 23091-4 / ITU-T H.273)
+
+/// Colour primaries / colour description identifier from VUI parameters.
+enum class ColourDescription
+{
+    RESERVED      =  0, ///< Reserved.
+    UNSPECIFIED   =  1, ///< Unspecified.
+    BT_470_NTSC   =  2, ///< BT.470 System M (historical).
+    BT_601_NTSC   =  3, ///< BT.601 (NTSC).
+    BT_601_PAL    =  4, ///< BT.470 System B, G (historical).
+    BT_709        =  5, ///< BT.709.
+    BT_2020       =  6, ///< BT.2020 / BT.2100.
+    SMPTE_170M    =  7, ///< SMPTE 170M.
+    SMPTE_240M    =  8, ///< SMPTE 240M.
+    SMPTE_ST_428  =  9, ///< SMPTE ST 428 (CIE 1931 XYZ).
+    SMPTE_RP_431  = 10, ///< SMPTE RP 431-2.
+    SMPTE_EG_432  = 11, ///< SMPTE EG 432-1.
+    EBU_3213      = 12, ///< EBU Tech. 3213-E.
+    GENERIC_FILM  = 13, ///< Generic film (Illuminant C).
+    RGB           = 14, ///< sRGB (IEC 61966-2-1).
+};
+
+/// Transfer function identifier from VUI parameters.
+enum class TransferCharacteristics
+{
+    RESERVED          =  0, ///< Reserved.
+    BT_709            =  1, ///< BT.709.
+    UNSPECIFIED       =  2, ///< Unspecified.
+    BT_470_SYSTEM_M   =  4, ///< BT.470 System M (historical).
+    BT_470_SYSTEM_B   =  5, ///< BT.470 System B, G (historical).
+    BT_601            =  6, ///< BT.601.
+    SMPTE_240M        =  7, ///< SMPTE 240M.
+    LINEAR            =  8, ///< Linear.
+    LOG               =  9, ///< Logarithmic (100:1 range).
+    LOG_EXTENDED      = 10, ///< Logarithmic (100*Sqrt(10):1 range).
+    IEC_61966_2_4     = 11, ///< IEC 61966-2-4.
+    BT_1361           = 12, ///< BT.1361.
+    IEC_61966_2_1     = 13, ///< sRGB or sYCC.
+    BT_2020_10B       = 14, ///< BT.2020 10-bit systems.
+    BT_2020_12B       = 15, ///< BT.2020 12-bit systems.
+    BT_2100_PQ        = 16, ///< SMPTE ST 2084, ITU BT.2100 PQ.
+    SMPTE_428         = 17, ///< SMPTE ST 428.
+    BT_2100_HLG       = 18, ///< BT.2100 HLG, ARIB STD-B67.
+};
+
+/// Matrix coefficient identifier for YCbCr / RGB conversion from VUI parameters.
+enum class ColourMatrixCoefficients
+{
+    GBR                  =  0, ///< Identity (RGB/GBR).
+    BT_709               =  1, ///< BT.709.
+    UNSPECIFIED          =  2, ///< Unspecified.
+    USFCC_CFR            =  4, ///< US FCC 73.628.
+    BT_601_625           =  5, ///< BT.470 System B, G (historical).
+    BT_601_525           =  6, ///< BT.601 (SMPTE 170M).
+    SMPTE_240M           =  7, ///< SMPTE 240M.
+    YCGCO                =  8, ///< YCgCo.
+    BT_2100_YCBCR        =  9, ///< BT.2020/BT.2100 YCbCr.
+    BT_2020_CLS          = 10, ///< BT.2020 constant luminance.
+    SMPTE_2085           = 11, ///< SMPTE ST 2085 YDzDx.
+    CHROMA_DERIVED_NCLS  = 12, ///< Chromaticity-derived non-constant luminance.
+    CHROMA_DERIVED_CLS   = 13, ///< Chromaticity-derived constant luminance.
+    BT_2100_ICTCP        = 14, ///< BT.2100 ICtCp.
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 //  HDR SEI
 
 /// Struct ChromaCoordinates holds CIE 1931 xy chromaticity coordinates.

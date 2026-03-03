@@ -105,8 +105,11 @@ std::shared_ptr<void> VideoFrameImpl::pin() const
 void VideoFrameImpl::convertColor(Mat& dst, int targetFourcc) const
 {
     int nPlanes = (int)srcPlanes_.size();
+    bool is8bit = (srcPlanes_[0].depth() == CV_8U);
+
     if (nPlanes == 1)
     {
+        // GRAY → BGR/BGRA: works for CV_8U, CV_16U, CV_32F
         if (targetFourcc == fourcc_BGR)
             cvtColor(srcPlanes_[0], dst, COLOR_GRAY2BGR);
         else
@@ -114,34 +117,69 @@ void VideoFrameImpl::convertColor(Mat& dst, int targetFourcc) const
     }
     else if (nPlanes == 2)
     {
-        if (srcPlanes_[1].rows == srcPlanes_[0].rows)
+        bool is422 = (srcPlanes_[1].rows == srcPlanes_[0].rows);
+
+        if (is422)
         {
-            // 4:2:2 semi-planar (NV16, P210, P212): not supported by cvtColorTwoPlane
-            CV_Error(Error::StsNotImplemented,
-                     "BGR/BGRA conversion is not supported for 4:2:2 semi-planar formats (NV16/P210/P212)");
+            // 4:2:2 semi-planar
+            if (is8bit)
+            {
+                // NV16: no one-step OpenCV conversion available
+                CV_Error(Error::StsNotImplemented,
+                         "BGR/BGRA conversion not yet implemented for NV16 (8-bit 4:2:2 semi-planar)");
+            }
+            else
+            {
+                // P210/P212 (10/12-bit 4:2:2 semi-planar, LSB-aligned)
+                // TODO: implement custom conversion using info_.bitsPerLuma for scaling
+                CV_Error(Error::StsNotImplemented,
+                         "BGR/BGRA conversion not yet implemented for P210/P212 (10/12-bit 4:2:2 semi-planar)");
+            }
         }
         else
         {
-            // 4:2:0 semi-planar (NV12, P010, P012): UV has half height
-            if (targetFourcc == fourcc_BGR)
-                cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGR_NV12);
+            // 4:2:0 semi-planar (UV has half height)
+            if (is8bit)
+            {
+                // NV12: supported by cvtColorTwoPlane (CV_8U only)
+                if (targetFourcc == fourcc_BGR)
+                    cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGR_NV12);
+                else
+                    cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGRA_NV12);
+            }
             else
-                cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGRA_NV12);
+            {
+                // P010/P012 (10/12-bit 4:2:0 semi-planar, LSB-aligned)
+                // TODO: implement custom conversion using info_.bitsPerLuma for scaling
+                CV_Error(Error::StsNotImplemented,
+                         "BGR/BGRA conversion not yet implemented for P010/P012 (10/12-bit 4:2:0 semi-planar)");
+            }
         }
     }
     else if (nPlanes == 3)
     {
-        Mat packed;
-        merge(srcPlanes_, packed);
-        if (targetFourcc == fourcc_BGR)
+        if (is8bit)
         {
-            cvtColor(packed, dst, COLOR_YUV2BGR);
+            // 8-bit 3-plane YUV → BGR/BGRA (two-step: merge + cvtColor)
+            Mat packed;
+            merge(srcPlanes_, packed);
+            if (targetFourcc == fourcc_BGR)
+            {
+                cvtColor(packed, dst, COLOR_YUV2BGR);
+            }
+            else
+            {
+                Mat bgr;
+                cvtColor(packed, bgr, COLOR_YUV2BGR);
+                cvtColor(bgr, dst, COLOR_BGR2BGRA);
+            }
         }
         else
         {
-            Mat bgr;
-            cvtColor(packed, bgr, COLOR_YUV2BGR);
-            cvtColor(bgr, dst, COLOR_BGR2BGRA);
+            // 10/12-bit 3-plane YUV (LSB-aligned)
+            // TODO: implement custom conversion using info_.bitsPerLuma for scaling
+            CV_Error(Error::StsNotImplemented,
+                     "BGR/BGRA conversion not yet implemented for 10/12-bit 3-plane YUV");
         }
     }
 }

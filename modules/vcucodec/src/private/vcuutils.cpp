@@ -42,7 +42,10 @@ bool operator==(const RawInfo& lhs, const RawInfo& rhs)
         lhs.cropTop == rhs.cropTop &&
         lhs.cropBottom == rhs.cropBottom &&
         lhs.cropLeft == rhs.cropLeft &&
-        lhs.cropRight == rhs.cropRight;
+        lhs.cropRight == rhs.cropRight &&
+        lhs.colourDescription == rhs.colourDescription &&
+        lhs.transferCharacteristics == rhs.transferCharacteristics &&
+        lhs.colourMatrixCoeffs == rhs.colourMatrixCoeffs;
 }
 
 bool operator!=(const RawInfo& lhs, const RawInfo& rhs)

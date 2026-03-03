@@ -70,6 +70,9 @@ struct CV_EXPORTS_W_SIMPLE RawInfo {
 
     CV_PROP_RW PicStruct picStruct; ///< Picture structure (frame, top/bottom field, ...).
 
+    CV_PROP_RW ColourDescription colourDescription = ColourDescription::UNSPECIFIED;               ///< Colour primaries from VUI.
+    CV_PROP_RW TransferCharacteristics transferCharacteristics = TransferCharacteristics::UNSPECIFIED; ///< Transfer function from VUI.
+    CV_PROP_RW ColourMatrixCoefficients colourMatrixCoeffs = ColourMatrixCoefficients::UNSPECIFIED;    ///< YCbCr matrix coefficients from VUI.
 };
 
 /// @brief Initialization parameters for the decoder.

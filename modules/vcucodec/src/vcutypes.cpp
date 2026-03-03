@@ -16,6 +16,7 @@
 #include "opencv2/vcutypes.hpp"
 #include "config.h"
 #include "lib_common_enc/Settings.h"
+#include "lib_common/HDR.h"
 
 #define ENUMASSERT(x,y) static_assert(static_cast<int>(x) == static_cast<int>(y))
 
@@ -66,6 +67,62 @@ ENUMASSERT(GDRMode::DISABLE, AL_GDR_OFF);
 ENUMASSERT(GDRMode::VERTICAL, AL_GDR_VERTICAL);
 ENUMASSERT(GDRMode::HORIZONTAL, AL_GDR_HORIZONTAL);
 ENUMASSERT(4, AL_GDR_MAX_ENUM);
+
+// AL_EColourDescription
+ENUMASSERT(ColourDescription::RESERVED, AL_COLOUR_DESC_RESERVED);
+ENUMASSERT(ColourDescription::UNSPECIFIED, AL_COLOUR_DESC_UNSPECIFIED);
+ENUMASSERT(ColourDescription::BT_470_NTSC, AL_COLOUR_DESC_BT_470_NTSC);
+ENUMASSERT(ColourDescription::BT_601_NTSC, AL_COLOUR_DESC_BT_601_NTSC);
+ENUMASSERT(ColourDescription::BT_601_PAL, AL_COLOUR_DESC_BT_601_PAL);
+ENUMASSERT(ColourDescription::BT_709, AL_COLOUR_DESC_BT_709);
+ENUMASSERT(ColourDescription::BT_2020, AL_COLOUR_DESC_BT_2020);
+ENUMASSERT(ColourDescription::SMPTE_170M, AL_COLOUR_DESC_SMPTE_170M);
+ENUMASSERT(ColourDescription::SMPTE_240M, AL_COLOUR_DESC_SMPTE_240M);
+ENUMASSERT(ColourDescription::SMPTE_ST_428, AL_COLOUR_DESC_SMPTE_ST_428);
+ENUMASSERT(ColourDescription::SMPTE_RP_431, AL_COLOUR_DESC_SMPTE_RP_431);
+ENUMASSERT(ColourDescription::SMPTE_EG_432, AL_COLOUR_DESC_SMPTE_EG_432);
+ENUMASSERT(ColourDescription::EBU_3213, AL_COLOUR_DESC_EBU_3213);
+ENUMASSERT(ColourDescription::GENERIC_FILM, AL_COLOUR_DESC_GENERIC_FILM);
+ENUMASSERT(ColourDescription::RGB, AL_COLOUR_DESC_RGB);
+ENUMASSERT(15, AL_COLOUR_DESC_MAX_ENUM);
+
+// AL_ETransferCharacteristics
+ENUMASSERT(TransferCharacteristics::RESERVED, AL_TRANSFER_CHARAC_RESERVED);
+ENUMASSERT(TransferCharacteristics::BT_709, AL_TRANSFER_CHARAC_BT_709);
+ENUMASSERT(TransferCharacteristics::UNSPECIFIED, AL_TRANSFER_CHARAC_UNSPECIFIED);
+ENUMASSERT(TransferCharacteristics::BT_470_SYSTEM_M, AL_TRANSFER_CHARAC_BT_470_SYSTEM_M);
+ENUMASSERT(TransferCharacteristics::BT_470_SYSTEM_B, AL_TRANSFER_CHARAC_BT_470_SYSTEM_B);
+ENUMASSERT(TransferCharacteristics::BT_601, AL_TRANSFER_CHARAC_BT_601);
+ENUMASSERT(TransferCharacteristics::SMPTE_240M, AL_TRANSFER_CHARAC_SMPTE_240M);
+ENUMASSERT(TransferCharacteristics::LINEAR, AL_TRANSFER_CHARAC_LINEAR);
+ENUMASSERT(TransferCharacteristics::LOG, AL_TRANSFER_CHARAC_LOG);
+ENUMASSERT(TransferCharacteristics::LOG_EXTENDED, AL_TRANSFER_CHARAC_LOG_EXTENDED);
+ENUMASSERT(TransferCharacteristics::IEC_61966_2_4, AL_TRANSFER_CHARAC_IEC_61966_2_4);
+ENUMASSERT(TransferCharacteristics::BT_1361, AL_TRANSFER_CHARAC_BT_1361);
+ENUMASSERT(TransferCharacteristics::IEC_61966_2_1, AL_TRANSFER_CHARAC_IEC_61966_2_1);
+ENUMASSERT(TransferCharacteristics::BT_2020_10B, AL_TRANSFER_CHARAC_BT_2020_10B);
+ENUMASSERT(TransferCharacteristics::BT_2020_12B, AL_TRANSFER_CHARAC_BT_2020_12B);
+ENUMASSERT(TransferCharacteristics::BT_2100_PQ, AL_TRANSFER_CHARAC_BT_2100_PQ);
+ENUMASSERT(TransferCharacteristics::SMPTE_428, AL_TRANSFER_CHARAC_SMPTE_428);
+ENUMASSERT(TransferCharacteristics::BT_2100_HLG, AL_TRANSFER_CHARAC_BT_2100_HLG);
+ENUMASSERT(19, AL_TRANSFER_CHARAC_MAX_ENUM);
+
+// AL_EColourMatrixCoefficients
+ENUMASSERT(ColourMatrixCoefficients::GBR, AL_COLOUR_MAT_COEFF_GBR);
+ENUMASSERT(ColourMatrixCoefficients::BT_709, AL_COLOUR_MAT_COEFF_BT_709);
+ENUMASSERT(ColourMatrixCoefficients::UNSPECIFIED, AL_COLOUR_MAT_COEFF_UNSPECIFIED);
+ENUMASSERT(ColourMatrixCoefficients::USFCC_CFR, AL_COLOUR_MAT_COEFF_USFCC_CFR);
+ENUMASSERT(ColourMatrixCoefficients::BT_601_625, AL_COLOUR_MAT_COEFF_BT_601_625);
+ENUMASSERT(ColourMatrixCoefficients::BT_601_525, AL_COLOUR_MAT_COEFF_BT_601_525);
+ENUMASSERT(ColourMatrixCoefficients::SMPTE_240M, AL_COLOUR_MAT_COEFF_BT_SMPTE_240M);
+ENUMASSERT(ColourMatrixCoefficients::YCGCO, AL_COLOUR_MAT_COEFF_BT_YCGCO);
+ENUMASSERT(ColourMatrixCoefficients::BT_2100_YCBCR, AL_COLOUR_MAT_COEFF_BT_2100_YCBCR);
+ENUMASSERT(ColourMatrixCoefficients::BT_2020_CLS, AL_COLOUR_MAT_COEFF_BT_2020_CLS);
+ENUMASSERT(ColourMatrixCoefficients::SMPTE_2085, AL_COLOUR_MAT_COEFF_SMPTE_2085);
+ENUMASSERT(ColourMatrixCoefficients::CHROMA_DERIVED_NCLS, AL_COLOUR_MAT_COEFF_CHROMA_DERIVED_NCLS);
+ENUMASSERT(ColourMatrixCoefficients::CHROMA_DERIVED_CLS, AL_COLOUR_MAT_COEFF_CHROMA_DERIVED_CLS);
+ENUMASSERT(ColourMatrixCoefficients::BT_2100_ICTCP, AL_COLOUR_MAT_COEFF_BT_2100_ICTCP);
+ENUMASSERT(15, AL_COLOUR_MAT_COEFF_MAX_ENUM);
 
 template<typename T, std::size_t N>
 std::string_view enumToString(const T& value, const char* (&strarray)[N])
@@ -171,6 +228,67 @@ String toString(const GDRMode& value)
 {
     static const char* strarray[] = {"DISABLE", "????", "VERTICAL", "HORIZONTAL"};
     return enumToString(value, strarray).data();
+}
+
+template<>
+String toString(const ColourDescription& value)
+{
+    static const char* strarray[] = {
+        "RESERVED", "UNSPECIFIED", "BT_470_NTSC", "BT_601_NTSC", "BT_601_PAL",
+        "BT_709", "BT_2020", "SMPTE_170M", "SMPTE_240M", "SMPTE_ST_428",
+        "SMPTE_RP_431", "SMPTE_EG_432", "EBU_3213", "GENERIC_FILM", "RGB"
+    };
+    return enumToString(value, strarray).data();
+}
+
+template<>
+String toString(const TransferCharacteristics& value)
+{
+    switch (value)
+    {
+        case TransferCharacteristics::RESERVED:        return "RESERVED";
+        case TransferCharacteristics::BT_709:          return "BT_709";
+        case TransferCharacteristics::UNSPECIFIED:     return "UNSPECIFIED";
+        case TransferCharacteristics::BT_470_SYSTEM_M: return "BT_470_SYSTEM_M";
+        case TransferCharacteristics::BT_470_SYSTEM_B: return "BT_470_SYSTEM_B";
+        case TransferCharacteristics::BT_601:          return "BT_601";
+        case TransferCharacteristics::SMPTE_240M:      return "SMPTE_240M";
+        case TransferCharacteristics::LINEAR:          return "LINEAR";
+        case TransferCharacteristics::LOG:             return "LOG";
+        case TransferCharacteristics::LOG_EXTENDED:    return "LOG_EXTENDED";
+        case TransferCharacteristics::IEC_61966_2_4:   return "IEC_61966_2_4";
+        case TransferCharacteristics::BT_1361:         return "BT_1361";
+        case TransferCharacteristics::IEC_61966_2_1:   return "IEC_61966_2_1";
+        case TransferCharacteristics::BT_2020_10B:     return "BT_2020_10B";
+        case TransferCharacteristics::BT_2020_12B:     return "BT_2020_12B";
+        case TransferCharacteristics::BT_2100_PQ:      return "BT_2100_PQ";
+        case TransferCharacteristics::SMPTE_428:       return "SMPTE_428";
+        case TransferCharacteristics::BT_2100_HLG:     return "BT_2100_HLG";
+        default:                                       return "????";
+    }
+}
+
+template<>
+String toString(const ColourMatrixCoefficients& value)
+{
+    switch (value)
+    {
+        case ColourMatrixCoefficients::GBR:                 return "GBR";
+        case ColourMatrixCoefficients::BT_709:              return "BT_709";
+        case ColourMatrixCoefficients::UNSPECIFIED:         return "UNSPECIFIED";
+        case ColourMatrixCoefficients::USFCC_CFR:           return "USFCC_CFR";
+        case ColourMatrixCoefficients::BT_601_625:          return "BT_601_625";
+        case ColourMatrixCoefficients::BT_601_525:          return "BT_601_525";
+        case ColourMatrixCoefficients::SMPTE_240M:          return "SMPTE_240M";
+        case ColourMatrixCoefficients::YCGCO:               return "YCGCO";
+        case ColourMatrixCoefficients::BT_2100_YCBCR:       return "BT_2100_YCBCR";
+        case ColourMatrixCoefficients::BT_2020_CLS:         return "BT_2020_CLS";
+        case ColourMatrixCoefficients::SMPTE_2085:          return "SMPTE_2085";
+        case ColourMatrixCoefficients::CHROMA_DERIVED_NCLS: return "CHROMA_DERIVED_NCLS";
+        case ColourMatrixCoefficients::CHROMA_DERIVED_CLS:  return "CHROMA_DERIVED_CLS";
+        case ColourMatrixCoefficients::BT_2100_ICTCP:       return "BT_2100_ICTCP";
+        default:                                            return "????";
+    }
 }
 
 template<> String toString(const ChromaCoordinates& value)
