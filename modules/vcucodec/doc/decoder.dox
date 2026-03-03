@@ -58,14 +58,14 @@ numpy array exists. Holding too many pinned frames will stall the decoder pipeli
 Properties can be queried via @ref cv::vcucodec::Decoder::get "get(propId)" and set via
 @ref cv::vcucodec::Decoder::set "set(propId, value)":
 
-| Property | get | set | Description |
-|----------|-----|-----|-------------|
-| CAP_PROP_FOURCC | ✓ | | Codec type (H264, HEVC, MJPG) |
-| CAP_PROP_CODEC_PIXEL_FORMAT | ✓ | | Pixel format of decoded frames (NV12, ...) |
-| CAP_PROP_FRAME_WIDTH | ✓ | | Width of decoded frames |
-| CAP_PROP_FRAME_HEIGHT | ✓ | | Height of decoded frames |
-| CAP_PROP_POS_FRAMES | ✓ | | Current frame position in the stream |
-| CAP_PROP_FPS | ✓ | | Frame rate from stream (frames per second) |
+| Property                    | get | set | Description                                 |
+|-----------------------------|-----|-----|---------------------------------------------|
+| CAP_PROP_FOURCC             | ✓   |     | Codec type (H264, HEVC, MJPG)               |
+| CAP_PROP_CODEC_PIXEL_FORMAT | ✓   |     | Pixel format of decoded frames (NV12, ...)  |
+| CAP_PROP_FRAME_WIDTH        | ✓   |     | Width of decoded frames                     |
+| CAP_PROP_FRAME_HEIGHT       | ✓   |     | Height of decoded frames                    |
+| CAP_PROP_POS_FRAMES         | ✓   |     | Current frame position in the stream        |
+| CAP_PROP_FPS                | ✓   |     | Frame rate from stream (frames per second)  |
 
 Additional information methods:
 - @ref cv::vcucodec::Decoder::streamInfo "streamInfo()" - returns a multi-line string with stream details:
@@ -75,4 +75,27 @@ Additional information methods:
   total decoding time, frame rate (fps), and number of concealed frames.
 
 See @ref dec_python_examples_anchor "Decoder Python Examples" for usage examples.
+
+##Performance
+
+Using: `decode.py -hevc -i <file> --no-yuv --zero-copy`
+\n
+Or   : `for i in {1..8}; do decode.py -hevc -i <file> --no-yuv --zero-copy & done; wait`
+
+Note the `--no-yuv` option prevents any file output, but includes conversions, if any.
+The `--zero-copy` option makes sure that the python code gets the frame without a copy of the frame
+buffer in the python/C++ binding.
+\n
+
+Example measurements for decoding HEVC stream results below,
+have no conversion, nor copy of the frame buffer data.
+
+|  Stream(s)    | Frames/sec  |
+|---------------| ------------|
+| 1280x720p     |   687 FPS   |
+| 1920x1080p    |   367 FPS   |
+| 3840x2160p    |   100 FPS   |
+| 4x 1920x1080p |    90 FPS   |
+| 8x 1280x720p  |    94 FPS   |
+
 */
