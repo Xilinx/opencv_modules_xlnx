@@ -14,7 +14,7 @@
    limitations under the License.
 */
 #include "vcuvideoframe.hpp"
-#include "opencv2/imgproc.hpp"
+#include "opencv2/vcucolorconvert.hpp"
 #include "vcuutils.hpp"
 
 #include <cstring>
@@ -104,84 +104,29 @@ std::shared_ptr<void> VideoFrameImpl::pin() const
 
 void VideoFrameImpl::convertColor(Mat& dst, int targetFourcc) const
 {
+    auto conv = ColorConverter::find(info_.fourcc, targetFourcc);
+    if (!conv)
+        CV_Error(Error::StsNotImplemented,
+                 cv::format("No ColorConverter registered for fourcc %08x -> %08x",
+                            info_.fourcc, targetFourcc));
+
     int nPlanes = (int)srcPlanes_.size();
-    bool is8bit = (srcPlanes_[0].depth() == CV_8U);
 
-    if (nPlanes == 1)
+    ColorConverter::Surface srcS = { info_.fourcc, {}, {}, srcPlanes_[0].cols, srcPlanes_[0].rows,
+        static_cast<int>(info_.colourMatrixCoeffs)
+    };
+    for (int i = 0; i < nPlanes && i < 3; ++i)
     {
-        // GRAY → BGR/BGRA: works for CV_8U, CV_16U, CV_32F
-        if (targetFourcc == fourcc_BGR)
-            cvtColor(srcPlanes_[0], dst, COLOR_GRAY2BGR);
-        else
-            cvtColor(srcPlanes_[0], dst, COLOR_GRAY2BGRA);
+        srcS.plane[i] = srcPlanes_[i].data;
+        srcS.step[i]  = srcPlanes_[i].step;
     }
-    else if (nPlanes == 2)
-    {
-        bool is422 = (srcPlanes_[1].rows == srcPlanes_[0].rows);
 
-        if (is422)
-        {
-            // 4:2:2 semi-planar
-            if (is8bit)
-            {
-                // NV16: no one-step OpenCV conversion available
-                CV_Error(Error::StsNotImplemented,
-                         "BGR/BGRA conversion not yet implemented for NV16 (8-bit 4:2:2 semi-planar)");
-            }
-            else
-            {
-                // P210/P212 (10/12-bit 4:2:2 semi-planar, LSB-aligned)
-                // TODO: implement custom conversion using info_.bitsPerLuma for scaling
-                CV_Error(Error::StsNotImplemented,
-                         "BGR/BGRA conversion not yet implemented for P210/P212 (10/12-bit 4:2:2 semi-planar)");
-            }
-        }
-        else
-        {
-            // 4:2:0 semi-planar (UV has half height)
-            if (is8bit)
-            {
-                // NV12: supported by cvtColorTwoPlane (CV_8U only)
-                if (targetFourcc == fourcc_BGR)
-                    cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGR_NV12);
-                else
-                    cvtColorTwoPlane(srcPlanes_[0], srcPlanes_[1], dst, COLOR_YUV2BGRA_NV12);
-            }
-            else
-            {
-                // P010/P012 (10/12-bit 4:2:0 semi-planar, LSB-aligned)
-                // TODO: implement custom conversion using info_.bitsPerLuma for scaling
-                CV_Error(Error::StsNotImplemented,
-                         "BGR/BGRA conversion not yet implemented for P010/P012 (10/12-bit 4:2:0 semi-planar)");
-            }
-        }
-    }
-    else if (nPlanes == 3)
-    {
-        if (is8bit)
-        {
-            // 8-bit 3-plane YUV → BGR/BGRA (two-step: merge + cvtColor)
-            Mat packed;
-            merge(srcPlanes_, packed);
-            if (targetFourcc == fourcc_BGR)
-            {
-                cvtColor(packed, dst, COLOR_YUV2BGR);
-            }
-            else
-            {
-                Mat bgr;
-                cvtColor(packed, bgr, COLOR_YUV2BGR);
-                cvtColor(bgr, dst, COLOR_BGR2BGRA);
-            }
-        }
-        else
-        {
-            // 10/12-bit 3-plane YUV (LSB-aligned)
-            // TODO: implement custom conversion using info_.bitsPerLuma for scaling
-            CV_Error(Error::StsNotImplemented,
-                     "BGR/BGRA conversion not yet implemented for 10/12-bit 3-plane YUV");
-        }
-    }
+    int ch = (targetFourcc == fourcc_BGRA) ? 4 : 3;
+    dst.create(srcS.height, srcS.width, CV_MAKETYPE(srcPlanes_[0].depth(), ch));
+
+    ColorConverter::Surface dstS = { targetFourcc, { dst.data }, { dst.step }, dst.cols, dst.rows };
+
+    conv->convert(srcS, dstS);
 }
 
 } // namespace vcucodec
