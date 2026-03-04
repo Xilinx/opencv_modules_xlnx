@@ -44,14 +44,13 @@ extern "C" {
 #endif
 #ifdef HAVE_VCU_CTRLSW
 //#include "lib_common/IDriver.h"
-#include "lib_common/HardwareDriver.h"
+#include "lib_common/LinuxDriverCommunication.h"
 #include "lib_common_dec/DecBuffers.h"
 #include "lib_common_dec/IpDecFourCC.h"
 #include "lib_decode/lib_decode.h"
 #include "lib_decode/DecSchedulerMcu.h"
 #include "lib_encode/lib_encoder.h"
 #include "lib_encode/EncSchedulerMcu.h"
-#include "lib_common/HardwareDriver.h"
 #endif
 }
 
@@ -245,14 +244,14 @@ public:
     AL_ITimer* getTimer() override { return nullptr; };
 
 private:
-    void configureMcu(AL_TDriver* driver);
+    void configureMcu(AL_ICommunication* driver);
     AL_IDecScheduler* scheduler_ = nullptr;
     std::shared_ptr<AL_TAllocator> allocator_ = nullptr;
 };
 
 VCUDecDevice::VCUDecDevice(Device::ID)
 {
-    configureMcu(AL_GetHardwareDriver());
+    configureMcu(AL_GetLinuxDriverCommunication());
 }
 
 VCUDecDevice::~VCUDecDevice()
@@ -261,7 +260,7 @@ VCUDecDevice::~VCUDecDevice()
         AL_IDecScheduler_Destroy(scheduler_);
 }
 
-void VCUDecDevice::configureMcu(AL_TDriver* driver)
+void VCUDecDevice::configureMcu(AL_ICommunication* driver)
 {
   std::string g_DecDevicePath = "/dev/allegroDecodeIP";
   allocator_ = CreateBoardAllocator(g_DecDevicePath.c_str(), AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE);
@@ -287,14 +286,14 @@ public:
     AL_ITimer* getTimer() override { return nullptr; };
 
 private:
-    void configureMcu(AL_TDriver* driver);
+    void configureMcu(AL_ICommunication* driver);
     AL_IEncScheduler* scheduler_ = nullptr;
     std::shared_ptr<AL_TAllocator> allocator_ = nullptr;
 };
 
 VCUEncDevice::VCUEncDevice(Device::ID)
 {
-    configureMcu(AL_GetHardwareDriver());
+    configureMcu(AL_GetLinuxDriverCommunication());
 }
 
 VCUEncDevice::~VCUEncDevice()
@@ -303,7 +302,7 @@ VCUEncDevice::~VCUEncDevice()
         AL_IEncScheduler_Destroy(scheduler_);
 }
 
-void VCUEncDevice::configureMcu([[maybe_unused]] AL_TDriver* driver)
+void VCUEncDevice::configureMcu([[maybe_unused]] AL_ICommunication* driver)
 {
   std::string g_EncDevicePath = "/dev/allegroIP";
   allocator_ = CreateBoardAllocator(g_EncDevicePath.c_str(), AL_ETrackDmaMode::AL_TRACK_DMA_MODE_NONE);
@@ -311,7 +310,7 @@ void VCUEncDevice::configureMcu([[maybe_unused]] AL_TDriver* driver)
   if(!allocator_)
     throw std::runtime_error("Can't open DMA allocator");
 
-  scheduler_ = AL_SchedulerMcu_Create(AL_GetHardwareDriver(),
+    scheduler_ = AL_SchedulerMcu_Create(AL_GetLinuxDriverCommunication(),
       (AL_TLinuxDmaAllocator*)allocator_.get(), g_EncDevicePath.c_str());
 
   if(!scheduler_)
