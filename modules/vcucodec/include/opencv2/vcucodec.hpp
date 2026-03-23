@@ -70,9 +70,12 @@ struct CV_EXPORTS_W_SIMPLE RawInfo {
 
     CV_PROP_RW PicStruct picStruct; ///< Picture structure (frame, top/bottom field, ...).
 
-    CV_PROP_RW ColourDescription colourDescription = ColourDescription::UNSPECIFIED;               ///< Colour primaries from VUI.
-    CV_PROP_RW TransferCharacteristics transferCharacteristics = TransferCharacteristics::UNSPECIFIED; ///< Transfer function from VUI.
-    CV_PROP_RW ColourMatrixCoefficients colourMatrixCoeffs = ColourMatrixCoefficients::UNSPECIFIED;    ///< YCbCr matrix coefficients from VUI.
+    /// Colour primaries from VUI.
+    CV_PROP_RW ColourDescription colourDescription = ColourDescription::UNSPECIFIED;
+    /// Transfer function from VUI.
+    CV_PROP_RW TransferCharacteristics transferCharacteristics = TransferCharacteristics::UNSPECIFIED;
+    /// YCbCr matrix coefficients from VUI.
+    CV_PROP_RW ColourMatrixCoefficients colourMatrixCoeffs = ColourMatrixCoefficients::UNSPECIFIED;
 };
 
 /// @brief Initialization parameters for the decoder.
@@ -133,10 +136,10 @@ public:
     /// Planes are ordered: index 0 = Y, index 1 = UV (semi-planar) or U (planar),
     /// index 2 = V (planar only).  Use copyToVec() when you need independent deep copies.
     ///
-    /// @note **Python zero-copy:** The OpenCV Python binding performs a deep copy when
-    /// converting Mat to numpy.  To get true zero-copy access in Python, use
-    /// @ref cv2.vcucodec.plane_numpy "cv2.vcucodec.plane_numpy(frame, index)" instead,
-    /// which returns a numpy array backed directly by the hardware DMA buffer.
+    /// @note **Python zero-copy:** For hardware-backed Mats from VideoFrame,
+    /// cv2 numpy conversion performs a deep copy. To avoid the copy, use
+    /// `cv2.vcucodec.plane_numpy(frame, index)` to get
+    /// a numpy array backed directly by the hardware DMA buffer.
     /// The buffer stays pinned as long as the numpy array (or any view of it) is alive.
     /// Example:
     /// @code{.py}
@@ -151,29 +154,31 @@ public:
 
     /// @brief Copy all planes into a single contiguous Mat.
     ///
-    /// Produces a single-channel byte buffer (CV_8UC1 for 8-bit formats, or
-    /// CV_8UC1 with 2× width for 10/12-bit) containing all YUV planes stacked
-    /// vertically.  Each plane occupies its full height in the output; chroma
-    /// rows narrower than the Y row pitch are zero-padded.
+    /// Produces a single-channel byte buffer (CV_8UC1) containing all YUV planes stacked
+    /// vertically. Each plane is stored with a byte width equal to width x bytesPerPixel,
+    /// where bytesPerPixel is determined by the format (1 for 8-bit YUV, 2 for 10/12-bit YUV).
+    /// Each plane occupies its full height in the output; chroma rows narrower than the Y row
+    /// pitch are zero-padded.
     ///
     /// @param dst   Output Mat — reallocated if size/type do not match.
     /// @param stride Row pitch in bytes for the Y plane.  Chroma pitch is
     ///              derived from the format (equal to Y pitch for semi-planar
     ///              and 4:4:4; half of Y pitch for planar 4:2:0 / 4:2:2
     ///              chroma planes).  When 0 (default), tight packing is used:
-    ///              Y pitch = width × bytesPerPixel, no padding.
+    ///              byte width = width x bytesPerPixel, no padding.
     ///              Pass `info().stride` to match the hardware buffer stride.
     CV_WRAP virtual void copyTo(CV_OUT Mat& dst, int stride = 0) const = 0;
 
     /// @brief Convert the frame to the specified color format and store in dst.
     ///
     /// Performs a software color conversion from the native YUV format to the
-    /// target format specified by @p fourCC.  Currently supported targets:
+    /// target format specified by @p fourCC. The supported target formats depend on
+    /// the registered color converters. Common targets include:
     /// - `VideoWriter::fourcc('B','G','R',' ')` — 3-channel BGR (CV_8UC3)
     /// - `VideoWriter::fourcc('B','G','R','A')` — 4-channel BGRA (CV_8UC4)
     ///
     /// @param dst    Output Mat — reallocated if size/type do not match.
-    /// @param fourCC Target pixel format as a FOURCC code.
+    /// @param fourCC Target pixel format as a FOURCC code. Must be a supported color conversion target.
     CV_WRAP virtual void convertTo(CV_OUT Mat& dst, int fourCC) const = 0;
 };
 
@@ -339,7 +344,8 @@ struct CV_EXPORTS_W_SIMPLE SliceSettings
                                       ///< When enabled, slices are output as soon as encoded.
                                       ///< Default: false.
 
-    CV_WRAP SliceSettings(int numSlices = 1, bool dependentSlice = false, bool subframeLatency = false);
+    CV_WRAP SliceSettings(int numSlices = 1, bool dependentSlice = false,
+                          bool subframeLatency = false);
 };
 
 /// Struct GlobalMotionVector specifies a global motion vector for a frame.
@@ -403,7 +409,8 @@ public:
     virtual ~EncoderCallback() {}
     /// Called each time the encoder produces encoded data (one or more NAL units).
     virtual void onEncoded(std::vector<std::string_view>& encodedData) = 0;
-    /// Called once when the encoder has finished processing all frames after @ref cv::vcucodec::Encoder::eos "eos()".
+    /// Called once when the encoder has finished processing all frames after
+    ///@ref cv::vcucodec::Encoder::eos "eos()".
     virtual void onFinished() = 0;
 };
 
@@ -656,12 +663,12 @@ public:
 /// The returned @ref cv::vcucodec::Decoder "Decoder" can then be used to decode frames
 /// via nextFrame().
 CV_EXPORTS_W Ptr<Decoder> createDecoder(
-    const String& filename,             ///< Input video file name (ignored when @p callback is provided).
-    const DecoderInitParams& params,    ///< Decoder initialization parameters.
-    Ptr<DecoderCallback> callback = 0   ///< Optional callback providing encoded bitstream data (C++ only).
-                                        ///< When provided, encoded data is read via
-                                        ///< @ref cv::vcucodec::DecoderCallback::onData "onData()"
-                                        ///< instead of from the file. Not available from Python.
+    const String& filename,           ///< Input video file name (ignored when @p callback is provided).
+    const DecoderInitParams& params,  ///< Decoder initialization parameters.
+    Ptr<DecoderCallback> callback = 0 ///< Optional callback providing encoded bitstream data (C++ only).
+                                      ///< When provided, encoded data is read via
+                                      ///< @ref cv::vcucodec::DecoderCallback::onData "onData()"
+                                      ///< instead of from the file. Not available from Python.
 );
 
 /// @brief Create an encoder instance for the given output file or stream.
@@ -682,10 +689,10 @@ CV_EXPORTS_W Ptr<Encoder> createEncoder(
     const String& filename,           ///< Output video file name or stream URL.
     const EncoderInitParams& params,  ///< Encoder initialization parameters.
     Ptr<EncoderCallback> callback = 0 ///< Optional callback for receiving encoded data (C++ only).
-                                      ///< When provided, @ref cv::vcucodec::EncoderCallback::onEncoded
-                                      ///< "onEncoded()" is called with each encoded NAL unit, and
-                                      ///< @ref cv::vcucodec::EncoderCallback::onFinished "onFinished()"
-                                      ///< is called when encoding completes. Not available from Python.
+                                ///< When provided, @ref cv::vcucodec::EncoderCallback::onEncoded
+                                ///< "onEncoded()" is called with each encoded NAL unit, and
+                                ///< @ref cv::vcucodec::EncoderCallback::onFinished "onFinished()"
+                                ///< is called when encoding completes. Not available from Python.
 );
 
 //! @}

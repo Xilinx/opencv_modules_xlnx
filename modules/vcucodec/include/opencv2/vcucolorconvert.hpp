@@ -27,7 +27,7 @@
     @defgroup vcucodec_colorconvert Color Conversion
     @brief Extensible, framework-agnostic color conversion.
 
-    The @ref Surface struct describes a pixel buffer (format, planes, strides,
+    The @ref ColorConverter::Surface struct describes a pixel buffer (format, planes, strides,
     dimensions, colour-science parameters).  The @ref ColorConverter interface
     converts between two surfaces.
 
@@ -37,7 +37,7 @@
     - GRAY → BGR / BGRA
 
     Additional converters (P010, P012, NV16, P210, P212, etc.) can be
-    registered at runtime via @ref registerColorConverter.
+    registered at runtime via @ref ColorConverter::add "ColorConverter::add()".
 
     @}
 */
