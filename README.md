@@ -43,21 +43,28 @@ modules
     │       └── INIT_MODULE_SOURCES_opencv_vcucodec.cmake
     ├── CMakeLists.txt
     ├── doc
-    │   ├── decoder_python_examples.dox
-    │   └── versal_zynq.md
+    │   ├── ...
     ├── include
     │   └── opencv2
     │       ├── vcucodec.hpp
+    │       ├── vcucolorconvert.hpp
     │       └── vcutypes.hpp
+    ├── misc
+    │   └── python
+    │       ├── pyopencv_vcucodec.hpp
+    │       └── python_vcucodec.hpp
     └── src
         ├── private
         │   ├── ...
         ├── vcucodec.cpp
+        ├── vcucolorconvert.cpp
         ├── vcudec.cpp
         ├── vcudec.hpp
         ├── vcuenc.cpp
         ├── vcuenc.hpp
-        └── vcutypes.cpp
+        ├── vcutypes.cpp
+        ├── vcuvideoframe.cpp
+        └── vcuvideoframe.hpp
 ```
 
 ## Module: vcucodec
@@ -91,19 +98,21 @@ The module uses conditional compilation to support different AMD/Xilinx video pl
 This module is designed to be built as part of OpenCV using the Yocto build system. The build
 process works as follows:
 
-1. **OpenCV contrib checkout**: The Yocto recipe first checks out the standard opencv_contrib
-                                repository
-2. **Module merge**: The BitBake script then fetches this repository and merges the `modules/`
-                     directory into the `opencv_contrib/modules/` folder
-3. **Unified build**: OpenCV builds with both standard contrib modules and the VCU modules together
+1. **OpenCV contrib checkout**: The Yocto recipe checks out the standard `contrib` repository
+2. **contrib_xlnx checkout**: This repository (`contrib_xlnx`) is checked out alongside `contrib`
+3. **Multiple module paths**: The OpenCV build is configured with multiple extra module paths,
+                              passing both `contrib/modules` and `contrib_xlnx/modules`
+                              via `OPENCV_EXTRA_MODULES_PATH`
 4. **Platform-specific compilation**: Only the appropriate VCU variant is compiled based on the
                                       defines set in the Yocto recipe
 
 ### Build Requirements
 
 The module is automatically included when:
-- OpenCV is configured with the merged contrib modules path
-- The appropriate platform-specific defines are set (`HAVE_VCU2_CTRLSW`, `HAVE_VCU_CTRLSW`, or `HAVE_VDU_CTRLSW`)
+- OpenCV is configured with `contrib_xlnx/modules` in `OPENCV_EXTRA_MODULES_PATH`
+  (semicolon-separated list alongside `contrib/modules`)
+- The appropriate platform-specific defines are set (`HAVE_VCU2_CTRLSW`, `HAVE_VCU_CTRLSW`, or
+  `HAVE_VDU_CTRLSW`)
 - The required control software libraries are available (`vcu2-ctrlsw`, `vcu-ctrlsw`, or `vdu-ctrlsw`)
 
 ### Code Organization
