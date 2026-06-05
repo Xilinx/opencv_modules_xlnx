@@ -772,7 +772,8 @@ SrcBufDesc GetSrcBufDescription(AL_TDimension tDimension, uint8_t uBitDepth,
 
     int32_t iPitchY = ComputeYPitch(tDimension.iWidth, tPicFormat);
 
-    int32_t iAlignValue = 8;
+    // 64 matches with decoder output, e.g. 1280x720 => 1280x768
+    int32_t iAlignValue = 64;
 
     int32_t iStrideHeight = g_StrideHeight != -1 ?
         g_StrideHeight : AL_RoundUp(tDimension.iHeight, iAlignValue);
