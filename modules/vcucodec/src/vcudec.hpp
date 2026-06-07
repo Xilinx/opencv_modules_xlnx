@@ -33,6 +33,7 @@ public:
 
     // Implementation of the pure virtual functions from base class
     virtual DecodeStatus nextFrame(Ptr<VideoFrame>& frame) override;
+    virtual DecodeStatus nextFrameFd(int& fd, RawInfo& frame_info) override;
     virtual bool   set(int propId, double value) override;
     virtual double get(int propId) const override;
     virtual String streamInfo() const override;

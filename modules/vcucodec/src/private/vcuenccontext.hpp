@@ -55,6 +55,7 @@ public:
     virtual void writeFrame(Ptr<Frame> frame) = 0;
     virtual void writeFile(const String& filename, int startFrame, int numFrames,
                            Ptr<PictureEncSettings> picSettings) = 0;
+    virtual void writeBuf(AL_TBuffer* pBuf) = 0;
     virtual void eos() = 0;  // Signal end of stream for file mode
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() = 0;
     virtual bool waitForCompletion() = 0;

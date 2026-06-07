@@ -1122,6 +1122,7 @@ public:
     virtual void writeFrame(Ptr<Frame> frame) override;
     virtual void writeFile(const String& filename, int startFrame, int numFrames,
                            Ptr<PictureEncSettings> picSettings) override;
+    virtual void writeBuf(AL_TBuffer* pBuf) override;
     virtual void eos() override;
     virtual std::shared_ptr<AL_TBuffer> getSharedBuffer() override;
     virtual bool waitForCompletion() override;
@@ -1277,6 +1278,14 @@ void EncoderContext::writeFile(const String& filename, int startFrame, int numFr
     if (!fileWorkerStarted_.exchange(true)) {
         fileWorkerThread_ = std::thread(&EncoderContext::processFileQueue, this);
     }
+}
+
+void EncoderContext::writeBuf(AL_TBuffer* pBuf)
+{
+    if (pBuf)
+        enc_->ProcessFrame(pBuf);
+    else
+        enc_->ProcessFrame(nullptr);
 }
 
 void EncoderContext::eos()

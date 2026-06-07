@@ -22,6 +22,8 @@ extern "C" {
 #include "lib_common/PixMapBuffer.h"
 
 #include "lib_decode/lib_decode.h"
+#include <lib_fpga/DmaAlloc.h>
+#include <lib_fpga/DmaAllocLinux.h>
 }
 
 #include "opencv2/core/utils/logger.hpp"
@@ -285,6 +287,39 @@ DecodeStatus VCUDecoder::nextFrame(Ptr<VideoFrame>& frame) /* override */
     }
 
     frame.reset();
+    if (decodeCtx_->eos())
+    {
+        decodeCtx_->finish();
+        return DECODE_EOS;
+    }
+    return DECODE_TIMEOUT;
+}
+
+DecodeStatus VCUDecoder::nextFrameFd(int& fd, RawInfo& frame_info)
+{
+    if (!initialized_ || !decodeCtx_)
+        CV_Error(cv::Error::StsError, "Decoder not initialized");
+
+    if (!decodeCtx_->running() && !decodeCtx_->eos())
+        decodeCtx_->start(wCfg);
+
+    Ptr<Frame> pFrame;
+    if (decodeCtx_->eos())
+        pFrame = rawOutput_->dequeue(std::chrono::milliseconds::zero());
+    else
+        pFrame = rawOutput_->dequeue(std::chrono::milliseconds(100));
+
+    if (pFrame)
+    {
+        AL_TBuffer* pBuf = pFrame->getBuffer();
+        AL_HANDLE hChunk = pBuf->hBufs[0];  // use chunk 0, not for bMultiChunk case
+        fd = AL_LinuxDmaAllocator_GetFd((AL_TLinuxDmaAllocator*)(pBuf->pAllocator), hChunk);
+
+        ++frameIndex_;
+        updateFramePosition();
+        return DECODE_FRAME;
+    }
+
     if (decodeCtx_->eos())
     {
         decodeCtx_->finish();

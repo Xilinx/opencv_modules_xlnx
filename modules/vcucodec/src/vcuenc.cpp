@@ -23,11 +23,13 @@
 
 extern "C" {
 #include "lib_common/PixMapBuffer.h"
+#include "lib_fpga/DmaAllocLinux.h"
 }
 
 #include <array>
 #include <map>
 #include <iostream>
+#include <unistd.h>
 
 #define CHECK(statement) \
   if(!statement) \
@@ -563,6 +565,25 @@ void VCUEncoder::writeFile(const String& filename, int startFrame, int numFrames
 
     // Queue the file for processing
     enc_->writeFile(filename, startFrame, numFrames, effectiveSettings);
+}
+
+void VCUEncoder::writeFrameFd(int fd)
+{
+    AL_TBuffer* pBuf = nullptr;
+
+    if (fd < 0)
+        CV_Error(Error::StsBadArg, "Invalid fd passed to writeFrameFd");
+
+    auto dmaHandle = AL_LinuxDmaAllocator_ImportFromFd((AL_TLinuxDmaAllocator*)device_->getAllocator(), fd);
+    if(!dmaHandle)
+    {
+        CV_Error(Error::StsBadArg, "VCUEncoder::writeFrameFd no dmaHandle");
+        return;
+    }
+
+    auto sourceBuffer = enc_->getSharedBuffer();
+    sourceBuffer->hBufs[0] = dmaHandle; // use chunk 0, not for bMultiChunk case
+    enc_->writeBuf(sourceBuffer.get());
 }
 
 bool VCUEncoder::eos()

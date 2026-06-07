@@ -201,6 +201,13 @@ public:
         CV_OUT Ptr<VideoFrame>& frame ///< Output: the decoded video frame.
     ) = 0;
 
+    /// @brief Decode the next frame from the stream, return fd of the first buffer chunk.
+    /// @return DECODE_FRAME if a frame was decoded, DECODE_TIMEOUT if no frame is available yet,
+    ///         or DECODE_EOS when the stream has ended.
+    CV_WRAP virtual DecodeStatus nextFrameFd(
+        CV_OUT int& fd,
+        CV_OUT RawInfo& frameInfo  ///< Output parameter with information about the decoded frame.
+    ) = 0;
 
     /// Set a property for the decoder.
     /// @return true if the property was set successfully, false otherwise.
@@ -438,6 +445,9 @@ public:
         Ptr<PictureEncSettings> picSettings = nullptr ///< Optional per-file picture settings
                                                       ///< (resolution must be <= initial).
     ) = 0;
+
+    /// Encode a video frame from fd of the first buffer chunk.
+    CV_WRAP virtual void writeFrameFd(int fd) = 0;
 
     /// Signal the end of the stream to the encoder and wait until final frame is encoded.
     /// @return true if encoding completed successfully, false if timeout or error occurred.
