@@ -227,6 +227,11 @@ private:
 VCUEncoder::~VCUEncoder()
 {
     auto pAllocator = device_->getAllocator();
+
+    // Safety net in case eos() was never called: release imported dmabuf
+    // handles and restore pool buffers before the encoder/pool are destroyed.
+    reclaimImportedBuffers();
+
     AL_Allocator_Free(pAllocator, cfg_->Settings.hRcPluginDmaContext);
     enc_.reset();
 }
@@ -569,21 +574,67 @@ void VCUEncoder::writeFile(const String& filename, int startFrame, int numFrames
 
 void VCUEncoder::writeFrameFd(int fd)
 {
-    AL_TBuffer* pBuf = nullptr;
-
     if (fd < 0)
         CV_Error(Error::StsBadArg, "Invalid fd passed to writeFrameFd");
 
-    auto dmaHandle = AL_LinuxDmaAllocator_ImportFromFd((AL_TLinuxDmaAllocator*)device_->getAllocator(), fd);
+    auto* pAllocator = device_->getAllocator();
+
+    // Import the decoder-exported dmabuf. This takes a reference on the
+    // underlying dma_buf; the matching AL_Allocator_Free() releases it.
+    auto dmaHandle = AL_LinuxDmaAllocator_ImportFromFd((AL_TLinuxDmaAllocator*)pAllocator, fd);
     if(!dmaHandle)
     {
         CV_Error(Error::StsBadArg, "VCUEncoder::writeFrameFd no dmaHandle");
         return;
     }
 
+    // getSharedBuffer() blocks until a pooled source buffer is free, i.e. the
+    // encoder has finished with whatever it previously held in that buffer.
+    // Any import we attached to this buffer for an earlier frame is therefore
+    // now safe to release.
     auto sourceBuffer = enc_->getSharedBuffer();
-    sourceBuffer->hBufs[0] = dmaHandle; // use chunk 0, not for bMultiChunk case
+    AL_TBuffer* key = sourceBuffer.get();
+
+    auto prev = importedHandles_.find(key);
+    if (prev != importedHandles_.end())
+    {
+        // free the imported handle's userspace struct (does not close the fd owned by the decoder)
+        AL_Allocator_Free(pAllocator, prev->second);
+        importedHandles_.erase(prev);
+    }
+
+    // Preserve the pooled buffer's own chunk-0 the first time we hijack it, so
+    // it can be restored before the pool is destroyed (otherwise the pool would
+    // free the imported handle and leak its own allocation).
+    if (!origChunks_.count(key))
+        origChunks_[key] = sourceBuffer->hBufs[0];
+
+    sourceBuffer->hBufs[0] = dmaHandle; // zero-copy: encode directly from the imported dmabuf, chunk 0
+    importedHandles_[key] = dmaHandle;
+
     enc_->writeBuf(sourceBuffer.get());
+
+    // Do NOT close(fd): AL_LinuxDmaAllocator_GetFd() (decoder side) returns the
+    // fd owned by the decoder's DMA buffer. The decoder retains ownership and
+    // closes it when its buffer is destroyed; the import does not take ownership.
+}
+
+void VCUEncoder::reclaimImportedBuffers()
+{
+    if (importedHandles_.empty() && origChunks_.empty())
+        return;
+
+    auto* pAllocator = device_->getAllocator();
+
+    // Restore each pooled buffer's own chunk-0 so pool teardown frees the right
+    // allocation, then release the imported dmabuf handles.
+    for (auto& kv : origChunks_)
+        kv.first->hBufs[0] = kv.second;
+    for (auto& kv : importedHandles_)
+        AL_Allocator_Free(pAllocator, kv.second);
+
+    importedHandles_.clear();
+    origChunks_.clear();
 }
 
 bool VCUEncoder::eos()
@@ -597,7 +648,13 @@ bool VCUEncoder::eos()
     }
 
     // Wait for encoding to complete (max 1 second)
-    return enc_->waitForCompletion();
+    bool completed = enc_->waitForCompletion();
+
+    // Encoder is now idle; release any imported dmabuf handles used by the
+    // zero-copy writeFrameFd() path and restore the pool buffers' own memory.
+    reclaimImportedBuffers();
+
+    return completed;
 }
 
 String VCUEncoder::settings() const

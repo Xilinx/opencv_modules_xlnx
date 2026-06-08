@@ -19,6 +19,8 @@
 #include "vcucommand.hpp"
 #include "vcuutils.hpp"
 
+#include <map>
+
 extern "C"
 {
 #include "lib_encode/lib_encoder.h"
@@ -131,6 +133,12 @@ private:
     int32_t currentFrameIndex_;
     AL_HEncoder hEnc_;
     InputMode inputMode_{InputMode::NONE};
+
+    // Zero-copy fd path (writeFrameFd): imported DMA handles must be released,
+    // and the pooled source buffer's own chunk restored, before teardown.
+    void reclaimImportedBuffers();
+    std::map<AL_TBuffer*, AL_HANDLE> importedHandles_;
+    std::map<AL_TBuffer*, AL_HANDLE> origChunks_;
 };
 
 }  // namespace vcucodec
