@@ -5,6 +5,7 @@ import argparse
 from formats import FOURCC
 from formats import bitdepth_str_to_enum
 from formats import members_str
+import vcu_config_parser
 
 parser = argparse.ArgumentParser(description="Encoder command")
 codec_group = parser.add_mutually_exclusive_group(required=True)
@@ -16,6 +17,10 @@ parser.add_argument("--output-format", type=str, default="NULL", help="Output fo
 parser.add_argument("--max-frames", type=int, default=0, help="Maximum number of frames to decode")
 parser.add_argument("--bitdepth","-bd", type=str, choices=["8", "10", "12", "alloc", "stream", "first"], default="first",
     help="Output YUV bitdepth (8, 10, 12, alloc : force prealloc if present, if not fallback to first, stream: use current frame bitdepth, first: always use bitdepth of the first decoded frame)")
+parser.add_argument("--dmabuf", "-dmabuf", action="store_true",
+    help="Transfer frames from decoder to encoder using dmabuf fd (zero-copy) instead of copying frame buffers")
+parser.add_argument("--cfg", default=None,
+    help="Input encoder configuration file path. If provided, encoder parameters are built from this file instead of the defaults")
 
 args = parser.parse_args()
 
@@ -27,23 +32,44 @@ decoderInitParams = cv2.vcucodec.DecoderInitParams(
     maxFrames=args.max_frames,
     bitDepth=user_bitdepth)
 
+if args.dmabuf:
+    decoderInitParams.extraFrames = 20
+
 dec = cv2.vcucodec.createDecoder(args.input, decoderInitParams)
-params = cv2.vcucodec.EncoderInitParams()
+if args.cfg:
+    config = vcu_config_parser.VCUConfigParser()
+    config.parse(args.cfg)
+    params = config.create_encoder_params()
+else:
+    params = cv2.vcucodec.EncoderInitParams()
 enc = cv2.vcucodec.createEncoder(args.output, params)
 print(members_str(params))
 frame_idx = 1;
-while True:
-    status, frame = dec.nextFrame()
-    if status == cv2.vcucodec.DECODE_TIMEOUT:
-        continue
-    elif status == cv2.vcucodec.DECODE_EOS:
-        print(f"\nEnd of stream")
-        break
-    elif status == cv2.vcucodec.DECODE_FRAME:
-        dst = frame.copyTo()
-        enc.write(dst)
-        print(f"\rEncoded frame {frame_idx}", end='')
-        frame_idx += 1
+if args.dmabuf:
+    while True:
+        status, fd, info = dec.nextFrameFd()
+        if status == cv2.vcucodec.DECODE_TIMEOUT:
+            continue
+        elif status == cv2.vcucodec.DECODE_EOS:
+            print(f"\nEnd of stream")
+            break
+        elif status == cv2.vcucodec.DECODE_FRAME:
+            enc.writeFrameFd(fd)
+            print(f"\rEncoded frame {frame_idx}", end='')
+            frame_idx += 1
+else:
+    while True:
+        status, frame = dec.nextFrame()
+        if status == cv2.vcucodec.DECODE_TIMEOUT:
+            continue
+        elif status == cv2.vcucodec.DECODE_EOS:
+            print(f"\nEnd of stream")
+            break
+        elif status == cv2.vcucodec.DECODE_FRAME:
+            dst = frame.copyTo()
+            enc.write(dst)
+            print(f"\rEncoded frame {frame_idx}", end='')
+            frame_idx += 1
 
 enc.eos()
 print(enc.statistics())
@@ -51,4 +77,3 @@ print(f'Output written to "{args.output}"')
 
 del dec
 del enc
-
