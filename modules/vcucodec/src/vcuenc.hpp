@@ -114,6 +114,17 @@ public:
     virtual void setIsSkip(int32_t frameIdx) override;
     virtual void setSAO(int32_t frameIdx, bool bSAOEnabled) override;
 
+    //
+    // Region of interest (ROI)
+    //
+
+    virtual Ptr<RegionOfInterest> createROI(const Rect& region, ROIQuality quality) override;
+    virtual Ptr<RegionOfInterest> createROIByValue(const Rect& region, int deltaQP) override;
+    virtual Ptr<RegionOfInterest> createROIBackground(ROIQuality quality,
+            ROIOrder order = ROIOrder::QUALITY) override;
+    virtual Ptr<RegionOfInterest> createROIBackgroundByValue(int deltaQP,
+            ROIOrder order = ROIOrder::QUALITY) override;
+
 private:
     bool validateSettings();
     void initSettings(const EncoderInitParams& params);

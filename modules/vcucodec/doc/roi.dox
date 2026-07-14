@@ -1,0 +1,205 @@
+/**
+@class cv::vcucodec::RegionOfInterest
+
+Region-of-interest encoding lets you steer the encoder's bit budget toward (or away from)
+specific rectangular areas of the picture. Each region is assigned a quality relative to the
+picture background, which the encoder translates into a per-LCU QP delta on top of the value
+chosen by rate control. Regions may overlap and may be turned on and off at specific frames,
+so ROIs can follow moving content over time.
+
+A %RegionOfInterest is never constructed directly; it is created through one of the
+@ref cv::vcucodec::Encoder factory methods, each of which returns a handle:
+- @ref cv::vcucodec::Encoder::createROI "createROI" — @copybrief cv::vcucodec::Encoder::createROI
+- @ref cv::vcucodec::Encoder::createROIByValue "createROIByValue" — @copybrief cv::vcucodec::Encoder::createROIByValue
+- @ref cv::vcucodec::Encoder::createROIBackground "createROIBackground" — @copybrief cv::vcucodec::Encoder::createROIBackground
+- @ref cv::vcucodec::Encoder::createROIBackgroundByValue "createROIBackgroundByValue" — @copybrief cv::vcucodec::Encoder::createROIBackgroundByValue
+
+@note The **first** call to any of the ROI factory methods sets up the encoder's QP-table
+path (the per-LCU QP-table buffers are allocated up front). Regions must therefore be created
+**before encoding starts** — before the first @ref cv::vcucodec::Encoder::write "write()" or
+@ref cv::vcucodec::Encoder::writeFile "writeFile()".
+
+### Coordinates
+
+A region is given as `(x, y, width, height)` in the picture's pixel coordinate system, whose
+origin `(0, 0)` is the **top-left** corner: `x`/`y` are the top-left offset of the region and
+`width` x `height` is its size. Positions and sizes are rounded outward to the encoder's LCU
+grid. In Python a region is a plain `(x, y, width, height)` tuple; in C++ it is a `cv::Rect`.
+
+@htmlonly
+<div style="text-align:left; margin:1em 0;">
+<svg width="560" height="350" viewBox="0 0 560 350" xmlns="http://www.w3.org/2000/svg"
+     font-family="sans-serif" font-size="13">
+  <defs>
+    <marker id="roiArwK" markerWidth="10" markerHeight="10" refX="8" refY="3"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#333"/></marker>
+    <marker id="roiArwB" markerWidth="10" markerHeight="10" refX="8" refY="3"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#1f5fa8"/></marker>
+    <marker id="roiArwR" markerWidth="10" markerHeight="10" refX="8" refY="3"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#c00"/></marker>
+  </defs>
+
+  <!-- frame -->
+  <rect x="70" y="55" width="430" height="250" fill="#f4f6f8" stroke="#333" stroke-width="2"/>
+  <!-- region A (the one being measured) -->
+  <rect x="250" y="150" width="170" height="110" fill="#4a90d9" fill-opacity="0.35"
+        stroke="#1f5fa8" stroke-width="2"/>
+  <text x="300" y="190" text-anchor="middle" fill="#1f5fa8" font-weight="bold">A</text>
+  <!-- region B, overlapping A -->
+  <rect x="350" y="205" width="140" height="95" fill="#f0a94a" fill-opacity="0.40"
+        stroke="#d9822b" stroke-width="2"/>
+  <text x="484" y="293" text-anchor="end" fill="#c8760f" font-weight="bold">B</text>
+  <!-- intersection of A and B -->
+  <rect x="350" y="205" width="70" height="55" fill="#6f52a3" fill-opacity="0.45"
+        stroke="#40306a" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="385" y="236" text-anchor="middle" fill="#2a1f47" font-weight="bold" font-size="11">overlap</text>
+
+  <!-- origin -->
+  <circle cx="70" cy="55" r="3.5" fill="#c00"/>
+  <text x="64" y="50" text-anchor="end" fill="#c00">(0,0)</text>
+
+  <!-- frame width -->
+  <line x1="70" y1="38" x2="500" y2="38" stroke="#333" marker-start="url(#roiArwK)" marker-end="url(#roiArwK)"/>
+  <text x="285" y="32" text-anchor="middle">frame width (PictureEncSettings.width)</text>
+  <!-- frame height -->
+  <line x1="50" y1="55" x2="50" y2="305" stroke="#333" marker-start="url(#roiArwK)" marker-end="url(#roiArwK)"/>
+  <text x="44" y="180" text-anchor="middle" transform="rotate(-90 44 180)">frame height (PictureEncSettings.height)</text>
+
+  <!-- x offset (frame-left -> ROI-left, along ROI top) -->
+  <line x1="70" y1="150" x2="250" y2="150" stroke="#c00" stroke-dasharray="4 3"
+        marker-start="url(#roiArwR)" marker-end="url(#roiArwR)"/>
+  <text x="160" y="144" text-anchor="middle" fill="#c00">x</text>
+  <!-- y offset (frame-top -> ROI-top, along ROI left) -->
+  <line x1="250" y1="55" x2="250" y2="150" stroke="#c00" stroke-dasharray="4 3"
+        marker-start="url(#roiArwR)" marker-end="url(#roiArwR)"/>
+  <text x="258" y="107" text-anchor="start" fill="#c00">y</text>
+
+  <!-- ROI width -->
+  <line x1="250" y1="170" x2="420" y2="170" stroke="#1f5fa8" marker-start="url(#roiArwB)" marker-end="url(#roiArwB)"/>
+  <text x="335" y="165" text-anchor="middle" fill="#1f5fa8">width</text>
+  <!-- ROI height -->
+  <line x1="272" y1="150" x2="272" y2="260" stroke="#1f5fa8" marker-start="url(#roiArwB)" marker-end="url(#roiArwB)"/>
+  <text x="279" y="210" text-anchor="start" fill="#1f5fa8">height</text>
+</svg>
+</div>
+@endhtmlonly
+
+Example: `createROI((x, y, width, height), quality)` — a `(1280, 360, 1220, 1500)` region starts
+1280 px from the left and 360 px from the top of the frame and is 1220 x 1500 px in size. A second
+region **B** is shown overlapping **A**; their intersection is highlighted (see @ref cv::vcucodec::ROIOrder "ROIOrder").
+
+### Quality
+
+The quality of a region (or of the background) is expressed with
+@ref cv::vcucodec::ROIQuality "ROIQuality". Each named value maps to a relative QP delta applied
+on top of the rate-control QP; a lower QP means better quality and more bits.
+
+@anchor roi_quality_table
+| ROIQuality  | QP delta | Meaning                                                           |
+|:-----------:|:--------:|-------------------------------------------------------------------|
+| `HIGH`      |    −5    | Higher quality than the rate-control value                        |
+| `MEDIUM`    |     0    | Same quality as the rate-control value                            |
+| `LOW`       |    +5    | Lower quality than the rate-control value                         |
+| `DONT_CARE` |   +31    | Worst possible quality (region of no interest)                    |
+| `STATIC`    |     —    | Region is coded as static content (same as the reference picture) |
+| `INTRA`     |     —    | Region is coded entirely with Intra prediction                    |
+
+When a named preset is not precise enough, use the *by-value* factories
+(@ref cv::vcucodec::Encoder::createROIByValue "createROIByValue" /
+@ref cv::vcucodec::Encoder::createROIBackgroundByValue "createROIBackgroundByValue") to pass an
+explicit relative QP delta directly. The delta is a signed value (roughly −32..+31); it is
+reported by @ref deltaQP.
+
+### Lifecycle: create → enable → disable
+
+A region is **created disabled** and has no effect on the bitstream until it is enabled. All
+state changes are scheduled at a specific frame index, so they line up with the encoded stream:
+
+- @ref enable "enable(frameIdx)" — activate the region starting at @p frameIdx.
+- @ref disable "disable(frameIdx)" — deactivate the region starting at @p frameIdx.
+
+Calling @ref disable is the deterministic way to stop a region contributing to the output.
+Destroying the handle merely releases the region entry: in C++ this happens immediately (RAII);
+from Python it happens when the object is garbage-collected, which is not deterministic.
+
+A region's rectangle and quality are fixed at creation; to move or re-qualify a region, drop its
+handle and create a new one.
+
+To make a region first appear at a later frame, create it and enable it at that frame:
+
+@code{.py}
+    # a high-quality box that is active only for frames [100, 250)
+    roi = enc.createROI((1280, 360, 1220, 1500), cv2.vcucodec.ROIQuality_HIGH)
+    roi.enable(100)
+    roi.disable(250)
+@endcode
+
+### Background
+
+The picture **background** — every area not covered by an enabled region — is itself modelled as a
+full-frame %RegionOfInterest, created via
+@ref cv::vcucodec::Encoder::createROIBackground "createROIBackground". Its @ref region reports the
+whole picture. The background is created disabled like any other region and is activated with
+@ref enable.
+
+Only **one** background is effective at a time: enabling a background supersedes any
+previously-enabled one (most-recently-enabled wins). When no background region is enabled, the
+background is coded at the rate-control QP (equivalent to `MEDIUM`). Setting the background to
+`LOW` or `DONT_CARE` frees bits that can then be spent on high-quality regions at a fixed bitrate.
+
+### Overlap order
+
+When enabled regions overlap, a single frame-global policy decides which region's quality applies
+in the intersection, expressed with @ref cv::vcucodec::ROIOrder "ROIOrder":
+
+- `QUALITY` — the highest-quality (lowest-QP) overlapping region wins.
+- `INCOMING` — the earliest-defined region wins.
+
+For the overlapping regions **A** and **B** in the Coordinates figure above, `QUALITY` codes
+their intersection at whichever region has the better quality, while `INCOMING` codes it at
+whichever region was created first.
+
+The order can be provided when the background is created (the @p order argument of
+@ref cv::vcucodec::Encoder::createROIBackground "createROIBackground"), or changed at runtime with
+@ref setOrder "setOrder(frameIdx, order)".
+
+@note @ref setOrder is a **frame-global** policy: although it is a method on a single region
+handle, it affects how *all* overlapping regions are resolved, not just the region it is called on.
+
+### Inspecting a region
+
+- @ref region "region()" — the rectangle in pixels (the full frame for a background region).
+- @ref enabled "enabled()" — whether the region is currently enabled.
+- @ref quality "quality()" — the named quality (meaningful when not created "by value").
+- @ref deltaQP "deltaQP()" — the relative QP delta (meaningful when created "by value").
+
+### Python example
+
+@code{.py}
+    import cv2
+
+    params = cv2.vcucodec.EncoderInitParams()
+    params.pictureEncSettings.codec  = cv2.vcucodec.Codec_HEVC
+    params.pictureEncSettings.width  = 1920
+    params.pictureEncSettings.height = 1080
+    enc = cv2.vcucodec.createEncoder("out.h265", params)
+
+    # Create regions BEFORE encoding starts.
+    bg  = enc.createROIBackground(cv2.vcucodec.ROIQuality_LOW,
+                                  cv2.vcucodec.ROIOrder_QUALITY)
+    roi = enc.createROI((1280, 360, 1220, 1500), cv2.vcucodec.ROIQuality_HIGH)
+    hot = enc.createROIByValue((0, 0, 320, 240), -10)  # explicit QP delta
+
+    bg.enable(0)      # background active from the start
+    roi.enable(100)   # high-quality box appears at frame 100
+    hot.enable(0)
+    roi.disable(250)  # ... and disappears at frame 250
+
+    # ... feed frames with enc.write(...) / enc.writeFile(...), then enc.eos()
+@endcode
+
+@see cv::vcucodec::Encoder, cv::vcucodec::ROIQuality, cv::vcucodec::ROIOrder
+*/

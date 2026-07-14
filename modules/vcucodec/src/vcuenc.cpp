@@ -1202,6 +1202,66 @@ String VCUEncoder::currentSettingsString() const
     return result;
 }
 
+//
+// Region of interest (ROI)
+//
+
+namespace { // anonymous
+
+/// Stub implementation of RegionOfInterest.
+/// TODO: wire to the AL_RoiMngr_* API and the encoder QP-table path (see ROISettings and
+/// the CommandQueue-based dynamic-command scheduling). For now these are empty stubs.
+class VCURegionOfInterest : public RegionOfInterest
+{
+public:
+    VCURegionOfInterest(const Rect& region, ROIQuality quality, int deltaQP, bool background)
+        : region_(region), quality_(quality), deltaQP_(deltaQP), background_(background) {}
+
+    void enable(int32_t /*frameIdx*/) override {}
+    void disable(int32_t /*frameIdx*/) override {}
+    void setOrder(int32_t /*frameIdx*/, ROIOrder /*order*/) override {}
+
+    Rect region() const override { return region_; }
+    bool enabled() const override { return enabled_; }
+    ROIQuality quality() const override { return quality_; }
+    int deltaQP() const override { return deltaQP_; }
+
+private:
+    Rect region_;
+    ROIQuality quality_;
+    int deltaQP_;
+    bool background_;
+    bool enabled_ = false;
+};
+
+} // anonymous namespace
+
+Ptr<RegionOfInterest> VCUEncoder::createROI(const Rect& region, ROIQuality quality)
+{
+    // TODO: register the region with the encoder ROI manager.
+    return makePtr<VCURegionOfInterest>(region, quality, 0, false);
+}
+
+Ptr<RegionOfInterest> VCUEncoder::createROIByValue(const Rect& region, int deltaQP)
+{
+    // TODO: register the region with the encoder ROI manager.
+    return makePtr<VCURegionOfInterest>(region, ROIQuality::MEDIUM, deltaQP, false);
+}
+
+Ptr<RegionOfInterest> VCUEncoder::createROIBackground(ROIQuality quality, ROIOrder order)
+{
+    // TODO: register the full-frame background with the encoder ROI manager; apply order.
+    (void)order;
+    return makePtr<VCURegionOfInterest>(Rect(), quality, 0, true);
+}
+
+Ptr<RegionOfInterest> VCUEncoder::createROIBackgroundByValue(int deltaQP, ROIOrder order)
+{
+    // TODO: register the full-frame background with the encoder ROI manager; apply order.
+    (void)order;
+    return makePtr<VCURegionOfInterest>(Rect(), ROIQuality::MEDIUM, deltaQP, true);
+}
+
 // Static functions
 
 String Encoder::getProfiles(Codec codec)

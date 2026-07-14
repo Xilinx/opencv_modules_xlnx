@@ -132,6 +132,33 @@ enum class GDRMode
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+//  REGION OF INTEREST (ROI)
+
+/// @brief Quality of a Region Of Interest, relative to the rate-controller's QP.
+///
+/// Each value maps to a relative QP delta applied to the region (or the background):
+/// a lower QP means better quality. See @ref cv::vcucodec::RegionOfInterest and
+/// @ref cv::vcucodec::Encoder::createROI.
+enum class ROIQuality
+{
+    HIGH,      ///< Higher quality than the rate-control value (negative QP delta).
+    MEDIUM,    ///< Same quality as the rate-control value (zero QP delta).
+    LOW,       ///< Lower quality than the rate-control value (positive QP delta).
+    DONT_CARE, ///< Worst possible quality for a region of no interest.
+    STATIC,    ///< Region with static content (same as the reference picture).
+    INTRA      ///< Region encoded entirely with Intra prediction.
+};
+
+/// @brief Overlap-resolution order used when Regions Of Interest intersect.
+///
+/// This is a single, frame-global policy (see @ref cv::vcucodec::RegionOfInterest::setOrder).
+enum class ROIOrder
+{
+    INCOMING, ///< Use the quality of the earliest-defined region.
+    QUALITY   ///< Use the quality of the highest-quality overlapping region.
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 //  VUI Colour Info (ISO/IEC 23091-4 / ITU-T H.273)
 
 /// Colour primaries / colour description identifier from VUI parameters.

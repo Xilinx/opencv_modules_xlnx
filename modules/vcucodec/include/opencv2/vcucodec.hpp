@@ -422,6 +422,42 @@ public:
 };
 
 
+// see roi.dox for documentation of RegionOfInterest class
+
+/// @brief Handle to a Region Of Interest (ROI) attached to an @ref cv::vcucodec::Encoder.
+/// Created disabled through an Encoder ROI factory method; activate/deactivate it at a given
+/// frame with @ref enable / @ref disable. See @ref cv::vcucodec::RegionOfInterest for details.
+class CV_EXPORTS_W RegionOfInterest
+{
+public:
+    /// Virtual destructor. Releases the region entry from the encoder.
+    virtual ~RegionOfInterest() {}
+
+    /// Enable (activate) this region starting at @p frameIdx.
+    CV_WRAP virtual void enable(int32_t frameIdx) = 0;
+
+    /// Disable (deactivate) this region starting at @p frameIdx.
+    CV_WRAP virtual void disable(int32_t frameIdx) = 0;
+
+    /// @brief Set the overlap priority — which region takes precedence where regions
+    ///   overlap — starting at @p frameIdx, which is is a **frame-global** policy: it affects all
+    ///  overlapping regions, not just the region it is called on.
+    CV_WRAP virtual void setOrder(int32_t frameIdx, ROIOrder order) = 0;
+
+    /// The region rectangle in pixels (the full frame for a background region).
+    CV_WRAP virtual Rect region() const = 0;
+
+    /// Whether the region is currently enabled.
+    CV_WRAP virtual bool enabled() const = 0;
+
+    /// The named quality of the region (meaningful when not created "by value").
+    CV_WRAP virtual ROIQuality quality() const = 0;
+
+    /// The relative QP delta of the region (meaningful when created "by value").
+    CV_WRAP virtual int deltaQP() const = 0;
+};
+
+
 // see encoder.dox for documentation of Encoder class
 
 /// @brief Class Encoder is the interface for encoding video frames to a stream.
@@ -627,6 +663,36 @@ public:
     /// Dynamically set Auto QP threshold QP and delta QP at a specific frame index.
     CV_WRAP virtual void setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUserAutoQPValues,
             std::vector<int> thresholdQP, std::vector<int> deltaQP) = 0;
+
+    //
+    // Region of interest (ROI)
+    //
+
+    /// @brief Create a rectangular region of interest with a named @p quality.
+    /// The region is created disabled; call @ref RegionOfInterest::enable to activate it.
+    /// @note The first ROI-creation call sets up the ROI QP-table path; therefore regions
+    ///       must be created before encoding starts (before the first write()/writeFile()).
+    /// @return Handle to the new region.
+    CV_WRAP virtual Ptr<RegionOfInterest> createROI(const Rect& region, ROIQuality quality) = 0;
+
+    /// @brief Create a rectangular region of interest with an explicit relative QP @p deltaQP.
+    /// The region is created disabled; call @ref RegionOfInterest::enable to activate it.
+    /// @return Handle to the new region.
+    CV_WRAP virtual Ptr<RegionOfInterest> createROIByValue(const Rect& region, int deltaQP) = 0;
+
+    /// @brief Create the full-frame background region with a named @p quality and overlap @p order.
+    /// The background is created disabled; call @ref RegionOfInterest::enable to activate it.
+    /// Only one background is effective at a time (the most recently enabled one).
+    /// @return Handle to the background region.
+    CV_WRAP virtual Ptr<RegionOfInterest> createROIBackground(ROIQuality quality,
+            ROIOrder order = ROIOrder::QUALITY) = 0;
+
+    /// @brief Create the full-frame background region with an explicit relative QP @p deltaQP
+    /// and overlap @p order. The background is created disabled; call @ref RegionOfInterest::enable
+    /// to activate it.
+    /// @return Handle to the background region.
+    CV_WRAP virtual Ptr<RegionOfInterest> createROIBackgroundByValue(int deltaQP,
+            ROIOrder order = ROIOrder::QUALITY) = 0;
 
     //
     // static functions
