@@ -43,6 +43,7 @@ namespace vcucodec {
 
 class Device;
 class Frame;
+class RoiManager;
 
 using DataCallback = std::function<void(std::vector<std::string_view>&)>;
 
@@ -63,6 +64,10 @@ public:
     virtual int setHDRSEIs(const HDRSEIs& hdrSeis) = 0;
     virtual String statistics() const = 0;
     virtual AL_HEncoder hEnc() = 0;
+
+    // Region of interest: hand the encoder the shared RoiManager that produces the
+    // per-frame relative QP-table attached to each encoded frame. Pass nullptr to disable.
+    virtual void setRoiManager(std::shared_ptr<RoiManager> roiManager) = 0;
 
     static Ptr<EncContext> create(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback);
 };

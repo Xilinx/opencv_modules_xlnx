@@ -20,6 +20,7 @@
 #include "vcudevice.hpp"
 #include "vcuenccontext.hpp"
 #include "vcuframe.hpp"
+#include "vcuroimanager.hpp"
 
 extern "C" {
 #include "lib_common/PixMapBuffer.h"
@@ -279,6 +280,11 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     // Set codec-specific defaults (QP bounds, codec parameters) based on profile
     AL_Settings_SetDefaultParam(&cfg.Settings);
 
+    // Arm the relative QP-table path so Region-of-Interest encoding works whenever
+    // regions are created. When no ROI is active the per-LCU table is left neutral
+    // (all deltas 0), so it does not alter the encode.
+    cfg.Settings.eQpTableMode = AL_QP_TABLE_RELATIVE;
+
     // Apply level if specified (override library default)
     if (level != 0)
         chn.uLevel = level;
@@ -500,6 +506,13 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
 
     setCodingResolution(cfg);
 
+    // Region-of-interest manager: single source of truth for the region set. Created now
+    // that the encoded dimensions / profile / LCU size are known; handed to the context
+    // below so its per-frame QP-table is attached to each encoded frame.
+    roiMngr_ = std::make_shared<RoiManager>(chn.uEncWidth, chn.uEncHeight, chn.eProfile,
+                                            chn.uLog2MaxCuSize, /*background MEDIUM*/ 0,
+                                            RoiOrder::QUALITY);
+
     enc_ = EncContext::create(cfg_, device_,
         [this](std::vector<std::string_view>& data)
         {
@@ -508,6 +521,7 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     if (enc_)
     {
         hEnc_ = enc_->hEnc();
+        enc_->setRoiManager(roiMngr_);
 
         // Cache source buffer format info to avoid repeated AL_GetPicFormat calls
         auto sourceBuffer = enc_->getSharedBuffer();
@@ -1208,58 +1222,102 @@ String VCUEncoder::currentSettingsString() const
 
 namespace { // anonymous
 
-/// Stub implementation of RegionOfInterest.
-/// TODO: wire to the AL_RoiMngr_* API and the encoder QP-table path (see ROISettings and
-/// the CommandQueue-based dynamic-command scheduling). For now these are empty stubs.
+/// Map a named quality to the signed relative QP delta / force sentinel understood by
+/// the ROI manager. HIGH improves quality (lower QP), LOW/DONT_CARE lower it.
+int qualityToCode(ROIQuality quality)
+{
+    switch (quality)
+    {
+    case ROIQuality::HIGH:      return -5;
+    case ROIQuality::MEDIUM:    return 0;
+    case ROIQuality::LOW:       return 5;
+    case ROIQuality::DONT_CARE: return 31;
+    case ROIQuality::STATIC:    return roiquality::STATIC;
+    case ROIQuality::INTRA:     return roiquality::INTRA;
+    }
+    return 0;
+}
+
+/// RegionOfInterest handle backed by a region registered in the shared RoiManager.
+/// enable/disable/setOrder forward to the manager (which is queried per frame while
+/// encoding); the immutable region/quality/deltaQP are cached for the getters.
 class VCURegionOfInterest : public RegionOfInterest
 {
 public:
-    VCURegionOfInterest(const Rect& region, ROIQuality quality, int deltaQP, bool background)
-        : region_(region), quality_(quality), deltaQP_(deltaQP), background_(background) {}
+    VCURegionOfInterest(std::weak_ptr<RoiManager> mgr, int32_t id, const Rect& region,
+                        ROIQuality quality, int deltaQP)
+        : mgr_(std::move(mgr)), id_(id), region_(region), quality_(quality), deltaQP_(deltaQP) {}
 
-    void enable(int32_t /*frameIdx*/) override {}
-    void disable(int32_t /*frameIdx*/) override {}
-    void setOrder(int32_t /*frameIdx*/, ROIOrder /*order*/) override {}
+    void enable(int32_t frameIdx) override
+    {
+        if (auto m = mgr_.lock()) m->enableRegion(id_, frameIdx);
+    }
+
+    void disable(int32_t frameIdx) override
+    {
+        if (auto m = mgr_.lock()) m->disableRegion(id_, frameIdx);
+    }
+
+    void setOrder(int32_t frameIdx, ROIOrder order) override
+    {
+        if (auto m = mgr_.lock())
+            m->setOrder(frameIdx, order == ROIOrder::QUALITY ? RoiOrder::QUALITY
+                                                             : RoiOrder::INCOMING);
+    }
 
     Rect region() const override { return region_; }
-    bool enabled() const override { return enabled_; }
+
+    bool enabled() const override
+    {
+        if (auto m = mgr_.lock()) return m->isActive(id_);
+        return false;
+    }
+
     ROIQuality quality() const override { return quality_; }
     int deltaQP() const override { return deltaQP_; }
 
 private:
+    std::weak_ptr<RoiManager> mgr_;
+    int32_t id_;
     Rect region_;
     ROIQuality quality_;
     int deltaQP_;
-    bool background_;
-    bool enabled_ = false;
 };
 
 } // anonymous namespace
 
 Ptr<RegionOfInterest> VCUEncoder::createROI(const Rect& region, ROIQuality quality)
 {
-    // TODO: register the region with the encoder ROI manager.
-    return makePtr<VCURegionOfInterest>(region, quality, 0, false);
+    int32_t id = roiMngr_->addRegion(region.x, region.y, region.width, region.height,
+                                     qualityToCode(quality), /*background*/ false);
+    return makePtr<VCURegionOfInterest>(roiMngr_, id, region, quality, 0);
 }
 
 Ptr<RegionOfInterest> VCUEncoder::createROIByValue(const Rect& region, int deltaQP)
 {
-    // TODO: register the region with the encoder ROI manager.
-    return makePtr<VCURegionOfInterest>(region, ROIQuality::MEDIUM, deltaQP, false);
+    int32_t id = roiMngr_->addRegion(region.x, region.y, region.width, region.height,
+                                     deltaQP, /*background*/ false);
+    return makePtr<VCURegionOfInterest>(roiMngr_, id, region, ROIQuality::MEDIUM, deltaQP);
 }
 
 Ptr<RegionOfInterest> VCUEncoder::createROIBackground(ROIQuality quality, ROIOrder order)
 {
-    // TODO: register the full-frame background with the encoder ROI manager; apply order.
-    (void)order;
-    return makePtr<VCURegionOfInterest>(Rect(), quality, 0, true);
+    auto& chn = cfg_->Settings.tChParam[0];
+    Rect full(0, 0, AL_GetSrcWidth(chn), AL_GetSrcHeight(chn));
+    int32_t id = roiMngr_->addRegion(full.x, full.y, full.width, full.height,
+                                     qualityToCode(quality), /*background*/ true);
+    roiMngr_->setOrder(0, order == ROIOrder::QUALITY ? RoiOrder::QUALITY : RoiOrder::INCOMING);
+    return makePtr<VCURegionOfInterest>(roiMngr_, id, full, quality, 0);
 }
 
 Ptr<RegionOfInterest> VCUEncoder::createROIBackgroundByValue(int deltaQP, ROIOrder order)
 {
-    // TODO: register the full-frame background with the encoder ROI manager; apply order.
-    (void)order;
-    return makePtr<VCURegionOfInterest>(Rect(), ROIQuality::MEDIUM, deltaQP, true);
+    auto& chn = cfg_->Settings.tChParam[0];
+    Rect full(0, 0, AL_GetSrcWidth(chn), AL_GetSrcHeight(chn));
+    int32_t id = roiMngr_->addRegion(full.x, full.y, full.width, full.height,
+                                     deltaQP, /*background*/ true);
+    roiMngr_->setOrder(0, order == ROIOrder::QUALITY ? RoiOrder::QUALITY : RoiOrder::INCOMING);
+    return makePtr<VCURegionOfInterest>(roiMngr_, id, full, ROIQuality::MEDIUM, deltaQP);
 }
 
 // Static functions

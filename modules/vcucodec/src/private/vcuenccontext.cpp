@@ -38,12 +38,15 @@ extern "C" {
 #include "vcudata.hpp"
 #include "vcudevice.hpp"
 #include "vcuenccontext.hpp"
+#include "vcuroimanager.hpp"
 #include "vcuutils.hpp"
 #include "vcuframe.hpp"
 
 #include <atomic>
 #include <condition_variable>
+#include <cstring>
 #include <iostream>
+#include <mutex>
 #include <queue>
 #include <regex>
 #include <thread>
@@ -87,7 +90,6 @@ struct RCPlugin
     uint32_t tail;
     uint32_t curQp;
 };
-
 void RCPlugin_SetNextFrameQP(AL_TEncSettings const* pSettings,
                                             AL_TAllocator* pDmaAllocator)
 {
@@ -137,6 +139,9 @@ void RCPlugin_Init(AL_TEncSettings* pSettings, AL_TEncChanParam* pChParam,
     }
 }
 
+
+// Defined later in this file; forward-declared so EncoderSink can size its QP-table pool.
+uint8_t GetNumBufForGop(AL_TEncSettings Settings);
 
 struct EncoderSink
 {
@@ -244,10 +249,28 @@ struct EncoderSink
         if (pSettings->hRcPluginDmaContext != NULL)
             RCPlugin_SetNextFrameQP(pSettings, this->pAllocator);
 
-        if (!AL_Encoder_Process(hEnc, Src, nullptr))
+        // Attach the relative QP-table (Region-of-Interest) buffer, if armed. The frame
+        // counter drives per-frame region scheduling (works in both push and file mode).
+        AL_TBuffer* pQpBuf = acquireQpTable(m_input_picCount[0]);
+
+        if (!AL_Encoder_Process(hEnc, Src, pQpBuf))
             CheckErrorAndThrow();
 
+        if (pQpBuf)
+            AL_Buffer_Unref(pQpBuf);
+
         m_input_picCount[0]++;
+    }
+
+    //
+    // Region of interest (ROI)
+    //
+
+    // Provide the shared RoiManager whose per-frame QP-table is attached to each frame.
+    void setRoiManager(std::shared_ptr<RoiManager> roiManager)
+    {
+        std::lock_guard<std::mutex> lock(m_roiMutex);
+        m_roiMngr = std::move(roiManager);
     }
 
     AL_ERR GetLastError(void)
@@ -276,6 +299,83 @@ private:
     ChangeSourceCallback m_changeSourceCB;
     AL_TDimension tLastEncodedDim;
     AL_ERR m_EncoderLastError = AL_SUCCESS;
+
+    // ---- Region of interest (relative QP-table) ----
+    std::once_flag m_qpOnce;
+    std::mutex m_roiMutex;
+    bool m_qpTableRequired = false;
+    BufPool m_qpBufPool;
+    std::shared_ptr<RoiManager> m_roiMngr;   ///< owned by VCUEncoder, shared here
+    int m_iNumQPPerLCU = 1;
+    int m_iNumBytesPerLCU = 1;
+    int32_t m_iLcuQpOffset = 0;
+    int32_t m_iNumLCUs = 0;
+
+    // Lazily allocate the QP-table buffer pool and compute its geometry (once). Safe to
+    // call from any thread; only performs work when the encoder uses a QP table.
+    void ensureQpRoi()
+    {
+        std::call_once(m_qpOnce, [this] { initQpRoi(); });
+    }
+
+    void initQpRoi()
+    {
+        m_qpTableRequired = AL_IS_QP_TABLE_REQUIRED(pSettings->eQpTableMode);
+        if (!m_qpTableRequired)
+            return;
+
+        auto const& chn = pSettings->tChParam[0];
+        AL_TDimension tDim { chn.uEncWidth, chn.uEncHeight };
+        auto eCodec = static_cast<AL_ECodec>(AL_GET_CODEC(chn.eProfile));
+
+        int32_t bufCount = 2 /* g_defaultMinBuffers */ + GetNumBufForGop(*pSettings);
+        if (!m_qpBufPool.Init(pAllocator, bufCount,
+                              AL_GetAllocSizeEP2(tDim, eCodec, chn.uLog2MaxCuSize),
+                              nullptr, "qp-ext"))
+            throw std::runtime_error("Failed to allocate QP-table buffer pool");
+
+        // QP-table geometry (mirrors the reference GetQPBufferParameters).
+        m_iLcuQpOffset = (chn.iQPTableDepth == 2) ? 4 : 0;
+        m_iNumQPPerLCU = 1;
+        m_iNumBytesPerLCU = 1;
+        if (chn.iQPTableDepth == 2)
+        {
+            static const int numBlk[]   { 4, 8, 24 };
+            static const int numBytes[] { 4, 8, 32 };
+            int depth = chn.uLog2MaxCuSize - 4; // 16x16 = min block size
+            depth = std::max(0, std::min(depth, 2));
+            m_iNumQPPerLCU = numBlk[depth];
+            m_iNumBytesPerLCU = numBytes[depth];
+        }
+        m_iNumLCUs = AL_GetWidthInLCU(chn) * AL_GetHeightInLCU(chn);
+    }
+
+    // Fetch a QP-table buffer for @p frameIdx and fill it from the ROI manager.
+    // Returns nullptr when the QP-table path is not armed.
+    AL_TBuffer* acquireQpTable(int32_t frameIdx)
+    {
+        ensureQpRoi();
+        if (!m_qpTableRequired)
+            return nullptr;
+
+        std::shared_ptr<RoiManager> roiMngr;
+        {
+            std::lock_guard<std::mutex> lock(m_roiMutex);
+            roiMngr = m_roiMngr;
+        }
+        if (!roiMngr)
+            return nullptr;
+
+        AL_TBuffer* pQpBuf = m_qpBufPool.GetBuffer();
+        if (!pQpBuf)
+            throw std::runtime_error("Invalid QP-table buffer");
+
+        uint8_t* pQPs = AL_Buffer_GetData(pQpBuf) + EP2_BUF_QP_BY_MB.Offset;
+        int32_t iSize = AL_RoundUp(m_iNumLCUs * m_iNumBytesPerLCU, 128);
+        std::memset(pQPs, 0, iSize);
+        roiMngr->fillBuffer(frameIdx, m_iNumQPPerLCU, m_iNumBytesPerLCU, pQPs, m_iLcuQpOffset);
+        return pQpBuf;
+    }
 
     void CheckErrorAndThrow(void)
     {
@@ -1131,6 +1231,11 @@ public:
     virtual int setHDRSEIs(const HDRSEIs& hdrSeis) override;
     virtual String statistics() const override;
     virtual AL_HEncoder hEnc() override { return enc_->hEnc; }
+
+    virtual void setRoiManager(std::shared_ptr<RoiManager> roiManager) override
+    {
+        if (enc_) enc_->setRoiManager(std::move(roiManager));
+    }
 
 private:
     class EncLibInitter

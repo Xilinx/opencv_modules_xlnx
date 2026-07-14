@@ -29,6 +29,7 @@ extern "C"
 namespace cv {
 namespace vcucodec {
 class Device;
+class RoiManager;
 class VCUEncoder : public Encoder
 {
 public:
@@ -150,6 +151,7 @@ private:
     void reclaimImportedBuffers();
     std::map<AL_TBuffer*, AL_HANDLE> importedHandles_;
     std::map<AL_TBuffer*, AL_HANDLE> origChunks_;
+    std::shared_ptr<RoiManager> roiMngr_;
 };
 
 }  // namespace vcucodec
