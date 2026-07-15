@@ -43,13 +43,16 @@ extern "C" {
 #include "vcuframe.hpp"
 
 #include <atomic>
+#include <algorithm>
 #include <condition_variable>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <mutex>
 #include <queue>
 #include <regex>
 #include <thread>
+#include <vector>
 
 namespace cv {
 namespace vcucodec {
@@ -273,6 +276,15 @@ struct EncoderSink
         m_roiMngr = std::move(roiManager);
     }
 
+    // Supply a raw per-LCU QP table effective from @p frameIdx onward; it takes precedence
+    // over the ROI manager for the frames it covers.
+    void setQpTable(int32_t frameIdx, std::vector<uint8_t> table)
+    {
+        ensureQpRoi();
+        std::lock_guard<std::mutex> lock(m_qpTableMutex);
+        m_qpTables[frameIdx] = std::move(table);
+    }
+
     AL_ERR GetLastError(void)
     {
         return m_EncoderLastError;
@@ -306,6 +318,8 @@ private:
     bool m_qpTableRequired = false;
     BufPool m_qpBufPool;
     std::shared_ptr<RoiManager> m_roiMngr;   ///< owned by VCUEncoder, shared here
+    std::mutex m_qpTableMutex;                            ///< guards m_qpTables
+    std::map<int32_t, std::vector<uint8_t>> m_qpTables;   ///< frame-scheduled raw QP tables (precede ROI)
     int m_iNumQPPerLCU = 1;
     int m_iNumBytesPerLCU = 1;
     int32_t m_iLcuQpOffset = 0;
@@ -350,8 +364,8 @@ private:
         m_iNumLCUs = AL_GetWidthInLCU(chn) * AL_GetHeightInLCU(chn);
     }
 
-    // Fetch a QP-table buffer for @p frameIdx and fill it from the ROI manager.
-    // Returns nullptr when the QP-table path is not armed.
+    // Fetch a QP-table buffer for @p frameIdx. A user QP table (setQpTable) takes precedence;
+    // otherwise the ROI manager fills it. Returns nullptr when neither source applies.
     AL_TBuffer* acquireQpTable(int32_t frameIdx)
     {
         ensureQpRoi();
@@ -363,7 +377,20 @@ private:
             std::lock_guard<std::mutex> lock(m_roiMutex);
             roiMngr = m_roiMngr;
         }
-        if (!roiMngr)
+
+        // A user-supplied QP table takes precedence over the ROI manager for the frames it
+        // covers (latest table scheduled at frame <= frameIdx). Hold the lock across the copy.
+        std::lock_guard<std::mutex> qpLock(m_qpTableMutex);
+        const std::vector<uint8_t>* pUserTable = nullptr;
+        for (auto const& kv : m_qpTables)
+        {
+            if (kv.first <= frameIdx)
+                pUserTable = &kv.second;
+            else
+                break;
+        }
+
+        if (!pUserTable && !roiMngr)
             return nullptr;
 
         AL_TBuffer* pQpBuf = m_qpBufPool.GetBuffer();
@@ -373,7 +400,13 @@ private:
         uint8_t* pQPs = AL_Buffer_GetData(pQpBuf) + EP2_BUF_QP_BY_MB.Offset;
         int32_t iSize = AL_RoundUp(m_iNumLCUs * m_iNumBytesPerLCU, 128);
         std::memset(pQPs, 0, iSize);
-        roiMngr->fillBuffer(frameIdx, m_iNumQPPerLCU, m_iNumBytesPerLCU, pQPs, m_iLcuQpOffset);
+
+        if (pUserTable)
+            std::memcpy(pQPs, pUserTable->data(),
+                        std::min(static_cast<size_t>(iSize), pUserTable->size()));
+        else
+            roiMngr->fillBuffer(frameIdx, m_iNumQPPerLCU, m_iNumBytesPerLCU, pQPs, m_iLcuQpOffset);
+
         return pQpBuf;
     }
 
@@ -1235,6 +1268,11 @@ public:
     virtual void setRoiManager(std::shared_ptr<RoiManager> roiManager) override
     {
         if (enc_) enc_->setRoiManager(std::move(roiManager));
+    }
+
+    virtual void setQpTable(int32_t frameIdx, std::vector<uint8_t> table) override
+    {
+        if (enc_) enc_->setQpTable(frameIdx, std::move(table));
     }
 
 private:

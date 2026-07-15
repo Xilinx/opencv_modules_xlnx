@@ -280,10 +280,12 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     // Set codec-specific defaults (QP bounds, codec parameters) based on profile
     AL_Settings_SetDefaultParam(&cfg.Settings);
 
-    // Arm the relative QP-table path so Region-of-Interest encoding works whenever
-    // regions are created. When no ROI is active the per-LCU table is left neutral
-    // (all deltas 0), so it does not alter the encode.
-    cfg.Settings.eQpTableMode = AL_QP_TABLE_RELATIVE;
+    // Arm the QP-table path so Region-of-Interest and setQpTable() work. The mode is fixed
+    // at creation (EncoderInitParams::qpTableMode): ROI uses relative deltas, so ABSOLUTE
+    // is intended for setQpTable() used on its own. When no table is active the per-LCU
+    // table is left neutral (all deltas 0), so it does not alter the encode.
+    cfg.Settings.eQpTableMode = (params.qpTableMode == QpTableMode::ABSOLUTE)
+                              ? AL_QP_TABLE_ABSOLUTE : AL_QP_TABLE_RELATIVE;
 
     // Apply level if specified (override library default)
     if (level != 0)
@@ -1324,31 +1326,54 @@ Ptr<RegionOfInterest> VCUEncoder::createROIBackgroundByValue(int deltaQP, ROIOrd
 // QP table (per-block quantization control)
 //
 
-// TODO: report the QP-table grid in LCUs (AL_GetWidthInLCU x AL_GetHeightInLCU).
 Size VCUEncoder::qpTableGridSize() const
 {
-    return Size(0, 0);
+    const auto& chn = cfg_->Settings.tChParam[0];
+    return Size(AL_GetWidthInLCU(chn), AL_GetHeightInLCU(chn));
 }
 
-// TODO: report the per-LCU record stride (32 / 8 / 4 / 1) from the QP-table geometry.
 int VCUEncoder::qpTableBytesPerLCU() const
 {
-    return 0;
+    const auto& chn = cfg_->Settings.tChParam[0];
+    if (chn.iQPTableDepth != 2)
+        return 1;
+    // Depth-2 record: 4 / 8 / 32 bytes for a 16x16 / 32x32 / 64x64 LCU.
+    static const int numBytes[] { 4, 8, 32 };
+    int depth = chn.uLog2MaxCuSize - 4;
+    if (depth < 0) depth = 0;
+    if (depth > 2) depth = 2;
+    return numBytes[depth];
 }
 
-// TODO: report RoundUp(nLCUs * bytesPerLCU, 128).
 size_t VCUEncoder::qpTableBufferSize() const
 {
-    return 0;
+    Size g = qpTableGridSize();
+    size_t sz = static_cast<size_t>(g.width) * static_cast<size_t>(g.height)
+              * static_cast<size_t>(qpTableBytesPerLCU());
+    return (sz + 127) & ~static_cast<size_t>(127);   // 128-byte aligned (EP2 QP-by-MB region)
 }
 
-// TODO: validate qpTable against qpTableBufferSize(), then schedule it into the per-LCU
-// QP-table fill (shared with the ROI path; setQpTable takes precedence for the affected frames).
 void VCUEncoder::setQpTable(int32_t frameIdx, InputArray qpTable, QpTableMode mode)
 {
-    CV_UNUSED(frameIdx);
-    CV_UNUSED(qpTable);
-    CV_UNUSED(mode);
+    const AL_EQpTableMode armed = cfg_->Settings.eQpTableMode;
+    const AL_EQpTableMode want = (mode == QpTableMode::ABSOLUTE)
+                               ? AL_QP_TABLE_ABSOLUTE : AL_QP_TABLE_RELATIVE;
+    if (armed != want)
+        CV_Error(cv::Error::StsBadArg,
+                 "setQpTable: mode must match the encoder's create-time QP-table mode "
+                 "(EncoderInitParams::qpTableMode).");
+
+    Mat t = qpTable.getMat();
+    const size_t expected = qpTableBufferSize();
+    if (t.empty() || t.depth() != CV_8U || !t.isContinuous()
+        || t.total() * t.elemSize() != expected)
+        CV_Error(cv::Error::StsBadSize, cv::format(
+            "setQpTable: qpTable must be a continuous CV_8U buffer of exactly %zu bytes "
+            "(qpTableBufferSize())", expected));
+
+    const uint8_t* p = t.ptr<uint8_t>(0);
+    if (enc_)
+        enc_->setQpTable(frameIdx, std::vector<uint8_t>(p, p + expected));
 }
 
 // Static functions

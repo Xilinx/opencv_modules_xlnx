@@ -378,6 +378,10 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
     CV_PROP_RW ProfileSettings    profileSettings;    ///< Profile, level and tier settings.
     CV_PROP_RW SliceSettings      sliceSettings;      ///< Slice configuration settings.
     CV_PROP_RW GlobalMotionVector globalMotionVector; ///< Global motion vector settings.
+    CV_PROP_RW QpTableMode        qpTableMode = QpTableMode::RELATIVE; ///< QP-table mode armed at
+                                                      ///< creation; @ref Encoder::setQpTable calls
+                                                      ///< must pass the same mode. Region-Of-Interest
+                                                      ///< requires RELATIVE.
 
     CV_WRAP EncoderInitParams() = default;
 };

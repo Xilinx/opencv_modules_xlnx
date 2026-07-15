@@ -80,6 +80,11 @@ but every sub-block (MxM) value is **always a signed delta relative to its paren
   16×16 yields a leaf QP of `SliceQP + dQP_64 + dQP_32 + dQP_16` (relative mode).
 - The final QP is clamped to the encoder's valid QP range.
 
+@note The mode (RELATIVE vs ABSOLUTE) is fixed once at encoder creation via
+@ref cv::vcucodec::EncoderInitParams::qpTableMode, and the @p mode passed to
+@ref cv::vcucodec::Encoder::setQpTable must match it. ABSOLUTE is intended for a QP table used on
+its own — Region-Of-Interest regions use relative deltas and therefore require RELATIVE.
+
 ### Block-size constraint values
 
 `QpBlockSize` encodes each min/max field as follows:

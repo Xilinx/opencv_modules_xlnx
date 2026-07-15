@@ -69,6 +69,10 @@ public:
     // per-frame relative QP-table attached to each encoded frame. Pass nullptr to disable.
     virtual void setRoiManager(std::shared_ptr<RoiManager> roiManager) = 0;
 
+    // QP table: supply a raw per-LCU QP table effective from frameIdx onward. It takes
+    // precedence over ROI for the frames it covers; bytes follow the EP2 QP-by-MB layout.
+    virtual void setQpTable(int32_t frameIdx, std::vector<uint8_t> table) = 0;
+
     static Ptr<EncContext> create(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback);
 };
 
