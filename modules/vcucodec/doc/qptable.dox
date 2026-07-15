@@ -1,0 +1,137 @@
+/**
+@page vcucodec_qptable QP table format
+
+A **QP table** gives you the encoder's full per-block quantization control in one buffer: for every
+LCU (CTB / macroblock) you set the QP, force flags, coding-unit size constraints and the RDO lambda
+factor exactly as the hardware consumes them.
+
+The table is supplied with @ref cv::vcucodec::Encoder::setQpTable "setQpTable". Its geometry is fixed
+at encoder creation and reported by @ref cv::vcucodec::Encoder::qpTableGridSize "qpTableGridSize",
+@ref cv::vcucodec::Encoder::qpTableBytesPerLCU "qpTableBytesPerLCU" and
+@ref cv::vcucodec::Encoder::qpTableBufferSize "qpTableBufferSize".
+
+@note This is a low-level, hardware-shaped interface — you write the packed bytes yourself. For
+simple rectangular quality control, prefer @ref cv::vcucodec::RegionOfInterest "RegionOfInterest".
+A QP table and ROI regions drive the *same* hardware table; for a given frame setQpTable takes
+precedence over active ROI regions.
+
+### Buffer layout
+
+The buffer is a contiguous block of `qpTableBufferSize()` bytes, one **fixed-size record per LCU**,
+laid out **LCU-major** with the grid origin at the top-left of the picture. The record for LCU
+`(lx, ly)` begins at byte offset:
+
+    offset = (ly * qpTableGridSize().width + lx) * qpTableBytesPerLCU()
+
+The encoder always uses the depth-2 record format, so `qpTableBytesPerLCU()` (the per-LCU stride)
+depends only on the codec's LCU (CTB) size:
+
+| LCU size                 | bytes/LCU | record contents                                  |
+|--------------------------|:---------:|--------------------------------------------------|
+| 16×16 (AVC macroblock)    |     4     | 1 NxN word                                       |
+| 32×32 CTB                 |     8     | 1 NxN word + 1 MxM word                          |
+| 64×64 CTB                 |    32     | 1 NxN word + 5 MxM words + **2 reserved words**  |
+
+Multi-byte fields are little-endian (each 32-bit word is stored low byte first). For the 64×64 CTB
+the 24 meaningful bytes (6 words) are followed by 8 reserved bytes that **must be zero**; the total
+buffer is additionally rounded up for alignment, which `qpTableBufferSize()` accounts for.
+
+### Per-LCU record
+
+**NxN word** (bytes 0–3 of the record — the CTB-level entry):
+
+| byte | bits    | field         | encoding                                                        |
+|:----:|:-------:|---------------|-----------------------------------------------------------------|
+|  0   | `[7:0]` | QP / dQP      | signed int8 when relative; absolute QP when @ref cv::vcucodec::QpTableMode::ABSOLUTE. AVC & HEVC 32×32: [-51,51]. |
+|  1   | `[0]`   | Force Intra   | code the block entirely with Intra prediction                   |
+|  1   | `[1]`   | Force MV0     | force MV=(0,0), drop residual (skip-like / static)              |
+|  2   | `[2:0]` | Min block size| @ref cv::vcucodec::QpBlockSize "QpBlockSize" (min capped at 32×32)|
+|  2   | `[6:4]` | Max block size| @ref cv::vcucodec::QpBlockSize "QpBlockSize" (up to 64×64)       |
+|  3   | `[7:0]` | Lambda factor | 3.5 fixed-point RDO-lambda multiplier; `0x20` = 1.0, `0x1C` = 0.875 |
+
+Force Intra and Force MV0 are mutually exclusive.
+
+**MxM word** (each of the following 32-bit words packs four sub-block bytes, one per sub-block):
+
+| bits    | field       | encoding                          |
+|:-------:|-------------|-----------------------------------|
+| `[5:0]` | QP / dQP    | 6-bit signed **delta relative to the parent QP** (range [-32,31]) |
+| `[6]`   | Force Intra | code the block entirely with Intra prediction |
+| `[7]`   | Force MV0   | force MV=(0,0), drop residual (skip-like / static) |
+
+For a 64×64 CTB the 5 MxM words carry the 4 (32×32) + 16 (16×16) = 20 sub-block QPs. Sub-blocks have
+no per-block lambda or size constraint — those live only in the NxN word (CTB-scoped).
+
+### Applied QP
+
+The QP actually used for a coding unit is the slice QP plus the QP entries along the quadtree path
+down to that unit. The NxN (CTB-level) value follows the @ref cv::vcucodec::QpTableMode "QpTableMode",
+but every sub-block (MxM) value is **always a signed delta relative to its parent** — even in
+@ref cv::vcucodec::QpTableMode::ABSOLUTE "ABSOLUTE" mode:
+
+| coding unit                |            RELATIVE             |        ABSOLUTE         |
+|----------------------------|:-------------------------------:|:-----------------------:|
+| CTB coded whole (no split) | `SliceQP + dQP_NxN`             | `QP_NxN`                |
+| sub-block                  | `SliceQP + dQP_NxN + dQP_MxM`   | `QP_NxN + dQP_MxM`      |
+
+- In `RELATIVE` mode `dQP_NxN` is a delta added to the rate-controller's slice QP; in `ABSOLUTE`
+  mode `QP_NxN` replaces it.
+- Each finer quadtree level adds its own delta relative to its parent, so a 64×64 CTB split down to
+  16×16 yields a leaf QP of `SliceQP + dQP_64 + dQP_32 + dQP_16` (relative mode).
+- The final QP is clamped to the encoder's valid QP range.
+
+### Block-size constraint values
+
+`QpBlockSize` encodes each min/max field as follows:
+
+| value | @ref cv::vcucodec::QpBlockSize | meaning                     |
+|:-----:|--------------------------------|-----------------------------|
+|   0   | `NO_CONSTRAINT`                | no constraint               |
+|   1   | `BLK_4x4`                      | 4×4                         |
+|   2   | `BLK_8x8`                      | 8×8                         |
+|   3   | `BLK_16x16`                    | 16×16                       |
+|   4   | `BLK_32x32`                    | 32×32 (max min-block size)  |
+|   5   | `BLK_64x64`                    | 64×64 (**max** field only)  |
+
+### Scheduling
+
+A table applies to encoded frames from its @p frameIdx onward and persists until a later
+@ref cv::vcucodec::Encoder::setQpTable "setQpTable" call replaces it.
+
+### Python example
+
+@code{.py}
+    import cv2
+    import numpy as np
+
+    params = cv2.vcucodec.EncoderInitParams()
+    params.pictureEncSettings.codec  = cv2.vcucodec.Codec_HEVC
+    params.pictureEncSettings.width  = 1920
+    params.pictureEncSettings.height = 1080
+    enc = cv2.vcucodec.createEncoder("out.h265", params)
+
+    cols, rows = enc.qpTableGridSize()
+    stride     = enc.qpTableBytesPerLCU()
+    buf        = np.zeros(enc.qpTableBufferSize(), np.uint8)
+
+    def lcu(lx, ly):
+        return (ly * cols + lx) * stride
+
+    # One CTB: high quality (dQP -6), force Intra, restrict CUs to 16x16..64x64, lambda 1.0.
+    o = lcu(3, 2)
+    buf[o + 0] = (-6) & 0xFF                                            # QP delta (signed)
+    buf[o + 1] = 0x01                                                   # bit0 = Force Intra
+    buf[o + 2] = int(cv2.vcucodec.QpBlockSize_BLK_16x16) \
+               | (int(cv2.vcucodec.QpBlockSize_BLK_64x64) << 4)         # min | (max << 4)
+    buf[o + 3] = 0x20                                                   # lambda 1.0
+
+    enc.setQpTable(0, buf, cv2.vcucodec.QpTableMode_RELATIVE)
+
+    # ... feed frames with enc.write(...) / enc.writeFile(...), then enc.eos()
+@endcode
+
+@see cv::vcucodec::Encoder::setQpTable, cv::vcucodec::Encoder::qpTableGridSize,
+     cv::vcucodec::Encoder::qpTableBytesPerLCU, cv::vcucodec::Encoder::qpTableBufferSize,
+     cv::vcucodec::QpTableMode, cv::vcucodec::QpBlockSize,
+     cv::vcucodec::RegionOfInterest
+*/

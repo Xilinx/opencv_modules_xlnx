@@ -695,6 +695,46 @@ public:
             ROIOrder order = ROIOrder::QUALITY) = 0;
 
     //
+    // QP table (per-block quantization control)
+    //
+
+    /// @brief Grid size in LCUs (cols × rows) of the QP table expected by @ref setQpTable.
+    ///
+    /// Fixed at encoder creation (from the encoded resolution and LCU size), so it is valid
+    /// immediately after construction.
+    /// @see @ref vcucodec_qptable for the table layout and value encoding.
+    CV_WRAP virtual Size qpTableGridSize() const = 0;
+
+    /// @brief Number of bytes per LCU in the QP table (the per-LCU record stride, e.g. 32/8/4).
+    ///
+    /// Determined by the codec and the LCU (CTB) size.
+    /// @see @ref vcucodec_qptable for the per-LCU record layout.
+    CV_WRAP virtual int qpTableBytesPerLCU() const = 0;
+
+    /// @brief Total size in bytes of the QP-table buffer expected by @ref setQpTable.
+    ///
+    /// Equal to `qpTableGridSize().area() * qpTableBytesPerLCU()`, rounded up for alignment.
+    CV_WRAP virtual size_t qpTableBufferSize() const = 0;
+
+    /// @brief Supply a raw per-LCU QP table applied to encoded frames from @p frameIdx onward
+    ///        (until a subsequent setQpTable call replaces it).
+    ///
+    /// @param frameIdx Frame index from which the table takes effect.
+    /// @param qpTable  Contiguous CV_8U buffer of exactly @ref qpTableBufferSize() bytes, laid
+    ///                 out LCU-major: the record for LCU (lx, ly) starts at byte offset
+    ///                 `(ly * qpTableGridSize().width + lx) * qpTableBytesPerLCU()`. Each record
+    ///                 packs QP/dQP, force flags, min/max block size (@ref QpBlockSize) and the
+    ///                 lambda factor exactly as the hardware consumes them.
+    /// @param mode     Whether the stored QPs are relative deltas or absolute values.
+    ///
+    /// @note The QP table and Region-Of-Interest regions drive the same hardware QP table; for a
+    ///       given frame, setQpTable takes precedence over any active ROI regions.
+    ///
+    /// @see @ref vcucodec_qptable for the full per-LCU record layout and field encoding.
+    CV_WRAP virtual void setQpTable(int32_t frameIdx, InputArray qpTable,
+            QpTableMode mode = QpTableMode::RELATIVE) = 0;
+
+    //
     // static functions
     //
 

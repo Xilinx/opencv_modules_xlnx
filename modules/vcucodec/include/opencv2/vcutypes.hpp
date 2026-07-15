@@ -159,6 +159,30 @@ enum class ROIOrder
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+//  QP TABLE (per-block quantization control)
+
+/// @brief How the QP values in a QP table are interpreted (see @ref cv::vcucodec::Encoder::setQpTable).
+enum class QpTableMode
+{
+    RELATIVE, ///< Each QP is a delta added to the rate-controller's QP.
+    ABSOLUTE  ///< Each QP is an absolute value that replaces the rate-controller's QP.
+};
+
+/// @brief Coding-unit size constraint stored per block in a QP table (min/max CU size).
+///
+/// Encoded as `log2(size) - 1`; `NO_CONSTRAINT` (0) leaves the partition unconstrained.
+/// `BLK_64x64` is valid for the *max* block size only. See @ref vcucodec_qptable.
+enum class QpBlockSize
+{
+    NO_CONSTRAINT = 0, ///< No size constraint.
+    BLK_4x4       = 1, ///< 4x4.
+    BLK_8x8       = 2, ///< 8x8.
+    BLK_16x16     = 3, ///< 16x16.
+    BLK_32x32     = 4, ///< 32x32.
+    BLK_64x64     = 5  ///< 64x64 (max block size only).
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 //  VUI Colour Info (ISO/IEC 23091-4 / ITU-T H.273)
 
 /// Colour primaries / colour description identifier from VUI parameters.

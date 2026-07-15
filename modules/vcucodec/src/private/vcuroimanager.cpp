@@ -403,6 +403,18 @@ void RoiManager::computeROI(int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU, uint8
 }
 
 /****************************************************************************/
+// Per-LCU QP-table entry layout written below. Each LCU occupies iNumBytesPerLCU
+// bytes; the first 32-bit word holds:
+//   [ 7: 0] QP / relative dQP. AVC and HEVC 32x32: 8-bit signed, range [-51, 51].
+//                              HEVC 16x16: 6-bit signed, range [-32, 31].
+//   [    8] Force Intra   - force intra prediction.
+//   [    9] Force MV0     - force MV=(0,0), drop all residual (encodes skip-like).
+//   [18:16] MinBlk Size,  [22:20] MaxBlk Size (log2(size)-1; 0 = no constraint).
+//   [31:24] Lambda Factor - 8-bit 3.5 fixed-point, 1/32 precision (0x20 = 1.0,
+//                           0x1C = 0.875); scales the RDO lambda for this CTB.
+// Force Intra and Force MV0 are mutually exclusive and propagate to sub-blocks.
+// For HEVC 64x64 LCUs the remaining sub-block words carry QP/dQP MxM[0..3] with
+// their own Force MV0 / Force Intra bits (written per sub-block by computeROI()).
 void RoiManager::fillBuffer(int32_t frameIdx, int32_t iNumQPPerLCU, int32_t iNumBytesPerLCU,
                             uint8_t* pQPs, int32_t iLcuQpOffset)
 {

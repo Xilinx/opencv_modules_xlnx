@@ -1320,6 +1320,37 @@ Ptr<RegionOfInterest> VCUEncoder::createROIBackgroundByValue(int deltaQP, ROIOrd
     return makePtr<VCURegionOfInterest>(roiMngr_, id, full, ROIQuality::MEDIUM, deltaQP);
 }
 
+//
+// QP table (per-block quantization control)
+//
+
+// TODO: report the QP-table grid in LCUs (AL_GetWidthInLCU x AL_GetHeightInLCU).
+Size VCUEncoder::qpTableGridSize() const
+{
+    return Size(0, 0);
+}
+
+// TODO: report the per-LCU record stride (32 / 8 / 4 / 1) from the QP-table geometry.
+int VCUEncoder::qpTableBytesPerLCU() const
+{
+    return 0;
+}
+
+// TODO: report RoundUp(nLCUs * bytesPerLCU, 128).
+size_t VCUEncoder::qpTableBufferSize() const
+{
+    return 0;
+}
+
+// TODO: validate qpTable against qpTableBufferSize(), then schedule it into the per-LCU
+// QP-table fill (shared with the ROI path; setQpTable takes precedence for the affected frames).
+void VCUEncoder::setQpTable(int32_t frameIdx, InputArray qpTable, QpTableMode mode)
+{
+    CV_UNUSED(frameIdx);
+    CV_UNUSED(qpTable);
+    CV_UNUSED(mode);
+}
+
 // Static functions
 
 String Encoder::getProfiles(Codec codec)

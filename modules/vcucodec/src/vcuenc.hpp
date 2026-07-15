@@ -126,6 +126,16 @@ public:
     virtual Ptr<RegionOfInterest> createROIBackgroundByValue(int deltaQP,
             ROIOrder order = ROIOrder::QUALITY) override;
 
+    //
+    // QP table (per-block quantization control)
+    //
+
+    virtual Size qpTableGridSize() const override;
+    virtual int qpTableBytesPerLCU() const override;
+    virtual size_t qpTableBufferSize() const override;
+    virtual void setQpTable(int32_t frameIdx, InputArray qpTable,
+            QpTableMode mode = QpTableMode::RELATIVE) override;
+
 private:
     bool validateSettings();
     void initSettings(const EncoderInitParams& params);
