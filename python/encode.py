@@ -18,6 +18,7 @@ def show_params(encoder_params, title="VCU Encoder Parameters"):
     rc = encoder_params.rcSettings
     gop = encoder_params.gopSettings
     profile = encoder_params.profileSettings
+    lam = encoder_params.lambdaSettings
 
     # Helper to convert enum values to readable strings
     def codec_str(c):
@@ -42,6 +43,10 @@ def show_params(encoder_params, title="VCU Encoder Parameters"):
 
     def tier_str(t):
         return {vcu.Tier_MAIN: 'MAIN', vcu.Tier_HIGH: 'HIGH'}.get(t, str(t))
+
+    def lambdamode_str(m):
+        return {vcu.LambdaMode_DEFAULT: 'DEFAULT', vcu.LambdaMode_AUTO: 'AUTO',
+                vcu.LambdaMode_DYNAMIC: 'DYNAMIC'}.get(m, str(m))
 
     print(f"\n{GREEN}{title}{RESET}\n")
 
@@ -80,6 +85,11 @@ def show_params(encoder_params, title="VCU Encoder Parameters"):
     print(f"  profile = '{profile.profile}' (empty=auto-detect)")
     print(f"  level   = '{profile.level}' (empty=library default)")
     print(f"  tier    = {tier_str(profile.tier)}")
+
+    print(f"\n{YELLOW}[LAMBDA]{RESET}")
+    print(f"  mode    = {lambdamode_str(lam.mode)}")
+    factors = list(lam.factors)
+    print(f"  factors = {factors if factors else '(library defaults)'}")
     print()
 
 

@@ -166,6 +166,7 @@ class VCUConfigParser:
 
         # Configure SETTINGS section parameters (including slice settings)
         slice_settings = vcu.SliceSettings()
+        lambda_settings = vcu.LambdaSettings()
         if 'SETTINGS' in self.sections:
             settings_data = self.sections['SETTINGS']
             if 'profile' in settings_data:
@@ -186,6 +187,13 @@ class VCUConfigParser:
                 slice_settings.dependentSlice = self._parse_bool(settings_data['dependentslice'])
             if 'subframelatency' in settings_data:
                 slice_settings.subframeLatency = self._parse_bool(settings_data['subframelatency'])
+            # Lambda (rate-distortion optimization) settings
+            if 'lambdactrlmode' in settings_data:
+                lambda_settings.mode = self._parse_lambda_mode(settings_data['lambdactrlmode'])
+            if 'lambdafactors' in settings_data:
+                lambda_settings.factors = [
+                    float(x) for x in str(settings_data['lambdafactors']).split()
+                ]
 
         # Configure MOTION_VECTOR section parameters
         if 'MOTION_VECTOR' in self.sections:
@@ -205,6 +213,7 @@ class VCUConfigParser:
         encoder_params.profileSettings = profile_settings
         encoder_params.sliceSettings = slice_settings
         encoder_params.globalMotionVector = motion_vector
+        encoder_params.lambdaSettings = lambda_settings
 
         return encoder_params
 
@@ -271,6 +280,21 @@ class VCUConfigParser:
             return vcu.GOPMode_ADAPTIVE
         else:
             raise ValueError(f"Invalid GopCtrlMode '{mode_str}'. Must be DEFAULT_GOP, DEFAULT_GOP_B, PYRAMIDAL_GOP, PYRAMIDAL_GOP_B, LOW_DELAY_P, LOW_DELAY_B, or ADAPTIVE_GOP")
+
+    def _parse_lambda_mode(self, mode_str):
+        """Parse LambdaCtrlMode string to VCU enum.
+        Accepts: DEFAULT_LDA, AUTO_LDA, DYNAMIC_LDA
+        (CUSTOM_LDA and LOAD_LDA are test-only and not supported.)
+        """
+        mode_str = mode_str.upper()
+        if mode_str == 'DEFAULT_LDA':
+            return vcu.LambdaMode_DEFAULT
+        elif mode_str == 'AUTO_LDA':
+            return vcu.LambdaMode_AUTO
+        elif mode_str == 'DYNAMIC_LDA':
+            return vcu.LambdaMode_DYNAMIC
+        else:
+            raise ValueError(f"Invalid LambdaCtrlMode '{mode_str}'. Must be DEFAULT_LDA, AUTO_LDA, or DYNAMIC_LDA")
 
     def _parse_profile(self, profile_str):
         """Return profile string as-is for firmware parsing"""
@@ -344,7 +368,8 @@ class VCUConfigParser:
                            'MaxPSNR', 'MaxPictureSize.I', 'MaxPictureSize.P', 'MaxPictureSize.B',
                            'EnableSkip', 'MaxConsecutiveSkip'],
             'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth', 'EnableFillerData',
-                         'NumSlices', 'DependentSlice', 'SubframeLatency', 'Alignment'],
+                         'NumSlices', 'DependentSlice', 'SubframeLatency', 'Alignment',
+                         'LambdaCtrlMode', 'LambdaFactors'],
             'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }

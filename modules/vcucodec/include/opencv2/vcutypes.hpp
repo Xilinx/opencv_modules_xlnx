@@ -132,6 +132,20 @@ enum class GDRMode
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+//  LAMBDA (rate-distortion optimization)
+
+/// @brief Lambda control mode: how the encoder's per-QP RDO lambda table is chosen.
+///
+/// See @ref cv::vcucodec::LambdaSettings and
+/// @ref cv::vcucodec::EncoderInitParams::lambdaSettings. Values match the underlying library.
+enum class LambdaMode
+{
+    DEFAULT = 0, ///< Use the pre-programmed lambda table (a fixed per-QP curve).
+    DYNAMIC = 2, ///< Select lambda values according to the GOP pattern.
+    AUTO    = 3  ///< Automatically choose between DEFAULT and DYNAMIC (default).
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 //  REGION OF INTEREST (ROI)
 
 /// @brief Quality of a Region Of Interest, relative to the rate-controller's QP.

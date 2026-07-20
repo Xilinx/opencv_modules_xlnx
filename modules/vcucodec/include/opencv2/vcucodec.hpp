@@ -365,6 +365,22 @@ struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
     CV_WRAP GlobalMotionVector(int frameIndex = -1, int gmVectorX = 0, int gmVectorY = 0);
 };
 
+/// @brief Struct LambdaSettings controls the rate-distortion optimization (RDO) lambdas.
+///
+/// @p mode selects how the encoder's per-QP lambda table is derived (see @ref LambdaMode).
+/// @p factors are optional per picture-type / temporal-id multipliers applied on top, ordered
+/// I, P, B(t1), B(t2), B(t3), B(t4); each in [0, 1]. When empty the library defaults are kept.
+/// Applied at encoder creation.
+struct CV_EXPORTS_W_SIMPLE LambdaSettings
+{
+    CV_PROP_RW LambdaMode          mode;    ///< Lambda control mode. Default: AUTO.
+    CV_PROP_RW std::vector<double> factors; ///< Lambda factors I,P,B(t1..t4), each [0,1];
+                                            ///< empty (default) keeps the library values.
+
+    CV_WRAP LambdaSettings(LambdaMode mode = LambdaMode::AUTO,
+                           const std::vector<double>& factors = std::vector<double>());
+};
+
 /// @brief Initialization parameters for the encoder.
 ///
 /// Passed to @ref cv::vcucodec::createEncoder "createEncoder()" to configure picture settings,
@@ -382,6 +398,7 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
                                                       ///< creation; @ref Encoder::setQpTable calls
                                                       ///< must pass the same mode. Region-Of-Interest
                                                       ///< requires RELATIVE.
+    CV_PROP_RW LambdaSettings     lambdaSettings;     ///< RDO lambda control settings.
 
     CV_WRAP EncoderInitParams() = default;
 };
@@ -859,6 +876,9 @@ inline SliceSettings::SliceSettings(int _numSlices, bool _dependentSlice, bool _
 
 inline GlobalMotionVector::GlobalMotionVector(int _frameIndex, int _gmVectorX, int _gmVectorY)
     : frameIndex(_frameIndex), gmVectorX(_gmVectorX), gmVectorY(_gmVectorY) {}
+
+inline LambdaSettings::LambdaSettings(LambdaMode _mode, const std::vector<double>& _factors)
+    : mode(_mode), factors(_factors) {}
 
 //! @endcond
 

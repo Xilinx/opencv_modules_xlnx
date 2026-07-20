@@ -287,6 +287,28 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     cfg.Settings.eQpTableMode = (params.qpTableMode == QpTableMode::ABSOLUTE)
                               ? AL_QP_TABLE_ABSOLUTE : AL_QP_TABLE_RELATIVE;
 
+    // Rate-distortion lambda control. The mode selects the per-QP lambda table; the optional
+    // factors are per picture-type/temporal-id multipliers (Q8: value x 256), left at the
+    // library defaults when not provided.
+    chn.eLdaCtrlMode = static_cast<AL_ELdaCtrlMode>(params.lambdaSettings.mode);
+    {
+        const std::vector<double>& lda = params.lambdaSettings.factors;
+        const size_t nLda = sizeof(chn.LdaFactors) / sizeof(chn.LdaFactors[0]);
+        if (!lda.empty())
+        {
+            if (lda.size() != nLda)
+                CV_Error(cv::Error::StsBadArg, cv::format(
+                    "lambdaSettings.factors must have exactly %zu values (I, P, B t1..t4) "
+                    "or be empty", nLda));
+            for (size_t i = 0; i < nLda; ++i)
+            {
+                if (lda[i] < 0.0 || lda[i] > 1.0)
+                    CV_Error(cv::Error::StsBadArg, "lambdaSettings.factors must be in [0, 1]");
+                chn.LdaFactors[i] = static_cast<int32_t>(lda[i] * 256.0 + 0.5);
+            }
+        }
+    }
+
     // Apply level if specified (override library default)
     if (level != 0)
         chn.uLevel = level;
