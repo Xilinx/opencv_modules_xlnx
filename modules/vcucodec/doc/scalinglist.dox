@@ -1,0 +1,88 @@
+/**
+@page vcucodec_scalinglist Scaling list (quantization matrices)
+
+A **scaling list** (quantization matrix) weights the quantization step per transform coefficient,
+letting you shape how bits are distributed across spatial frequencies. It is selected at encoder
+creation through @ref cv::vcucodec::EncoderInitParams::scalingList
+"EncoderInitParams::scalingList" (a @ref cv::vcucodec::ScalingListSettings "ScalingListSettings").
+
+### Modes
+
+@ref cv::vcucodec::ScalingListMode "ScalingListMode" selects one of:
+
+| mode      | meaning                                                              |
+|-----------|----------------------------------------------------------------------|
+| `FLAT`    | All coefficients set to 16 — uniform quantization.                   |
+| `DEFAULT` | Codec-specification default matrices (default).                      |
+| `CUSTOM`  | User-provided matrices (`matrices`, and optionally `dcCoeff`).       |
+
+For `FLAT` and `DEFAULT` no data is needed. For `CUSTOM` you supply the full 1536-byte `matrices`
+buffer (set any matrix you do not care about to the flat value 16); the optional `dcCoeff` buffer
+is described below.
+
+### Custom matrix layout
+
+@ref cv::vcucodec::ScalingListSettings::matrices "matrices" is a flat, contiguous buffer of
+`4 * 6 * 64 = 1536` bytes indexed `[S][M][C]`:
+
+- **S** — transform block size: `0`=4×4, `1`=8×8, `2`=16×16, `3`=32×32.
+- **M** — matrix: `0`=Intra Y, `1`=Intra U, `2`=Intra V, `3`=Inter Y, `4`=Inter U, `5`=Inter V.
+- **C** — coefficient index `0..63` in the codec's coefficient scan order.
+
+The byte for `(S, M, C)` is at:
+
+    offset = (S * 6 + M) * 64 + C
+
+Notes:
+- For 4×4 blocks (`S == 0`) only the first 16 coefficients (`C = 0..15`) are used.
+- For 32×32 blocks (`S == 3`) only the Intra Y (`M == 0`) and Inter Y (`M == 3`) matrices are used.
+
+### DC coefficients
+
+For the 16×16 and 32×32 matrices the DC term is carried separately in
+@ref cv::vcucodec::ScalingListSettings::dcCoeff "dcCoeff", an 8-byte buffer ordered:
+
+| index | matrix          |
+|:-----:|-----------------|
+|   0   | 16×16 Intra Y   |
+|   1   | 16×16 Intra U   |
+|   2   | 16×16 Intra V   |
+|   3   | 16×16 Inter Y   |
+|   4   | 16×16 Inter U   |
+|   5   | 16×16 Inter V   |
+|   6   | 32×32 Intra Y   |
+|   7   | 32×32 Inter Y   |
+
+`dcCoeff` is optional; when empty the encoder uses default DC values.
+
+### Python example
+
+@code{.py}
+    import cv2
+    import numpy as np
+
+    params = cv2.vcucodec.EncoderInitParams()
+    params.pictureEncSettings.codec  = cv2.vcucodec.Codec_HEVC
+    params.pictureEncSettings.width  = 1920
+    params.pictureEncSettings.height = 1080
+
+    # Use the codec's default quantization matrices.
+    params.scalingList.mode = cv2.vcucodec.ScalingListMode_DEFAULT
+
+    # Or supply custom matrices:
+    #   m = np.full(4 * 6 * 64, 16, np.uint8)          # start from flat
+    #   def coef(S, M, C): return (S * 6 + M) * 64 + C
+    #   m[coef(1, 0, 0):coef(1, 0, 0) + 64] = my_8x8_intra_y   # set 8x8 Intra Y
+    #   params.scalingList.mode     = cv2.vcucodec.ScalingListMode_CUSTOM
+    #   params.scalingList.matrices = m.tobytes()
+    #   params.scalingList.dcCoeff  = bytes([16, 16, 16, 16, 16, 16, 16, 16])
+
+    enc = cv2.vcucodec.createEncoder("out.h265", params)
+    # ... feed frames with enc.write(...) / enc.writeFile(...), then enc.eos()
+@endcode
+
+@note The scaling list is fixed at encoder creation and cannot be changed mid-stream.
+
+@see cv::vcucodec::ScalingListSettings, cv::vcucodec::ScalingListMode,
+     cv::vcucodec::EncoderInitParams::scalingList
+*/

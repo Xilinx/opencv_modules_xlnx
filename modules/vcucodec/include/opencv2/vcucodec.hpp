@@ -381,6 +381,27 @@ struct CV_EXPORTS_W_SIMPLE LambdaSettings
                            const std::vector<double>& factors = std::vector<double>());
 };
 
+/// @brief Struct ScalingListSettings selects the quantization scaling matrices.
+///
+/// @p mode selects FLAT (uniform), codec DEFAULT, or CUSTOM matrices. For CUSTOM, @p matrices
+/// (and optionally @p dcCoeff) provide the coefficients; see @ref vcucodec_scalinglist for the
+/// layout. Applied at encoder creation.
+struct CV_EXPORTS_W_SIMPLE ScalingListSettings
+{
+    CV_PROP_RW ScalingListMode    mode;     ///< Scaling-list mode. Default: DEFAULT.
+    /** @brief CUSTOM matrix coefficients (flat `[S][M][C]`, 1536 bytes).
+        Ignored unless mode==CUSTOM. See @ref vcucodec_scalinglist. */
+    CV_PROP_RW std::vector<uchar> matrices;
+    /** @brief CUSTOM DC coefficients (8 bytes).
+        Order: 16x16 IntraY, IntraU, IntraV, InterY, InterU, InterV, then 32x32 IntraY, InterY.
+        Ignored unless mode==CUSTOM. See @ref vcucodec_scalinglist. */
+    CV_PROP_RW std::vector<uchar> dcCoeff;
+
+    CV_WRAP ScalingListSettings(ScalingListMode mode = ScalingListMode::DEFAULT,
+                                const std::vector<uchar>& matrices = std::vector<uchar>(),
+                                const std::vector<uchar>& dcCoeff = std::vector<uchar>());
+};
+
 /// @brief Initialization parameters for the encoder.
 ///
 /// Passed to @ref cv::vcucodec::createEncoder "createEncoder()" to configure picture settings,
@@ -399,6 +420,7 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
                                                       ///< must pass the same mode. Region-Of-Interest
                                                       ///< requires RELATIVE.
     CV_PROP_RW LambdaSettings     lambdaSettings;     ///< RDO lambda control settings.
+    CV_PROP_RW ScalingListSettings scalingList;       ///< Quantization scaling-list settings.
 
     CV_WRAP EncoderInitParams() = default;
 };
@@ -879,6 +901,11 @@ inline GlobalMotionVector::GlobalMotionVector(int _frameIndex, int _gmVectorX, i
 
 inline LambdaSettings::LambdaSettings(LambdaMode _mode, const std::vector<double>& _factors)
     : mode(_mode), factors(_factors) {}
+
+inline ScalingListSettings::ScalingListSettings(ScalingListMode _mode,
+                                                const std::vector<uchar>& _matrices,
+                                                const std::vector<uchar>& _dcCoeff)
+    : mode(_mode), matrices(_matrices), dcCoeff(_dcCoeff) {}
 
 //! @endcond
 

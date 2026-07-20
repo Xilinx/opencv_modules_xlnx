@@ -197,6 +197,21 @@ enum class QpBlockSize
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+//  SCALING LIST (quantization matrices)
+
+/// @brief Quantization scaling-list (matrix) mode.
+///
+/// Selects the quantization scaling matrices used by the encoder. See
+/// @ref cv::vcucodec::ScalingListSettings and @ref cv::vcucodec::EncoderInitParams::scalingList.
+/// Values match the underlying library. See @ref vcucodec_scalinglist.
+enum class ScalingListMode
+{
+    FLAT    = 0, ///< All matrix coefficients set to 16 (uniform quantization).
+    DEFAULT = 1, ///< Codec-specification default matrices (default).
+    CUSTOM  = 2  ///< User-provided matrices (see @ref cv::vcucodec::ScalingListSettings::matrices).
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 //  VUI Colour Info (ISO/IEC 23091-4 / ITU-T H.273)
 
 /// Colour primaries / colour description identifier from VUI parameters.

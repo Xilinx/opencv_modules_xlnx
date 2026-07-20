@@ -28,6 +28,7 @@ extern "C" {
 }
 
 #include <array>
+#include <cstring>
 #include <map>
 #include <iostream>
 #include <unistd.h>
@@ -306,6 +307,36 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
                     CV_Error(cv::Error::StsBadArg, "lambdaSettings.factors must be in [0, 1]");
                 chn.LdaFactors[i] = static_cast<int32_t>(lda[i] * 256.0 + 0.5);
             }
+        }
+    }
+
+    // Scaling list (quantization matrices). The mode maps directly to the library enum; CUSTOM
+    // additionally supplies the matrix coefficients (and optionally the DC coefficients).
+    cfg.Settings.eScalingList = static_cast<AL_EScalingList>(params.scalingList.mode);
+    if (params.scalingList.mode == ScalingListMode::CUSTOM)
+    {
+        const std::vector<uchar>& mtx = params.scalingList.matrices;
+        const size_t nScl = sizeof(cfg.Settings.ScalingList);   // 4 * 6 * 64 = 1536
+        if (mtx.size() != nScl)
+            CV_Error(cv::Error::StsBadArg, cv::format(
+                "scalingList.matrices must have exactly %zu bytes for CUSTOM mode", nScl));
+        std::memcpy(&cfg.Settings.ScalingList[0][0][0], mtx.data(), nScl);
+        // All matrices are provided, so mark every entry valid.
+        std::memset(cfg.Settings.SclFlag, 1, sizeof(cfg.Settings.SclFlag));
+
+        const std::vector<uchar>& dc = params.scalingList.dcCoeff;
+        if (!dc.empty())
+        {
+            const size_t nDc = sizeof(cfg.Settings.DcCoeff);    // 8
+            if (dc.size() != nDc)
+                CV_Error(cv::Error::StsBadArg, cv::format(
+                    "scalingList.dcCoeff must have exactly %zu bytes (or be empty)", nDc));
+            std::memcpy(cfg.Settings.DcCoeff, dc.data(), nDc);
+            cfg.Settings.DcCoeffFlag = 1;
+        }
+        else
+        {
+            cfg.Settings.DcCoeffFlag = 0;
         }
     }
 
