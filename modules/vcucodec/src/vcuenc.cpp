@@ -340,6 +340,12 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         }
     }
 
+    // Global motion vector (GMV): arm the feature so the runtime set(GlobalMotionVector) /
+    // notifyGMV() path takes effect (GMV must be supplied per frame before each write()). The
+    // library's shouldUseGmv() additionally requires a non-zero GMV, so enabling this has no
+    // effect until an actual (non-zero) motion vector is supplied.
+    chn.bUseGMV = true;
+
     // Apply level if specified (override library default)
     if (level != 0)
         chn.uLevel = level;
@@ -582,14 +588,6 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         auto sourceBuffer = enc_->getSharedBuffer();
         int fourcc = AL_PixMapBuffer_GetFourCC(sourceBuffer.get());
         srcFormatInfo_.reset(new FormatInfo(fourcc));
-
-        // Apply initial global motion vector if provided
-        if (currentSettings_.gmv_.frameIndex >= 0)
-        {
-            enc_->notifyGMV(currentSettings_.gmv_.frameIndex,
-                           currentSettings_.gmv_.gmVectorX,
-                           currentSettings_.gmv_.gmVectorY);
-        }
     }
     settingsString_ = currentSettingsString();
     //printf("VCUEncoder created with settings:\n%s\n", currentSettingsString().c_str());
@@ -1220,7 +1218,6 @@ void VCUEncoder::initSettings(const EncoderInitParams& params)
     currentSettings_.gop_ = params.gopSettings;
     currentSettings_.profile_ = params.profileSettings;
     currentSettings_.slice_ = params.sliceSettings;
-    currentSettings_.gmv_ = params.globalMotionVector;
 }
 
 String VCUEncoder::currentSettingsString() const

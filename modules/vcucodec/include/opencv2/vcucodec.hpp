@@ -355,7 +355,12 @@ struct CV_EXPORTS_W_SIMPLE SliceSettings
                           bool subframeLatency = false);
 };
 
-/// Struct GlobalMotionVector specifies a global motion vector for a frame.
+/// @brief A global motion vector applied to a single frame.
+///
+/// Supply it per frame via @ref cv::vcucodec::Encoder::set(const GlobalMotionVector&)
+/// "Encoder::set()" before the corresponding write(); it biases the motion-estimation search
+/// centre. GMV is a per-frame, cumulative mechanism, so set it before each frame that should
+/// use it (a zero vector has no effect).
 struct CV_EXPORTS_W_SIMPLE GlobalMotionVector
 {
     CV_PROP_RW int frameIndex;   ///< Frame index.
@@ -414,7 +419,6 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
     CV_PROP_RW GOPSettings        gopSettings;        ///< Group of pictures settings.
     CV_PROP_RW ProfileSettings    profileSettings;    ///< Profile, level and tier settings.
     CV_PROP_RW SliceSettings      sliceSettings;      ///< Slice configuration settings.
-    CV_PROP_RW GlobalMotionVector globalMotionVector; ///< Global motion vector settings.
     CV_PROP_RW QpTableMode        qpTableMode = QpTableMode::RELATIVE; ///< QP-table mode armed at
                                                       ///< creation; @ref Encoder::setQpTable calls
                                                       ///< must pass the same mode. Region-Of-Interest
@@ -595,9 +599,10 @@ public:
     /// Get slice settings.
     CV_WRAP virtual void get(SliceSettings& sliceSettings) const = 0;
 
-    /// Set global motion vector.
+    /// Set the global motion vector for the next frame written. Call before each write()
+    /// that should use a GMV; a zero vector has no effect. See @ref GlobalMotionVector.
     CV_WRAP virtual void set(const GlobalMotionVector& gmVector) = 0;
-    /// Get global motion vector.
+    /// Get the most recently set global motion vector.
     CV_WRAP virtual void get(GlobalMotionVector& gmVector) const = 0;
 
     /// Add HDR SEIs to the encoder. Returns an index that can be used with setHDRIndex().

@@ -94,7 +94,6 @@ class VCUConfigParser:
         rc_settings = vcu.RCSettings()
         gop_settings = vcu.GOPSettings()
         profile_settings = vcu.ProfileSettings()
-        motion_vector = vcu.GlobalMotionVector()
 
         # Configure INPUT section parameters
         if 'INPUT' in self.sections:
@@ -195,16 +194,6 @@ class VCUConfigParser:
                     float(x) for x in str(settings_data['lambdafactors']).split()
                 ]
 
-        # Configure MOTION_VECTOR section parameters
-        if 'MOTION_VECTOR' in self.sections:
-            mv_data = self.sections['MOTION_VECTOR']
-            if 'frameindex' in mv_data:
-                motion_vector.frameIndex = int(mv_data['frameindex'])
-            if 'gmvectorx' in mv_data:
-                motion_vector.gmVectorX = int(mv_data['gmvectorx'])
-            if 'gmvectory' in mv_data:
-                motion_vector.gmVectorY = int(mv_data['gmvectory'])
-
         # Create and return EncoderInitParams
         encoder_params = vcu.EncoderInitParams()
         encoder_params.pictureEncSettings = picture_settings
@@ -212,7 +201,6 @@ class VCUConfigParser:
         encoder_params.gopSettings = gop_settings
         encoder_params.profileSettings = profile_settings
         encoder_params.sliceSettings = slice_settings
-        encoder_params.globalMotionVector = motion_vector
         encoder_params.lambdaSettings = lambda_settings
 
         return encoder_params
@@ -370,7 +358,6 @@ class VCUConfigParser:
             'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth', 'EnableFillerData',
                          'NumSlices', 'DependentSlice', 'SubframeLatency', 'Alignment',
                          'LambdaCtrlMode', 'LambdaFactors'],
-            'MOTION_VECTOR': ['FrameIndex', 'GMVectorX', 'GMVectorY'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }
 
