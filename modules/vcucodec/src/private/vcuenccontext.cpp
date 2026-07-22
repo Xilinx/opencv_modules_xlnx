@@ -349,10 +349,10 @@ private:
             throw std::runtime_error("Failed to allocate QP-table buffer pool");
 
         // QP-table geometry (mirrors the reference GetQPBufferParameters).
-        m_iLcuQpOffset = (chn.iQPTableDepth == 2) ? 4 : 0;
+        m_iLcuQpOffset = (qpTableDepth(chn) == 2) ? 4 : 0;
         m_iNumQPPerLCU = 1;
         m_iNumBytesPerLCU = 1;
-        if (chn.iQPTableDepth == 2)
+        if (qpTableDepth(chn) == 2)
         {
             static const int numBlk[]   { 4, 8, 24 };
             static const int numBytes[] { 4, 8, 32 };

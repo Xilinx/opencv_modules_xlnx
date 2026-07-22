@@ -344,7 +344,10 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     // notifyGMV() path takes effect (GMV must be supplied per frame before each write()). The
     // library's shouldUseGmv() additionally requires a non-zero GMV, so enabling this has no
     // effect until an actual (non-zero) motion vector is supplied.
+    // bUseGMV is a VCU2-only channel parameter; VCU1 (vcu-ctrl-sw) has no such field.
+#ifdef HAVE_VCU2_CTRLSW
     chn.bUseGMV = true;
+#endif
 
     // Apply level if specified (override library default)
     if (level != 0)
@@ -1385,7 +1388,7 @@ Size VCUEncoder::qpTableGridSize() const
 int VCUEncoder::qpTableBytesPerLCU() const
 {
     const auto& chn = cfg_->Settings.tChParam[0];
-    if (chn.iQPTableDepth != 2)
+    if (qpTableDepth(chn) != 2)
         return 1;
     // Depth-2 record: 4 / 8 / 32 bytes for a 16x16 / 32x32 / 64x64 LCU.
     static const int numBytes[] { 4, 8, 32 };

@@ -24,11 +24,25 @@ extern "C" {
 #include "lib_common/FourCC.h"
 #include "lib_common/HDR.h"
 #include "lib_common/PicFormat.h"
+#include "lib_common_enc/EncChanParam.h"
 }
 
 #include <fstream>
 namespace cv {
 namespace vcucodec {
+
+// AL_TEncChanParam::iQPTableDepth (QP-table CTB depth) is a VCU2-only channel parameter. VCU1
+// (vcu-ctrl-sw) has no such field and its QP-table code treats the depth as 0, so return 0 there.
+// Centralizing the access keeps the VCU1/VCU2 divergence in one guarded place.
+static inline int32_t qpTableDepth(const AL_TEncChanParam& chn)
+{
+#ifdef HAVE_VCU2_CTRLSW
+    return chn.iQPTableDepth;
+#else
+    (void)chn;
+    return 0;
+#endif
+}
 
 bool operator==(const RawInfo& lhs, const RawInfo& rhs);
 bool operator!=(const RawInfo& lhs, const RawInfo& rhs);
