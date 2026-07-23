@@ -153,7 +153,9 @@ struct EncoderSink
                          AL_TAllocator* pAllocator) :
         m_cfg(cfg),
         pAllocator{pAllocator},
-        pSettings{&cfg.Settings}
+        pSettings{&cfg.Settings},
+        tLastEncodedDim{ AL_GetSrcWidth(cfg.Settings.tChParam[0]),
+                         AL_GetSrcHeight(cfg.Settings.tChParam[0]) }
     {
         assert(ctx);
         AL_CB_EndEncoding onEncoding = { &EncoderSink::EndEncoding, this };
@@ -183,7 +185,9 @@ struct EncoderSink
                          AL_TAllocator* pAllocator) :
         m_cfg(cfg),
         pAllocator{pAllocator},
-        pSettings{&cfg.Settings}
+        pSettings{&cfg.Settings},
+        tLastEncodedDim{ AL_GetSrcWidth(cfg.Settings.tChParam[0]),
+                         AL_GetSrcHeight(cfg.Settings.tChParam[0]) }
     {
         AL_CB_EndEncoding onEncoding = { &EncoderSink::EndEncoding, this };
 
@@ -296,6 +300,12 @@ struct EncoderSink
     DataCallback dataCallback_;
     AL_HEncoder hEnc;
     bool shouldAddDummySei = false;
+
+    // Currently configured source resolution (kept in sync by AL_Encoder_SetInputResolution).
+    AL_TDimension currentSrcDim() const
+    {
+        return { AL_GetSrcWidth(pSettings->tChParam[0]), AL_GetSrcHeight(pSettings->tChParam[0]) };
+    }
 
 private:
     int32_t iPendingStreamCnt;
@@ -1495,9 +1505,15 @@ void EncoderContext::processFileQueue()
             fileInfo.PictHeight = pic.height;
             fileInfo.FrameRate = pic.framerate;
 
-            // Notify encoder of resolution change
+            // Notify the encoder only on an actual resolution change. An unconditional
+            // SetInputResolution triggers a GOP restart, which the library rejects for GOP
+            // modes that disallow it (e.g. ADAPTIVE_GOP -> AL_ERR_CMD_NOT_ALLOWED, "Command is
+            // not allowed", printed once per frame). The channel is already configured at this
+            // resolution, so skip the redundant call when the dimensions are unchanged.
             AL_TDimension tNewDim = { fileInfo.PictWidth, fileInfo.PictHeight };
-            AL_Encoder_SetInputResolution(enc_->hEnc, tNewDim);
+            AL_TDimension tCurDim = enc_->currentSrcDim();
+            if (tNewDim.iWidth != tCurDim.iWidth || tNewDim.iHeight != tCurDim.iHeight)
+                AL_Encoder_SetInputResolution(enc_->hEnc, tNewDim);
 
             // Open the YUV file
             std::ifstream yuvFile;
