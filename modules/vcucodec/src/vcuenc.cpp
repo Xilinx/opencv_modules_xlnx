@@ -349,6 +349,14 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     chn.bUseGMV = true;
 #endif
 
+    // HDR SEIs: arm all HDR SEI message types so runtime setHDR() calls can insert them. This is
+    // only a permission gate -- the library emits each HDR SEI only when the supplied
+    // HDRSEIs payload actually carries that metadata, so arming the full set does not change the
+    // stream until (and unless) matching HDR data is provided. OR-in to keep any other SEI flags.
+    cfg.Settings.eEnableSEI = static_cast<AL_ESeiFlag>(
+        cfg.Settings.eEnableSEI
+        | AL_SEI_MDCV | AL_SEI_CLL | AL_SEI_ATC | AL_SEI_ST2094_10 | AL_SEI_ST2094_40);
+
     // Apply level if specified (override library default)
     if (level != 0)
         chn.uLevel = level;
@@ -587,6 +595,13 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         hEnc_ = enc_->hEnc();
         enc_->setRoiManager(roiMngr_);
 
+        // Let the file worker drain scheduled dynamic commands at the right encode-order frame.
+        // In frame mode (write()) the queue is drained inline; in file mode (writeFile()) the
+        // worker thread calls this hook before submitting each frame.
+        enc_->setFrameCommandHook([this](int32_t frameIndex){
+            commandQueue_.execute(frameIndex);
+        });
+
         // Cache source buffer format info to avoid repeated AL_GetPicFormat calls
         auto sourceBuffer = enc_->getSharedBuffer();
         int fourcc = AL_PixMapBuffer_GetFourCC(sourceBuffer.get());
@@ -638,7 +653,9 @@ void VCUEncoder::writeFile(const String& filename, int startFrame, int numFrames
         effectiveSettings = makePtr<PictureEncSettings>(currentSettings_.pic_);
     }
 
-    // Queue the file for processing
+    // Queue the file for processing. Dynamic commands scheduled via the set*(frameIdx, ...)
+    // API are applied by the file worker through the frame-command hook installed at
+    // construction (see commandQueue_ wiring), so no per-frame draining is needed here.
     enc_->writeFile(filename, startFrame, numFrames, effectiveSettings);
 }
 
@@ -830,11 +847,6 @@ void VCUEncoder::get(GlobalMotionVector& gmVector) const
 {
     std::lock_guard lock(settingsMutex_);
     gmVector = currentSettings_.gmv_;
-}
-
-int VCUEncoder::add(const HDRSEIs& hdrSeis)
-{
-    return enc_->setHDRSEIs(hdrSeis);
 }
 
 void VCUEncoder::set(const ProfileSettings& profileSettings)
@@ -1160,15 +1172,10 @@ void VCUEncoder::setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUs
 }
 #endif
 
-void VCUEncoder::setHDRIndex(int32_t frameIdx, int32_t iHDRIdx)
+void VCUEncoder::setHDR(int32_t frameIdx, const HDRSEIs& hdrSeis)
 {
-    Command cmd = { frameIdx, false, [this, iHDRIdx](){
-        // HDR index change is similar to CommandsSender implementation
-        // This sets a flag for HDR change that gets processed later
-        // For now, we implement the direct version
-        // Note: The actual HDR processing may require additional context
-        // from the encoder's HDR management system
-        (void)iHDRIdx; // Store for later processing if needed
+    Command cmd = { frameIdx, false, [this, hdrSeis](){
+        CHECK(enc_->setHDRSEIs(hdrSeis));
     }};
     commandQueue_.push(cmd);
 }

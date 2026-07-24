@@ -74,8 +74,6 @@ public:
     virtual void set(const GlobalMotionVector& gmVector) override;
     virtual void get(GlobalMotionVector& gmVector) const override;
 
-    virtual int add(const HDRSEIs& hdrSeis) override;
-
     //
     // Dynamic commands
     //
@@ -109,7 +107,7 @@ public:
     virtual void setMaxPictureSizeB(int32_t frameIdx, int32_t iMaxPictureSize_B) override;
     virtual void setQPChromaOffsets(int32_t frameIdx, int32_t iQp1Offset, int32_t iQp2Offset) override;
     virtual void setAutoQP(int32_t frameIdx, bool bUseAutoQP) override;
-    virtual void setHDRIndex(int32_t frameIdx, int32_t iHDRIdx) override;
+    virtual void setHDR(int32_t frameIdx, const HDRSEIs& hdrSeis) override;
     virtual void setAutoQPThresholdQPAndDeltaQP(int32_t frameIdx, bool bEnableUserAutoQPValues,
             std::vector<int> thresholdQP, std::vector<int> deltaQP) override;
     virtual void setIsSkip(int32_t frameIdx) override;

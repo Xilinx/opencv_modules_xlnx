@@ -605,9 +605,6 @@ public:
     /// Get the most recently set global motion vector.
     CV_WRAP virtual void get(GlobalMotionVector& gmVector) const = 0;
 
-    /// Add HDR SEIs to the encoder. Returns an index that can be used with setHDRIndex().
-    CV_WRAP virtual int add(const HDRSEIs& hdrSeis) = 0;
-
     //
     // Dynamic commands
     //
@@ -699,8 +696,11 @@ public:
     /// Dynamically set whether to use Auto QP at a specific frame index.
     CV_WRAP virtual void setAutoQP(int32_t frameIdx, bool bUseAutoQP) = 0;
 
-    /// Dynamically set the HDR SEI index at a specific frame index.
-    CV_WRAP virtual void setHDRIndex(int32_t frameIdx, int32_t iHDRIdx) = 0;
+    /// @brief Schedule HDR SEIs (Supplemental Enhancement Information) to be inserted starting
+    /// at frame @p frameIdx, remaining in effect until a later setHDR() call replaces them. Which
+    /// SEI messages appear is determined by the fields populated in @p hdrSeis (mastering-display
+    /// colour volume, content light level, ...); call setHDR(0, ...) to apply from the first frame.
+    CV_WRAP virtual void setHDR(int32_t frameIdx, const HDRSEIs& hdrSeis) = 0;
 
     /// Dynamically indicate that frameIdx is a skip frame
     CV_WRAP virtual void setIsSkip(int32_t frameIdx) = 0;

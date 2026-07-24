@@ -99,6 +99,39 @@ def show_defaults():
     show_params(params, "VCU Encoder Default Parameters")
 
 
+def build_hdr_seis():
+    """Build an HDRSEIs with BT.2020 Mastering Display Colour Volume + Content Light Level.
+
+    Chromaticity coordinates are CIE 1931 xy scaled by 50000; luminances are in units of
+    0.0001 cd/m^2 (HEVC SEI native units). display_primaries are supplied in the HEVC bitstream
+    order the library writes verbatim: index 0=Green, 1=Blue, 2=Red.
+    """
+    def coord(x, y):
+        c = vcu.ChromaCoordinates()
+        c.x = x
+        c.y = y
+        return c
+
+    mdcv = vcu.MasteringDisplayColourVolume()
+    mdcv.display_primaries = [coord(8500, 39850),   # Green (0.170, 0.797)
+                              coord(6550, 2300),    # Blue  (0.131, 0.046)
+                              coord(35400, 14600)]  # Red   (0.708, 0.292)
+    mdcv.white_point = coord(15635, 16450)          # D65   (0.3127, 0.3290)
+    mdcv.max_display_mastering_luminance = 10000000  # 1000 cd/m^2
+    mdcv.min_display_mastering_luminance = 50        # 0.0050 cd/m^2
+
+    cll = vcu.ContentLightLevel()
+    cll.max_content_light_level = 1000
+    cll.max_pic_average_light_level = 400
+
+    seis = vcu.HDRSEIs()
+    seis.hasMDCV = True
+    seis.mdcv = mdcv
+    seis.hasCLL = True
+    seis.cll = cll
+    return seis
+
+
 def parse_max_picture(value):
     """Parse MaxPicture value: 'ALL' or integer (0 means all frames)."""
     if value is None:
@@ -131,6 +164,7 @@ def main():
     parser.add_argument("--output", "-o", help="Output bitstream file (overrides config BitstreamFile)")
     parser.add_argument("--first-picture", "-f", type=int, help="First picture index (overrides config FirstPicture)")
     parser.add_argument("--max-picture", "-m", help="Max pictures to encode, or 'ALL' (overrides config MaxPicture)")
+    parser.add_argument("--hdr", action="store_true", help="Embed HDR SEIs (BT.2020 MDCV + CLL) from frame 0")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output messages")
 
     args = parser.parse_args()
@@ -219,6 +253,12 @@ def main():
     except Exception as e:
         print(f"{BLUE}Error creating encoder: {e}{RESET}")
         sys.exit(1)
+
+    # Schedule HDR SEIs from frame 0 (applies to the whole stream). Must be done before writeFile().
+    if args.hdr:
+        encoder.setHDR(0, build_hdr_seis())
+        if not args.quiet:
+            print(f"{GREEN}HDR SEIs (MDCV + CLL) scheduled from frame 0{RESET}")
 
     # Encode the file
     if not args.quiet:

@@ -73,6 +73,13 @@ public:
     // precedence over ROI for the frames it covers; bytes follow the EP2 QP-by-MB layout.
     virtual void setQpTable(int32_t frameIdx, std::vector<uint8_t> table) = 0;
 
+    // Per-frame command hook: invoked by the file worker (writeFile mode) with the 0-based
+    // encode-order index just before each frame is submitted, so scheduled dynamic commands
+    // (HDR SEIs, QP, scene change, ...) are applied at the right frame. In frame mode (write())
+    // the caller drains its command queue directly and this hook is unused.
+    using FrameCommandHook = std::function<void(int32_t frameIndex)>;
+    virtual void setFrameCommandHook(FrameCommandHook hook) = 0;
+
     static Ptr<EncContext> create(Ptr<Config> cfg, Ptr<Device>& device, DataCallback dataCallback);
 };
 

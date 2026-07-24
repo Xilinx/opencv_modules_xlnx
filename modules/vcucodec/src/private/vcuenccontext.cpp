@@ -1285,6 +1285,11 @@ public:
         if (enc_) enc_->setQpTable(frameIdx, std::move(table));
     }
 
+    virtual void setFrameCommandHook(FrameCommandHook hook) override
+    {
+        frameCommandHook_ = std::move(hook);
+    }
+
 private:
     class EncLibInitter
     {
@@ -1343,6 +1348,11 @@ private:
     std::shared_ptr<EncLibInitter> libInit_;
     std::unique_ptr<EncoderSink> enc_;
     std::vector<std::unique_ptr<LayerResources>> layerResources_;
+
+    // Per-frame command hook (see EncContext::setFrameCommandHook) and the running 0-based
+    // encode-order index used to drive it from the file worker thread.
+    FrameCommandHook frameCommandHook_;
+    int32_t fileFrameIndex_ = 0;
 
     // File queue members
     std::queue<FileRequest> fileQueue_;
@@ -1578,9 +1588,18 @@ void EncoderContext::processFileQueue()
                     break;
                 }
 
+                // Apply any dynamic commands (HDR SEIs, QP, scene change, ...) scheduled for
+                // this encode-order frame before submitting it. Frame mode (write()) drains the
+                // command queue itself; the file worker must do it here since it pulls frames
+                // straight from the YUV file.
+                if (frameCommandHook_) {
+                    frameCommandHook_(fileFrameIndex_);
+                }
+
                 // Send frame to encoder
                 enc_->ProcessFrame(sourceBuffer.get());
                 framesProcessed++;
+                fileFrameIndex_++;
             }
 
             yuvFile.close();
