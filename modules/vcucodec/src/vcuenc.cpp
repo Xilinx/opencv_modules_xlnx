@@ -557,7 +557,9 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         break;
 #ifdef HAVE_VCU2_CTRLSW
     case AL_SRC_FORMAT_RASTER_MSB:
-        eSrcMode = AL_SRC_RASTER_MSB;
+        // AL_SRC_RASTER_MSB was removed from AL_ESrcMode in vcu2-ctrl-sw master-next;
+        // MSB packing is now conveyed via the pic format (bMSB), so the source mode is plain raster.
+        eSrcMode = AL_SRC_RASTER;
         break;
     case AL_SRC_FORMAT_TILE_64x4:
         eSrcMode = AL_SRC_TILE_64x4;

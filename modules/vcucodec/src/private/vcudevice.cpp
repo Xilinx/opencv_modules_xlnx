@@ -49,7 +49,7 @@ extern "C" {
 #include "lib_common_dec/IpDecFourCC.h"
 #include "lib_decode/lib_decode.h"
 #include "lib_decode/DecSchedulerMcu.h"
-#include "lib_encode/lib_encoder.h"
+#include "lib_encode/lib_encode.h"
 #include "lib_encode/EncSchedulerMcu.h"
 #endif
 }

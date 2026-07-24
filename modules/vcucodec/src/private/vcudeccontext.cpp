@@ -293,7 +293,7 @@ int32_t configureDecBufPool(PixMapBufPool &SrcBufPool, AL_TPicFormat const &tPic
                              AL_TDimension const &tDim, int32_t iPitchY,
                              bool bConfigurePlanarAndSemiplanar)
 {
-    auto const tFourCC = AL_GetFourCC(tPicFormat);
+    auto const tFourCC = AL_GetFourCC(&tPicFormat);
     SrcBufPool.SetFormat(tDim, tFourCC);
 
     std::vector<AL_TPlaneDescription> vPlaneDesc;
@@ -575,7 +575,7 @@ AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
         auto lock = std::lock_guard(mutex_);
         streamInfo_ = getStreamInfo(iBufferNumber, iBufferSize,
                 iExtraBuffers_, pStreamSettings, &pUserCropInfo,
-                AL_GetFourCC(pUserOutputSettings_->tPicFormat), outputDim);
+                AL_GetFourCC(&pUserOutputSettings_->tPicFormat), outputDim);
     }
 
     if (baseBufPool_.IsInit())
@@ -943,7 +943,7 @@ DecContext::create(Ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput, WorkerConfi
     // ----------------------------------------------
     auto hDec = pDecodeCtx->getBaseDecoderHandle();
     AL_Decoder_SetParam(hDec, "Fpga", config.iTraceIdx, config.iTraceNumber,
-                        config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE);
+                        config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE, false);
 
     // Parametrization of the lcevc decoder for traces
     // -----------------------------------------------

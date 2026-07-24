@@ -18,7 +18,7 @@
 extern "C"
 {
 #include "config.h"
-#include <lib_encode/lib_encoder.h>
+#include <lib_encode/lib_encode.h>
 #include <lib_common/BufferStreamMeta.h>
 }
 

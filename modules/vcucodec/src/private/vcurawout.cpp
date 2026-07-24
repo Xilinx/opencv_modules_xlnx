@@ -257,7 +257,7 @@ void RawOutputImpl::processFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOutF
             tRecPicFormat.bMSB
         };
 
-        tOutFourCC = AL_GetFourCC(tConvPicFormat);
+        tOutFourCC = AL_GetFourCC(&tConvPicFormat);
     }
     else if(tOutFourCC == FOURCC(hard))
     {
