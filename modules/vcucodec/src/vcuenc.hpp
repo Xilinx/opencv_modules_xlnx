@@ -23,7 +23,11 @@
 
 extern "C"
 {
+#ifdef HAVE_VCU2_CTRLSW
 #include "lib_encode/lib_encode.h"
+#else
+#include "lib_encode/lib_encoder.h"
+#endif
 }
 
 namespace cv {

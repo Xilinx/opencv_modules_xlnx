@@ -14,6 +14,7 @@
    limitations under the License.
 */
 #include "vcurawout.hpp"
+#include "vcuutils.hpp"
 
 extern "C" {
 #include "config.h"
@@ -257,7 +258,7 @@ void RawOutputImpl::processFrame(Ptr<Frame> frame, int32_t iBdOut, TFourCC tOutF
             tRecPicFormat.bMSB
         };
 
-        tOutFourCC = AL_GetFourCC(&tConvPicFormat);
+        tOutFourCC = getFourCC(tConvPicFormat);
     }
     else if(tOutFourCC == FOURCC(hard))
     {

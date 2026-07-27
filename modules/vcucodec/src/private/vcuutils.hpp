@@ -44,6 +44,18 @@ static inline int32_t qpTableDepth(const AL_TEncChanParam& chn)
 #endif
 }
 
+// AL_GetFourCC() takes an AL_TPicFormat const* in vcu2-ctrl-sw master-next, but takes it by
+// value in vcu-ctrl-sw (VCU1), VDU, and pre-master-next vcu2-ctrl-sw. Centralize the divergence
+// so callers stay API-agnostic.
+static inline TFourCC getFourCC(const AL_TPicFormat& fmt)
+{
+#ifdef HAVE_VCU2_CTRLSW
+    return AL_GetFourCC(&fmt);
+#else
+    return AL_GetFourCC(fmt);
+#endif
+}
+
 bool operator==(const RawInfo& lhs, const RawInfo& rhs);
 bool operator!=(const RawInfo& lhs, const RawInfo& rhs);
 

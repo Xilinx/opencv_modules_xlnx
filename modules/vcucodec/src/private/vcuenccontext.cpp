@@ -32,7 +32,11 @@ extern "C" {
 #include "lib_common_enc/EncBuffers.h"
 #include "lib_common_enc/IpEncFourCC.h"
 #include "lib_common_enc/RateCtrlMeta.h"
+#ifdef HAVE_VCU2_CTRLSW
 #include "lib_encode/lib_encode.h"
+#else
+#include "lib_encode/lib_encoder.h"
+#endif
 }
 
 #include "vcudata.hpp"
@@ -814,7 +818,7 @@ AL_TPicFormat GetSrcPicFormat(AL_TEncChanParam const& tChParam)
 
 bool IsConversionNeeded(SrcConverterParams& tSrcConverterParams)
 {
-    const TFourCC tSrcFourCC = AL_GetFourCC(&tSrcConverterParams.tSrcPicFmt);
+    const TFourCC tSrcFourCC = getFourCC(tSrcConverterParams.tSrcPicFmt);
 
      if (tSrcConverterParams.tFileFourCC != tSrcFourCC)
     {
@@ -911,7 +915,7 @@ SrcBufDesc GetSrcBufDescription(AL_TDimension tDimension, uint8_t uBitDepth,
 
     AL_TPicFormat const tPicFormat = AL_EncGetSrcPicFormat(eCMode, uBitDepth, eSrcMode);
 
-    SrcBufDesc srcBufDesc = { AL_GetFourCC(&tPicFormat), {} };
+    SrcBufDesc srcBufDesc = { getFourCC(tPicFormat), {} };
 
     int32_t iPitchY = ComputeYPitch(tDimension.iWidth, tPicFormat);
 

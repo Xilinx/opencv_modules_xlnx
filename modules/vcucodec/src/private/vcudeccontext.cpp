@@ -22,6 +22,7 @@
 #include "vcuframe.hpp"
 #include "vcurawout.hpp"
 #include "vcureader.hpp"
+#include "vcuutils.hpp"
 
 #include "opencv2/vcucodec.hpp"
 
@@ -293,7 +294,7 @@ int32_t configureDecBufPool(PixMapBufPool &SrcBufPool, AL_TPicFormat const &tPic
                              AL_TDimension const &tDim, int32_t iPitchY,
                              bool bConfigurePlanarAndSemiplanar)
 {
-    auto const tFourCC = AL_GetFourCC(&tPicFormat);
+    auto const tFourCC = getFourCC(tPicFormat);
     SrcBufPool.SetFormat(tDim, tFourCC);
 
     std::vector<AL_TPlaneDescription> vPlaneDesc;
@@ -575,7 +576,7 @@ AL_ERR DecoderContext::setupBaseDecoderPool(int32_t iBufferNumber,
         auto lock = std::lock_guard(mutex_);
         streamInfo_ = getStreamInfo(iBufferNumber, iBufferSize,
                 iExtraBuffers_, pStreamSettings, &pUserCropInfo,
-                AL_GetFourCC(&pUserOutputSettings_->tPicFormat), outputDim);
+                getFourCC(pUserOutputSettings_->tPicFormat), outputDim);
     }
 
     if (baseBufPool_.IsInit())
@@ -942,8 +943,13 @@ DecContext::create(Ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput, WorkerConfi
     // Parametrization of the base decoder for traces
     // ----------------------------------------------
     auto hDec = pDecodeCtx->getBaseDecoderHandle();
+#ifdef HAVE_VCU2_CTRLSW
     AL_Decoder_SetParam(hDec, "Fpga", config.iTraceIdx, config.iTraceNumber,
                         config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE, false);
+#else
+    AL_Decoder_SetParam(hDec, "Fpga", config.iTraceIdx, config.iTraceNumber,
+                        config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE);
+#endif
 
     // Parametrization of the lcevc decoder for traces
     // -----------------------------------------------
