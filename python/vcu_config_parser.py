@@ -222,6 +222,11 @@ class VCUConfigParser:
             'NV16': 0x3631564E,  # fourcc('N', 'V', '1', '6')
             'P210': 0x30313250,  # fourcc('P', '2', '1', '0')
             'P212': 0x32313250,  # fourcc('P', '2', '1', '2')
+            # LSB-packed 10/12-bit semi-planar — the encoder-accepted input formats.
+            'P0AL': 0x4C413050,  # fourcc('P', '0', 'A', 'L')
+            'P0CL': 0x4C433050,  # fourcc('P', '0', 'C', 'L')
+            'P2AL': 0x4C413250,  # fourcc('P', '2', 'A', 'L')
+            'P2CL': 0x4C433250,  # fourcc('P', '2', 'C', 'L')
             'I444': 0x34343449,  # fourcc('I', '4', '4', '4')
             'I4AL': 0x4C413449,  # fourcc('I', '4', 'A', 'L')
             'I4CL': 0x4C433449,  # fourcc('I', '4', 'C', 'L')
@@ -399,4 +404,4 @@ class VCUConfigParser:
 
     @staticmethod
     def get_supported_formats():
-        return ['Y800', 'Y010', 'Y012', 'I420', 'NV12', 'P010', 'P012', 'NV16', 'P210', 'P212', 'I444', 'I4AL', 'I4CL', 'HEVC_MAIN', 'AVC_MAIN']
+        return ['Y800', 'Y010', 'Y012', 'I420', 'NV12', 'P010', 'P012', 'P0AL', 'P0CL', 'NV16', 'P210', 'P212', 'P2AL', 'P2CL', 'I444', 'I4AL', 'I4CL', 'HEVC_MAIN', 'AVC_MAIN']

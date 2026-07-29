@@ -56,6 +56,31 @@ static inline TFourCC getFourCC(const AL_TPicFormat& fmt)
 #endif
 }
 
+// Map an OpenCV-API encoder input FourCC (kernel-aligned "proper" naming, where the LSB-packed
+// 10/12-bit semi-planar formats are P0AL/P0CL/P2AL/P2CL) to the FourCC understood by the
+// underlying ctrl-sw encoder:
+//   - VCU2 (vcu2-ctrl-sw) uses the new naming natively: P0AL/P0CL/P2AL/P2CL are the LSB-packed
+//     formats the encoder accepts, while P010/P012/P210/P212 are the MSB-aligned variants (which
+//     the encoder does NOT accept). Nothing to translate.
+//   - VCU1 (vcu-ctrl-sw) / VDU predate the MSB/LSB split; there P010/P012/P210/P212 ARE the
+//     LSB-packed formats, so map the API's LSB names onto them.
+// Keeping the OpenCV interface on the proper (P0AL...) names hides this divergence from users.
+static inline int toEncoderFourCC(int fourcc)
+{
+#ifdef HAVE_VCU2_CTRLSW
+    return fourcc;
+#else
+    switch (fourcc)
+    {
+    case FOURCC(P0AL): return FOURCC(P010);
+    case FOURCC(P0CL): return FOURCC(P012);
+    case FOURCC(P2AL): return FOURCC(P210);
+    case FOURCC(P2CL): return FOURCC(P212);
+    default:           return fourcc;
+    }
+#endif
+}
+
 bool operator==(const RawInfo& lhs, const RawInfo& rhs);
 bool operator!=(const RawInfo& lhs, const RawInfo& rhs);
 

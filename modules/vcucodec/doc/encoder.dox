@@ -27,14 +27,21 @@ Supported input FOURCC codes (set via
 | Y010   | Monochrome | 10-bit | 4:0:0 | Grayscale |
 | Y012   | Monochrome | 12-bit | 4:0:0 | VCU2 only |
 | NV12   | YUV | 8-bit | 4:2:0 | Semi-planar (Y + interleaved UV) |
-| P010   | YUV | 10-bit | 4:2:0 | Semi-planar |
-| P012   | YUV | 12-bit | 4:2:0 | VCU2 only |
+| P0AL   | YUV | 10-bit | 4:2:0 | Semi-planar, LSB-packed |
+| P0CL   | YUV | 12-bit | 4:2:0 | Semi-planar, LSB-packed, VCU2 only |
 | NV16   | YUV | 8-bit | 4:2:2 | Semi-planar |
-| P210   | YUV | 10-bit | 4:2:2 | Semi-planar |
-| P212   | YUV | 12-bit | 4:2:2 | VCU2 only |
+| P2AL   | YUV | 10-bit | 4:2:2 | Semi-planar, LSB-packed |
+| P2CL   | YUV | 12-bit | 4:2:2 | Semi-planar, LSB-packed, VCU2 only |
 | I444   | YUV | 8-bit | 4:4:4 | VCU2 only |
 | I4AL   | YUV | 10-bit | 4:4:4 | VCU2 only |
 | I4CL   | YUV | 12-bit | 4:4:4 | VCU2 only |
+
+@note The 10/12-bit semi-planar encoder inputs use the LSB-packed FourCC codes
+(P0AL/P0CL/P2AL/P2CL), where the sample occupies the low bits of each 16-bit word. On VCU2 the
+MSB-aligned kernel names (P010/P012/P210/P212) denote a different, decode-only layout that the
+encoder does not accept. The OpenCV interface uses the LSB-packed names uniformly; on VCU1/VDU
+they are translated to that platform's P010/P012/P210/P212 internally, so the same code works on
+both.
 
 ### Feeding frames
 

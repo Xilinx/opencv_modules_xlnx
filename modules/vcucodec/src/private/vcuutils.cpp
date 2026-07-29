@@ -461,17 +461,29 @@ std::map<int, _FormatInfo> const formatInfos =
 #endif
     {FOURCC(NV12), {FOURCC(NV12), D, E, {}}},
     {FOURCC(I420), {FOURCC(I420), D, e, {}}},
-    {FOURCC(P010), {FOURCC(P010), D, E, {}}},
-#ifdef HAVE_VCU2_CTRLSW
-    {FOURCC(P012), {FOURCC(P012), D, E, {}}},
-#endif
     {FOURCC(NV16), {FOURCC(NV16), D, E, {}}},
-    {FOURCC(P210), {FOURCC(P210), D, E, {}}},
 #ifdef HAVE_VCU2_CTRLSW
-    {FOURCC(P212), {FOURCC(P212), D, E, {}}},
+    // VCU2 kernel-aligned "proper" fourcc: P010/P012/P210/P212 are MSB-aligned. The decoder can
+    // output them, but the encoder does not accept MSB input, so they are decode-only here.
+    // Encoder input uses the LSB-packed P0AL/P0CL/P2AL/P2CL formats below.
+    {FOURCC(P010), {FOURCC(P010), D, e, {}}},
+    {FOURCC(P012), {FOURCC(P012), D, e, {}}},
+    {FOURCC(P210), {FOURCC(P210), D, e, {}}},
+    {FOURCC(P212), {FOURCC(P212), D, e, {}}},
+    {FOURCC(P0AL), {FOURCC(P0AL), d, E, {}}},
+    {FOURCC(P0CL), {FOURCC(P0CL), d, E, {}}},
+    {FOURCC(P2AL), {FOURCC(P2AL), d, E, {}}},
+    {FOURCC(P2CL), {FOURCC(P2CL), d, E, {}}},
     {FOURCC(I444), {FOURCC(I444), D, E, {}}},
     {FOURCC(I4AL), {FOURCC(I4AL), D, E, {}}},
     {FOURCC(I4CL), {FOURCC(I4CL), D, E, {}}},
+#else
+    // VCU1/VDU: P010/P210 are the (only) LSB-packed 10-bit formats — encode + decode. Also accept
+    // the proper LSB names P0AL/P2AL; toEncoderFourCC() maps them onto P010/P210 for ctrl-sw.
+    {FOURCC(P010), {FOURCC(P010), D, E, {}}},
+    {FOURCC(P210), {FOURCC(P210), D, E, {}}},
+    {FOURCC(P0AL), {FOURCC(P0AL), d, E, {}}},
+    {FOURCC(P2AL), {FOURCC(P2AL), d, E, {}}},
 #endif
 };
 
@@ -489,7 +501,9 @@ FormatInfo::FormatInfo(int fourcc_) : format(formatInfos.at(fourcc_).format)
                 const struct _FormatInfo& fi = f.second;
                 if (fi.fourcc == 0 || fi.fourcc == FOURCC(NULL) || fi.fourcc == FOURCC(AUTO))
                     continue;
-                AL_GetPicFormat(fi.fourcc, const_cast<AL_TPicFormat*>(&fi.format));
+                // Resolve the pic format through the ctrl-sw fourcc (identity on VCU2). On VCU1
+                // the LSB names (P0AL/P2AL) are not known to the ctrl-sw, so translate first.
+                AL_GetPicFormat(toEncoderFourCC(fi.fourcc), const_cast<AL_TPicFormat*>(&fi.format));
             }
         });
 
