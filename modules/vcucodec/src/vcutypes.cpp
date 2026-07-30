@@ -45,6 +45,7 @@ ENUMASSERT(RCMode::CBR, AL_RC_CBR);
 ENUMASSERT(RCMode::VBR, AL_RC_VBR);
 ENUMASSERT(RCMode::LOW_LATENCY, AL_RC_LOW_LATENCY);
 ENUMASSERT(RCMode::CAPPED_VBR, AL_RC_CAPPED_VBR);
+ENUMASSERT(RCMode::PLUGIN, AL_RC_PLUGIN);
 ENUMASSERT(65, AL_RC_MAX_ENUM);
 
 // AL_EEntropyMode
@@ -196,6 +197,7 @@ String toString(const Tier& value)
 template<>
 String toString(const RCMode& value)
 {
+    if (value == RCMode::PLUGIN) return "PLUGIN";
     static const char* strarray[] = {"CONST_QP", "CBR", "VBR", "LOW_LATENCY", "CAPPED_VBR"};
     return enumToString(value, strarray).data();
 }

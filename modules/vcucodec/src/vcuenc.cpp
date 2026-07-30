@@ -1207,9 +1207,10 @@ bool VCUEncoder::validateSettings()
     auto fi = FormatInfo(pic.fourcc);
     valid = fi.encodeable;
     if (!valid) CV_Error(cv::Error::StsBadArg, "Unsupported input fourcc");
-    valid = rc.mode >= RCMode::CONST_QP && rc.mode <= RCMode::CAPPED_VBR;
+    valid = (rc.mode >= RCMode::CONST_QP && rc.mode <= RCMode::CAPPED_VBR) || rc.mode == RCMode::PLUGIN;
     if (!valid) CV_Error(Error::StsBadArg, "Unsupported rate control mode");
-    valid = rc.bitrate > 0;
+    // PLUGIN mode drives QP from a firmware RISC-V plugin, so a target bitrate is not required.
+    valid = rc.bitrate > 0 || rc.mode == RCMode::PLUGIN;
     if (!valid) CV_Error(Error::StsBadArg, "Bitrate must be greater than 0");
     valid = gop.gopLength > 0;
     if (!valid) CV_Error(Error::StsBadArg, "GOP length must be greater than 0");

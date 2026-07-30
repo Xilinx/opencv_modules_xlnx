@@ -98,7 +98,8 @@ enum class RCMode
     CBR         = 1, ///< Constant bitrate.
     VBR         = 2, ///< Variable bitrate.
     LOW_LATENCY = 3, ///< Low latency mode.
-    CAPPED_VBR  = 4  ///< Capped variable bitrate.
+    CAPPED_VBR  = 4, ///< Capped variable bitrate.
+    PLUGIN      = 0x40 ///< Custom rate control run by a firmware RISC-V plugin. See @ref vcucodec_customrc.
 };
 
 /// Enum class Entropy specifies which entropy coding to use, CAVLC or CABAC.

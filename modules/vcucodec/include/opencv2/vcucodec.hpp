@@ -279,13 +279,16 @@ struct CV_EXPORTS_W_SIMPLE PictureEncSettings
 /// fine-tune the buffering model. Per-frame size limits (maxPictureSizeI/P/B) and frame
 /// skipping provide additional control over bitrate peaks.
 ///
+/// For a fully custom rate-control algorithm run by a firmware plugin on the encoder's MCU,
+/// select @ref cv::vcucodec::RCMode "RCMode::PLUGIN"; see @ref vcucodec_customrc.
+///
 /// These settings can be changed mid-stream via @ref cv::vcucodec::Encoder::set(const RCSettings&)
 /// "Encoder::set(rcSettings)" or via the dynamic commands
 /// @ref cv::vcucodec::Encoder::setBitRate "setBitRate()" and
 /// @ref cv::vcucodec::Encoder::setMaxBitRate "setMaxBitRate()".
 struct CV_EXPORTS_W_SIMPLE RCSettings
 {
-    CV_PROP_RW RCMode  mode;          ///< Rate control mode (default VBR).
+    CV_PROP_RW RCMode  mode;          ///< Rate control mode (default VBR). For RCMode::PLUGIN see @ref vcucodec_customrc.
     CV_PROP_RW Entropy entropy;       ///< Entropy coding mode (CAVLC or CABAC).
     CV_PROP_RW int  bitrate;          ///< Target bitrate in kbits per second.
     CV_PROP_RW int  maxBitrate;       ///< Maximum bitrate in kbits per second.

@@ -1,0 +1,133 @@
+/**
+@page vcucodec_customrc Custom rate control (firmware plugin)
+
+**Custom rate control** replaces the encoder's built-in rate-control modes with an algorithm that
+runs on the encoder's embedded control processor (MCU). Instead of CBR / VBR / CONST_QP, the
+per-frame quantization decisions are taken by a *rate-control plugin* linked into the encoder
+firmware. You select it from the OpenCV encoder with @ref cv::vcucodec::RCMode "RCMode::PLUGIN"
+(`RateCtrlMode = PLUGIN` in a config file).
+
+From the OpenCV side this behaves the same on both VCU generations; only the firmware build is
+platform-specific (the MCU is MicroBlaze on VCU / Zynq UltraScale+ and RISC-V on VCU2 / Versal
+Gen2). The examples on this page use VCU2 (RISC-V) as the concrete case.
+
+@note Custom rate control requires a *plugged* encoder firmware for your platform (see
+@ref customrc_firmware "Building the plugged firmware" below). With a stock firmware there is no plugin
+for the encoder to call, so PLUGIN mode will not produce a useful stream.
+
+### Selecting PLUGIN mode
+
+C++:
+
+@code{.cpp}
+    cv::vcucodec::EncoderInitParams params;
+    params.pictureEncSettings.codec  = cv::vcucodec::Codec_HEVC;
+    params.pictureEncSettings.width  = 1920;
+    params.pictureEncSettings.height = 1080;
+    params.rcSettings.mode = cv::vcucodec::RCMode::PLUGIN;   // custom firmware rate control
+    auto enc = cv::vcucodec::createEncoder("out.h265", params);
+@endcode
+
+Config file (as consumed by the `encode.py` sample):
+
+@code
+    [RATE_CONTROL]
+    RateCtrlMode = PLUGIN
+@endcode
+
+Unlike the bitrate-driven modes, PLUGIN mode does not require a target `Bitrate` — the plugin owns
+the QP decisions. The QP produced by the plugin still lands in the normal `[0, 51]` range.
+
+### How it works
+
+Selecting PLUGIN mode maps to the control-software rate-control mode `AL_RC_PLUGIN` (the same on VCU
+and VCU2). When the encoder channel is created the vcucodec module allocates a small **DMA-shared
+plugin context** and hands it to the firmware; before each frame is submitted the host updates that
+context, and the firmware plugin reads it to choose the picture QP. The rate-control *algorithm
+itself lives in the firmware*, so changing the policy means changing (and rebuilding) the firmware
+plugin — see below.
+
+### Building the plugged firmware {#customrc_firmware}
+
+The rate-control plugin is compiled from the control software and *linked into* a released encoder
+firmware binary (the plugin sources are provided; the base firmware is not). The tree and MCU
+toolchain are platform-specific:
+
+| | VCU (Zynq UltraScale+) | VCU2 (Versal Gen2) |
+|---|---|---|
+| Control software  | `vcu-ctrl-sw`                      | `vcu2-ctrl-sw`                           |
+| MCU / toolchain   | MicroBlaze (`mb-`)                | RISC-V (`riscv64-unknown-elf-`)          |
+| Plugin build dir  | `app_microblaze`                  | `app_riscv`                              |
+| Plugin interface  | `include/lib_rate_ctrl/I_Plugin.h`| `include/lib_rate_ctrl/PluginInterface.h`|
+| Demo algorithm    | `lib_rate_ctrl/ExampleRCPlugin.c` | `lib_rate_ctrl/ExampleRCPlugin.c`        |
+
+The build flow is the same on both — `make -f MakefilePlugin` compiles the plugin and wraps it into
+the released encoder firmware. `Firmware/` is a folder you create at the same level as the
+control-software checkout, holding the base firmware the plugin is merged into.
+
+#### VCU2 (Versal Gen2, RISC-V)
+
+1. Clone [Xilinx/vcu2-ctrl-sw](https://github.com/Xilinx/vcu2-ctrl-sw).
+2. Create a `Firmware/` folder at the same level as the `vcu2-ctrl-sw` checkout.
+3. Copy `encoder_firmware.bin` from [Xilinx/vcu2-firmware](https://github.com/Xilinx/vcu2-firmware)
+   into that `Firmware/` folder.
+4. `cd vcu2-ctrl-sw/app_riscv`
+5. Put the RISC-V GCC on `$PATH`, e.g.
+   `export PATH=/<install>/gnu/riscv/lin/bin:$PATH`
+6. `make -f MakefilePlugin` (add `V=1` for a verbose build, `make -f MakefilePlugin clean` to clean).
+7. The result is `bin/riscv/plugged_encoder_firmware.bin`; copy it over `/lib/firmware/ale2xx.fw`
+   on the target and reload the encoder driver.
+
+#### VCU (Zynq UltraScale+, MicroBlaze)
+
+1. Clone [Xilinx/vcu-ctrl-sw](https://github.com/Xilinx/vcu-ctrl-sw).
+2. Create a `Firmware/` folder at the same level as the `vcu-ctrl-sw` checkout.
+3. Copy the encoder firmware `al5e.fw` and `al5e_b.fw` from
+   [Xilinx/vcu-firmware](https://github.com/Xilinx/vcu-firmware) into that `Firmware/` folder.
+4. `cd vcu-ctrl-sw/app_microblaze`
+5. Put the MicroBlaze GCC on `$PATH`, e.g.
+   `export PATH=/<install>/gnu/microblaze/lin/bin:$PATH`
+6. `make -f MakefilePlugin` (a `cannot find entry symbol _start` warning is expected — the plugin
+   has no `main`).
+7. The results are `bin/mcu/plugged_al5e.fw` and `bin/mcu/plugged_al5e_b.fw` (the plugin's code and
+   data are merged into the two encoder firmware files); copy them over `/lib/firmware/al5e.fw` and
+   `/lib/firmware/al5e_b.fw` on the target and reload the encoder driver.
+
+To implement your own policy, edit `ExampleRCPlugin.c` (or add your sources in the platform's
+`app_<mcu>/plugin/plugin_src.mk`) per your platform's plugin-interface header, then rebuild. The shipped
+example simply ramps the QP from 30 up to 51 and wraps back to 30, which makes the plugin easy to
+spot in a trace.
+
+### Debugging
+
+The firmware plugin logs to the kernel message buffer with `pCtx->pMcu->trace(...)`; read it with
+`dmesg` on the target. With the example plugin a PLUGIN-mode encode prints one line per frame, e.g.
+
+@code
+    MCU0: choosepictureqp: qp:0x0000001e size:0x00000090
+    MCU0: choosepictureqp: qp:0x0000001f size:0x00000090
+    ...
+@endcode
+
+where the `qp` value follows the plugin's ramp (`0x1e` = 30 … `0x33` = 51, then wrapping). Seeing
+these lines confirms the plugged firmware is loaded and the plugin is driving rate control.
+
+### Python example
+
+@code{.py}
+    import cv2
+
+    params = cv2.vcucodec.EncoderInitParams()
+    params.pictureEncSettings.codec  = cv2.vcucodec.Codec_HEVC
+    params.pictureEncSettings.width  = 1920
+    params.pictureEncSettings.height = 1080
+    params.rcSettings.mode = cv2.vcucodec.RCMode_PLUGIN     # custom firmware rate control
+    enc = cv2.vcucodec.createEncoder("out.h265", params)
+
+    # ... feed frames with enc.write(...) / enc.writeFile(...), then enc.eos()
+    # Inspect the plugin's per-frame QP decisions on the target with: dmesg | grep choosepictureqp
+@endcode
+
+@see cv::vcucodec::RCMode, cv::vcucodec::RCSettings, cv::vcucodec::Encoder::setQpTable,
+     @ref vcucodec_qptable
+*/

@@ -248,8 +248,10 @@ class VCUConfigParser:
             return vcu.RCMode_CAPPED_VBR
         elif mode_str == 'LOW_LATENCY':
             return vcu.RCMode_LOW_LATENCY
+        elif mode_str == 'PLUGIN':
+            return vcu.RCMode_PLUGIN
         else:
-            raise ValueError(f"Invalid RateCtrlMode '{mode_str}'. Must be CONST_QP, CBR, VBR, CAPPED_VBR, or LOW_LATENCY")
+            raise ValueError(f"Invalid RateCtrlMode '{mode_str}'. Must be CONST_QP, CBR, VBR, CAPPED_VBR, LOW_LATENCY, or PLUGIN")
 
     def _parse_gop_mode(self, mode_str):
         """Parse GOP mode string to VCU enum.
