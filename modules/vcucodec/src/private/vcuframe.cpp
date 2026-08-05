@@ -117,7 +117,24 @@ void copyToBuffer(std::shared_ptr<AL_TBuffer> buffer,
                 throw std::runtime_error("Unsupported chroma mode for semi-planar");
             }
 
-            if (pSrcU)
+            if (pSrcU && pSrcV)
+            {
+                // Planar source (e.g. I420) into semi-planar dest (e.g. NV12):
+                // interleave the separate U and V planes into the UV plane.
+                int32_t nChroma = uvWidth / 2;
+                for (int32_t y = 0; y < uvHeight; ++y)
+                {
+                    const uint8_t* uRow = pSrcU + (size_t)y * srcPitchU;
+                    const uint8_t* vRow = pSrcV + (size_t)y * srcPitchV;
+                    uint8_t* dRow = pDstUV + (size_t)y * dstPitchUV;
+                    for (int32_t x = 0; x < nChroma; ++x)
+                    {
+                        std::memcpy(dRow + (size_t)(2 * x) * bytesPerPixel, uRow + (size_t)x * bytesPerPixel, bytesPerPixel);
+                        std::memcpy(dRow + (size_t)(2 * x + 1) * bytesPerPixel, vRow + (size_t)x * bytesPerPixel, bytesPerPixel);
+                    }
+                }
+            }
+            else if (pSrcU)
             {
                 // pSrcU points to interleaved UV data
                 copyPlane(pSrcU, pDstUV, srcPitchU, dstPitchUV, uvWidth, uvHeight, bytesPerPixel);

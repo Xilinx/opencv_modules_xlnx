@@ -460,7 +460,7 @@ std::map<int, _FormatInfo> const formatInfos =
     {FOURCC(Y012), {FOURCC(Y012), D, E, {}}},
 #endif
     {FOURCC(NV12), {FOURCC(NV12), D, E, {}}},
-    {FOURCC(I420), {FOURCC(I420), D, e, {}}},
+    {FOURCC(I420), {FOURCC(I420), D, E, {}}},
     {FOURCC(NV16), {FOURCC(NV16), D, E, {}}},
 #ifdef HAVE_VCU2_CTRLSW
     // VCU2 kernel-aligned "proper" fourcc: P010/P012/P210/P212 are MSB-aligned. The decoder can

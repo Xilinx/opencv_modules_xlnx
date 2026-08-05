@@ -397,6 +397,9 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     case FOURCC(NV12):
         chn.ePicFormat = AL_420_8BITS;
         break;
+    case FOURCC(I420):
+        chn.ePicFormat = AL_420_8BITS;
+        break;
     case FOURCC(P010):
     case FOURCC(P0AL):
         chn.ePicFormat = AL_420_10BITS;
@@ -611,9 +614,9 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
             commandQueue_.execute(frameIndex);
         });
 
-        // Cache source buffer format info to avoid repeated AL_GetPicFormat calls
-        auto sourceBuffer = enc_->getSharedBuffer();
-        int fourcc = AL_PixMapBuffer_GetFourCC(sourceBuffer.get());
+        // Cache the configured input format (e.g. I420). write(Mat) receives frames
+        // in this format; the plane copy converts to the HW source format (e.g. NV12).
+        int fourcc = currentSettings_.pic_.fourcc;
         srcFormatInfo_.reset(new FormatInfo(fourcc));
     }
     settingsString_ = currentSettingsString();

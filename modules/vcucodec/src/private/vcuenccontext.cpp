@@ -1553,8 +1553,9 @@ void EncoderContext::processFileQueue()
             }
 
             // Setup conversion if needed
-            AL_TPicFormat tSrcPicFmt;
-            AL_GetPicFormat(fileInfo.FourCC, &tSrcPicFmt);
+            AL_TPicFormat tFilePicFmt;
+            AL_GetPicFormat(fileInfo.FourCC, &tFilePicFmt);
+            AL_TPicFormat tSrcPicFmt = AL_EncGetSrcPicFormat(tFilePicFmt.eChromaMode, tFilePicFmt.uBitDepth, AL_SRC_RASTER);
             SrcConverterParams tSrcConverterParams = {
                 { fileInfo.PictWidth, fileInfo.PictHeight },
                 fileInfo.FourCC,
