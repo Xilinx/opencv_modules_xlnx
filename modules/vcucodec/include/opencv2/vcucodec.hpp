@@ -304,6 +304,7 @@ struct CV_EXPORTS_W_SIMPLE RCSettings
     CV_PROP_RW bool skipFrame;        ///< Skip a frame when the CPB buffer size is exceeded and
                                       ///< replace with skip MBs (or CTBs). Default: false.
     CV_PROP_RW int  maxSkip;          ///< Maximum number of skips in a row. Default: unlimited.
+    CV_PROP_RW int  lookAhead = 0;    ///< LookAhead depth in frames. 0 disables. Exclusive with TwoPass and subframe latency.
 
     CV_WRAP RCSettings(RCMode mode = RCMode::VBR, Entropy entropy = Entropy::CABAC,
         int bitrate = 4000, int maxBitrate = 4000, int cpbSize = 3000, int initialDelay = 1500,

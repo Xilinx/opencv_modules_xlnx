@@ -486,6 +486,9 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     // MaxPSNR for CAPPED_VBR mode: quality 0-20 maps to PSNR 28-48 dB
     chn.tRCParam.uMaxPSNR = (currentSettings_.rc_.maxQualityTarget + 28) * 100;
 
+    // LookAhead: frames analyzed by a first pass before the real encode. 0 disables it.
+    cfg.Settings.LookAhead = currentSettings_.rc_.lookAhead;
+
     // GOP settings from currentSettings_.gop_
     chn.tGopParam.uGopLength = currentSettings_.gop_.gopLength;
     chn.tGopParam.uNumB = currentSettings_.gop_.nrBFrames;

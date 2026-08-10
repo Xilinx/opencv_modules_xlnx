@@ -193,6 +193,8 @@ class VCUConfigParser:
                 lambda_settings.factors = [
                     float(x) for x in str(settings_data['lambdafactors']).split()
                 ]
+            if 'lookahead' in settings_data:
+                rc_settings.lookAhead = int(settings_data['lookahead'])
 
         # Create and return EncoderInitParams
         encoder_params = vcu.EncoderInitParams()
@@ -364,7 +366,7 @@ class VCUConfigParser:
                            'EnableSkip', 'MaxConsecutiveSkip'],
             'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth', 'EnableFillerData',
                          'NumSlices', 'DependentSlice', 'SubframeLatency', 'Alignment',
-                         'LambdaCtrlMode', 'LambdaFactors'],
+                         'LambdaCtrlMode', 'LambdaFactors', 'LookAhead'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }
 

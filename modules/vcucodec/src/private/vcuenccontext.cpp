@@ -58,6 +58,8 @@ extern "C" {
 #include <thread>
 #include <vector>
 
+#include "TwoPassMngr.h"
+
 namespace cv {
 namespace vcucodec {
 
@@ -651,6 +653,9 @@ private:
 };
 
 using Config = EncContext::Config;
+
+#include "vcuenclookahead.hpp"
+
 /*****************************************************************************/
 
 struct SrcConverterParams
@@ -680,7 +685,7 @@ struct LayerResources
     void Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerID,
               AL_TAllocator* pAllocator, int32_t chanId);
 
-    void PushResources(Config& cfg, EncoderSink* enc);
+    void PushResources(Config& cfg, EncoderSink* enc, EncoderLookAheadSink* encLA = nullptr);
 
     void OpenEncoderInput(Config& cfg, AL_HEncoder hEnc);
 
@@ -993,6 +998,13 @@ bool InitStreamBufPool(BufPool& pool, AL_TEncSettings& Settings, int32_t iLayerI
     static const int32_t smoothingStream = 2;
     numStreams = g_defaultMinBuffers + smoothingStream + GetNumBufForGop(Settings);
 
+    if (Settings.LookAhead > 0)
+    {
+        numStreams += 1;
+        if (AL_IS_AVC(Settings.tChParam[0].eProfile))
+            numStreams += 1;
+    }
+
     if (Settings.tChParam[0].bSubframeLatency)
     {
         numStreams *= Settings.tChParam[0].uNumSlices;
@@ -1068,6 +1080,7 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
 
     bool bUsePictureMeta = false;
     bUsePictureMeta |= cfg.RunInfo.printPictureType;
+    bUsePictureMeta |= (Settings.LookAhead > 0);
 
     if (iLayerID == 0 && bUsePictureMeta)
     {
@@ -1119,7 +1132,14 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
     // --------------------------------------------------------------------------------
     // Source Buffers
     // --------------------------------------------------------------------------------
-    int32_t srcBuffersCount = g_defaultMinBuffers + GetNumBufForGop(Settings);;
+    int32_t srcBuffersCount = g_defaultMinBuffers + GetNumBufForGop(Settings);
+
+    if (Settings.LookAhead > 0)
+    {
+        srcBuffersCount += Settings.LookAhead + GetNumBufForGop(Settings) * 2;
+        if (AL_IS_AVC(Settings.tChParam[0].eProfile))
+            srcBuffersCount += 1;
+    }
 
     InitSrcBufPool(SrcBufPool, pAllocator, tSrcFrameInfo, eSrcMode, srcBuffersCount,
                    static_cast<AL_ECodec>(AL_GET_CODEC(Settings.tChParam[0].eProfile)));
@@ -1128,7 +1148,7 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
     iReadCount = 0;
 }
 
-void LayerResources::PushResources(Config& cfg, EncoderSink* enc)
+void LayerResources::PushResources(Config& cfg, EncoderSink* enc, EncoderLookAheadSink* encLA)
 {
     (void)cfg;
 
@@ -1154,6 +1174,10 @@ void LayerResources::PushResources(Config& cfg, EncoderSink* enc)
             // the look ahead needs one more stream buffer to work AVC due to (potential) multi-core
             if (AL_IS_AVC(cfg.Settings.tChParam[0].eProfile))
                 iStreamNum += 1;
+
+            // Give the first stream buffer(s) to the first-pass LookAhead encoder.
+            if (encLA && i < iStreamNum)
+                hEnc = encLA->hEnc;
 
             bRet = AL_Encoder_PutStreamBuffer(hEnc, pStream.get());
         }
@@ -1351,7 +1375,16 @@ private:
 
     std::shared_ptr<EncLibInitter> libInit_;
     std::unique_ptr<EncoderSink> enc_;
+    std::unique_ptr<EncoderLookAheadSink> encLA_;
     std::vector<std::unique_ptr<LayerResources>> layerResources_;
+
+    void submitFrame(AL_TBuffer* Src)
+    {
+        if (encLA_)
+            encLA_->ProcessFrame(Src);
+        else
+            enc_->ProcessFrame(Src);
+    }
 
     // Per-frame command hook (see EncContext::setFrameCommandHook) and the running 0-based
     // encode-order index used to drive it from the file worker thread.
@@ -1412,15 +1445,16 @@ EncoderContext::~EncoderContext()
     }
 
     enc_.reset();
+    encLA_.reset();   // destroy the LookAhead first-pass encoder before its buffer pools
     layerResources_[0].reset();
 }
 
 void EncoderContext::writeFrame(Ptr<Frame> frame)
 {
     if (frame)
-        enc_->ProcessFrame(frame->getBuffer());
+        submitFrame(frame->getBuffer());
     else
-        enc_->ProcessFrame(nullptr);
+        submitFrame(nullptr);
 }
 
 void EncoderContext::writeFile(const String& filename, int startFrame, int numFrames,
@@ -1451,9 +1485,9 @@ void EncoderContext::writeFile(const String& filename, int startFrame, int numFr
 void EncoderContext::writeBuf(AL_TBuffer* pBuf)
 {
     if (pBuf)
-        enc_->ProcessFrame(pBuf);
+        submitFrame(pBuf);
     else
-        enc_->ProcessFrame(nullptr);
+        submitFrame(nullptr);
 }
 
 void EncoderContext::eos()
@@ -1476,8 +1510,8 @@ void EncoderContext::eos()
         }
     }
 
-    // Send EOS to encoder
-    enc_->ProcessFrame(nullptr);
+    // Send EOS to encoder (drains the LookAhead FIFO first when enabled).
+    submitFrame(nullptr);
 }
 
 void EncoderContext::processFileQueue()
@@ -1601,8 +1635,8 @@ void EncoderContext::processFileQueue()
                     frameCommandHook_(fileFrameIndex_);
                 }
 
-                // Send frame to encoder
-                enc_->ProcessFrame(sourceBuffer.get());
+                // Send frame to encoder (via LookAhead first pass when enabled).
+                submitFrame(sourceBuffer.get());
                 framesProcessed++;
                 fileFrameIndex_++;
             }
@@ -1692,6 +1726,16 @@ std::unique_ptr<EncoderSink> EncoderContext::channelMain(Config& cfg,
 
     EncoderSink* pFirstEncoderSink = enc.get();
 
+    if (cfg.Settings.LookAhead > 0)
+    {
+#ifdef HAVE_VCU2_CTRLSW
+        encLA_.reset(new EncoderLookAheadSink(cfg, ctx, pAllocator));
+#else
+        encLA_.reset(new EncoderLookAheadSink(cfg, pScheduler, pAllocator));
+#endif
+        encLA_->next = enc.get();
+    }
+
     // --------------------------------------------------------------------------------
     // Allocate/Push Layers resources
     AL_TEncoderInfo tEncInfo;
@@ -1701,7 +1745,7 @@ std::unique_ptr<EncoderSink> EncoderContext::channelMain(Config& cfg,
     {
         auto multisinkRec = std::unique_ptr<MultiSink>(new MultiSink);
         pLayerResources[i]->Init(cfg, tEncInfo, i, pAllocator, chanId);
-        pLayerResources[i]->PushResources(cfg, enc.get());
+        pLayerResources[i]->PushResources(cfg, enc.get(), encLA_.get());
 
         // Rec file creation
         std::string LayerRecFileName = cfg.RecFileName;
