@@ -462,6 +462,10 @@ std::map<int, _FormatInfo> const formatInfos =
     {FOURCC(NV12), {FOURCC(NV12), D, E, {}}},
     {FOURCC(I420), {FOURCC(I420), D, E, {}}},
     {FOURCC(NV16), {FOURCC(NV16), D, E, {}}},
+#ifdef HAVE_VCU_CTRLSW
+    {FOURCC(XV15), {FOURCC(XV15), D, E, {}}},
+    {FOURCC(XV20), {FOURCC(XV20), D, E, {}}},
+#endif
 #ifdef HAVE_VCU2_CTRLSW
     // VCU2 kernel-aligned "proper" fourcc: P010/P012/P210/P212 are MSB-aligned. The decoder can
     // output them, but the encoder does not accept MSB input, so they are decode-only here.

@@ -408,6 +408,22 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         if (profile == AL_PROFILE_UNKNOWN)
             chn.eProfile = AL_PROFILE_HEVC_MAIN10;
         break;
+#ifdef HAVE_VCU_CTRLSW
+    case FOURCC(XV15):
+        chn.ePicFormat = AL_420_10BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 10);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN10;
+        break;
+    case FOURCC(XV20):
+        chn.ePicFormat = AL_422_10BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 10);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN_422_10;
+        break;
+#endif
     case FOURCC(P012):
     case FOURCC(P0CL):
         chn.ePicFormat = AL_420_12BITS;

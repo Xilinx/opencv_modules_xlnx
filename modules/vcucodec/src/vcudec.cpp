@@ -91,6 +91,34 @@ std::vector<Mat> buildSrcPlanes(AL_TBuffer* pFrame, const RawInfo& info)
             AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), (size_t)info.stride));
         break;
     }
+#ifdef HAVE_VCU_CTRLSW
+    case FOURCC(XV15):
+    {
+        // XV15: packed 10-bit 4:2:0 semi-planar (3 samples per 32 bits).
+        // Expose planes as raw packed bytes so copyTo()/write() round-trip them.
+        int32_t packedRow = ((info.width + 2) / 3) * 4;
+        Size szY(packedRow, info.height);
+        Size szUV(packedRow, info.height / 2);
+        planes.push_back(Mat(szY,  CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y),  (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(XV20):
+    {
+        // XV20: packed 10-bit 4:2:2 semi-planar (3 samples per 32 bits).
+        // Expose planes as raw packed bytes so copyTo()/write() round-trip them.
+        int32_t packedRow = ((info.width + 2) / 3) * 4;
+        Size szY(packedRow, info.height);
+        Size szUV(packedRow, info.height);
+        planes.push_back(Mat(szY,  CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y),  (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), (size_t)info.stride));
+        break;
+    }
+#endif
     case FOURCC(NV16):
     {
         Size szY(info.width, info.height);

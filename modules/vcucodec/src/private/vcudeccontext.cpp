@@ -898,6 +898,16 @@ DecContext::create(Ptr<Config> pDecConfig, Ptr<RawOutput> rawOutput, WorkerConfi
     pDecConfig->sDecDevicePath = sDecDefaultDevicePath;
 
     pDecConfig->tUserOutputSettings.tPicFormat.eStorageMode = AL_FB_RASTER;
+
+    /* Propagate the requested output packing so the decoder emits the packed (XV) format
+       directly, instead of labeling packed 10-bit data as P210 and then corrupting it via a
+       P210->XV20 software re-pack. */
+    if (pDecConfig->tOutputFourCC != FOURCC(NULL))
+    {
+        AL_TPicFormat tReqFmt;
+        AL_GetPicFormat(pDecConfig->tOutputFourCC, &tReqFmt);
+        pDecConfig->tUserOutputSettings.tPicFormat.eSamplePackMode = tReqFmt.eSamplePackMode;
+    }
 #ifdef HAVE_VCU2_CTRLSW
     pDecConfig->tUserOutputSettings.bCustomFormat = true;
 #endif

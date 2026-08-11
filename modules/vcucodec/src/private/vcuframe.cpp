@@ -85,6 +85,25 @@ void copyToBuffer(std::shared_ptr<AL_TBuffer> buffer,
     int32_t yHeight = dimension.iHeight;
     int32_t yWidth = dimension.iWidth;
 
+#ifdef HAVE_VCU_CTRLSW
+    if (fourcc == FOURCC(XV15) || fourcc == FOURCC(XV20))
+    {
+        // XV15 (4:2:0) / XV20 (4:2:2): packed 10-bit semi-planar (3 samples per 32 bits).
+        // Copy packed rows verbatim; sample-width math does not apply.
+        int32_t packedRow = ((yWidth + 2) / 3) * 4;
+        int32_t uvHeight = (fourcc == FOURCC(XV20)) ? yHeight : (yHeight + 1) / 2;
+        uint8_t* pDstUV = AL_PixMapBuffer_GetPlaneAddress(buffer.get(), AL_PLANE_UV);
+        int32_t dstPitchUV = AL_PixMapBuffer_GetPlanePitch(buffer.get(), AL_PLANE_UV);
+        if (pSrcY)
+            for (int32_t y = 0; y < yHeight; ++y)
+                std::memcpy(pDstY + (size_t)y * dstPitchY, pSrcY + (size_t)y * srcPitchY, packedRow);
+        if (pSrcU)
+            for (int32_t y = 0; y < uvHeight; ++y)
+                std::memcpy(pDstUV + (size_t)y * dstPitchUV, pSrcU + (size_t)y * srcPitchU, packedRow);
+        return;
+    }
+
+#endif
     if (pSrcY)
     {
         copyPlane(pSrcY, pDstY, srcPitchY, dstPitchY, yWidth, yHeight, bytesPerPixel);

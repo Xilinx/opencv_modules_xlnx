@@ -220,6 +220,8 @@ class VCUConfigParser:
             'I420': 0x30323449,  # fourcc('I', '4', '2', '0')
             'NV12': 0x3231564E,  # fourcc('N', 'V', '1', '2')
             'P010': 0x30313050,  # fourcc('P', '0', '1', '0')
+            'XV15': 0x35315658,  # fourcc('X', 'V', '1', '5')
+            'XV20': 0x30325658,  # fourcc('X', 'V', '2', '0')
             'P012': 0x32313050,  # fourcc('P', '0', '1', '2')
             'NV16': 0x3631564E,  # fourcc('N', 'V', '1', '6')
             'P210': 0x30313250,  # fourcc('P', '2', '1', '0')
@@ -408,4 +410,4 @@ class VCUConfigParser:
 
     @staticmethod
     def get_supported_formats():
-        return ['Y800', 'Y010', 'Y012', 'I420', 'NV12', 'P010', 'P012', 'P0AL', 'P0CL', 'NV16', 'P210', 'P212', 'P2AL', 'P2CL', 'I444', 'I4AL', 'I4CL', 'HEVC_MAIN', 'AVC_MAIN']
+        return ['Y800', 'Y010', 'Y012', 'I420', 'NV12', 'XV15', 'P010', 'P012', 'P0AL', 'P0CL', 'NV16', 'XV20', 'P210', 'P212', 'P2AL', 'P2CL', 'I444', 'I4AL', 'I4CL', 'HEVC_MAIN', 'AVC_MAIN']
