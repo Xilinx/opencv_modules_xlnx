@@ -11,6 +11,16 @@ BLUE = '\033[94m'
 YELLOW = '\033[93m'
 RESET = '\033[0m'
 
+# Names match the RateCtrlMode values accepted in the cfg file.
+RC_MODES = {
+    'CONST_QP': vcu.RCMode_CONST_QP,
+    'CBR': vcu.RCMode_CBR,
+    'VBR': vcu.RCMode_VBR,
+    'CAPPED_VBR': vcu.RCMode_CAPPED_VBR,
+    'LOW_LATENCY': vcu.RCMode_LOW_LATENCY,
+    'PLUGIN': vcu.RCMode_PLUGIN,
+}
+
 
 def show_params(encoder_params, title="VCU Encoder Parameters"):
     """Display encoder parameter values."""
@@ -25,8 +35,7 @@ def show_params(encoder_params, title="VCU Encoder Parameters"):
         return {vcu.Codec_AVC: 'AVC', vcu.Codec_HEVC: 'HEVC', vcu.Codec_JPEG: 'JPEG'}.get(c, str(c))
 
     def rcmode_str(m):
-        return {vcu.RCMode_CONST_QP: 'CONST_QP', vcu.RCMode_CBR: 'CBR', vcu.RCMode_VBR: 'VBR',
-                vcu.RCMode_LOW_LATENCY: 'LOW_LATENCY', vcu.RCMode_CAPPED_VBR: 'CAPPED_VBR'}.get(m, str(m))
+        return next((name for name, mode in RC_MODES.items() if mode == m), str(m))
 
     def entropy_str(e):
         return {vcu.Entropy_CAVLC: 'CAVLC', vcu.Entropy_CABAC: 'CABAC'}.get(e, str(e))
@@ -160,6 +169,8 @@ def main():
     codec_group.add_argument("--avc", action="store_true", help="Encode using AVC/H.264 codec")
     codec_group.add_argument("--hevc", action="store_true", help="Encode using HEVC/H.265 codec (default)")
     parser.add_argument("--cfg", "-c", help="Input configuration file path")
+    parser.add_argument("--rc", type=str.upper, choices=sorted(RC_MODES),
+                        help="Rate control mode (overrides config RateCtrlMode)")
     parser.add_argument("--input", "-i", help="Input YUV file (overrides config YUVFile)")
     parser.add_argument("--output", "-o", help="Output bitstream file (overrides config BitstreamFile)")
     parser.add_argument("--first-picture", "-f", type=int, help="First picture index (overrides config FirstPicture)")
@@ -186,6 +197,11 @@ def main():
     config.validate_keys()
 
     encoder_params = config.create_encoder_params()
+
+    if args.rc:
+        rc = encoder_params.rcSettings
+        rc.mode = RC_MODES[args.rc]
+        encoder_params.rcSettings = rc
 
     # Set codec from command line (default to HEVC)
     # Note: Need to get/modify/reassign because Python bindings return copies

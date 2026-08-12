@@ -18,6 +18,7 @@ Examples:
   ./exqp.py --avc -i in.avc -o out.avc --test 4        # absolute QP = 40 (ABSOLUTE mode)
 """
 import argparse
+import sys
 import cv2
 import cv2.vcucodec as vcu
 import numpy as np
@@ -137,6 +138,10 @@ def main():
 
     del dec
     del enc
+
+    if args.max_frames and frame_idx < args.max_frames:
+        print(f"Error: input holds {frame_idx} frames, {args.max_frames} requested", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
