@@ -47,6 +47,7 @@ public:
         ProfileSettings profile_;
         SliceSettings slice_;
         GlobalMotionVector gmv_;
+        ColorConfig color_;
     };
 
     virtual ~VCUEncoder();

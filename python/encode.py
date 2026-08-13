@@ -141,6 +141,25 @@ def build_hdr_seis():
     return seis
 
 
+def apply_hdr10_color_config(params):
+    """Signal HDR10 (BT.2020 primaries, PQ transfer, BT.2020 NCL matrix) in the SPS VUI.
+
+    The HDR SEIs are only descriptive metadata; without this a player has no reason to treat the
+    stream as PQ and will render it as BT.709 SDR. Matches the BT.2020 primaries in build_hdr_seis().
+
+    Acts as a preset only: any of ColourDescription / TransferCharac / ColourMatrix already set
+    from the cfg file wins, matching ctrlsw_encoder where the cfg file is authoritative.
+    """
+    color = params.colorConfig
+    if color.colourDescription == vcu.ColourDescription_UNSPECIFIED:
+        color.colourDescription = vcu.ColourDescription_BT_2020
+    if color.transferCharacteristics == vcu.TransferCharacteristics_UNSPECIFIED:
+        color.transferCharacteristics = vcu.TransferCharacteristics_BT_2100_PQ
+    if color.colourMatrixCoeffs == vcu.ColourMatrixCoefficients_UNSPECIFIED:
+        color.colourMatrixCoeffs = vcu.ColourMatrixCoefficients_BT_2100_YCBCR
+    params.colorConfig = color
+
+
 def parse_max_picture(value):
     """Parse MaxPicture value: 'ALL' or integer (0 means all frames)."""
     if value is None:
@@ -175,7 +194,7 @@ def main():
     parser.add_argument("--output", "-o", help="Output bitstream file (overrides config BitstreamFile)")
     parser.add_argument("--first-picture", "-f", type=int, help="First picture index (overrides config FirstPicture)")
     parser.add_argument("--max-picture", "-m", help="Max pictures to encode, or 'ALL' (overrides config MaxPicture)")
-    parser.add_argument("--hdr", action="store_true", help="Embed HDR SEIs (BT.2020 MDCV + CLL) from frame 0")
+    parser.add_argument("--hdr", action="store_true", help="Encode as HDR10: BT.2020/PQ VUI colour description plus MDCV + CLL SEIs from frame 0")
     parser.add_argument("--quiet", "-q", action="store_true", help="Suppress output messages")
 
     args = parser.parse_args()
@@ -250,6 +269,10 @@ def main():
     rc = encoder_params.rcSettings
     gop = encoder_params.gopSettings
 
+    # The VUI colour description lives in the SPS, so it must be set before createEncoder().
+    if args.hdr:
+        apply_hdr10_color_config(encoder_params)
+
     if not args.quiet or args.show:
         if args.show:
             show_params(encoder_params, "VCU Encoder Config Parameters")
@@ -274,7 +297,7 @@ def main():
     if args.hdr:
         encoder.setHDR(0, build_hdr_seis())
         if not args.quiet:
-            print(f"{GREEN}HDR SEIs (MDCV + CLL) scheduled from frame 0{RESET}")
+            print(f"{GREEN}HDR10: BT.2020/PQ VUI + MDCV/CLL SEIs from frame 0{RESET}")
 
     # Encode the file
     if not args.quiet:

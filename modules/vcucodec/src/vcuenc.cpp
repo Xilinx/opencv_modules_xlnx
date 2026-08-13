@@ -357,6 +357,17 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         cfg.Settings.eEnableSEI
         | AL_SEI_MDCV | AL_SEI_CLL | AL_SEI_ATC | AL_SEI_ST2094_10 | AL_SEI_ST2094_40);
 
+    // VUI colour description. The library derives colour_description_present_flag from these three
+    // fields, so leaving them UNSPECIFIED keeps the colour description out of the SPS.
+    const ColorConfig& color = currentSettings_.color_;
+    cfg.Settings.tColorConfig.eColourDescription =
+        static_cast<AL_EColourDescription>(color.colourDescription);
+    cfg.Settings.tColorConfig.eTransferCharacteristics =
+        static_cast<AL_ETransferCharacteristics>(color.transferCharacteristics);
+    cfg.Settings.tColorConfig.eColourMatrixCoeffs =
+        static_cast<AL_EColourMatrixCoefficients>(color.colourMatrixCoeffs);
+    chn.bVideoFullRange = color.videoFullRange;
+
     // Apply level if specified (override library default)
     if (level != 0)
         chn.uLevel = level;
@@ -1260,6 +1271,7 @@ void VCUEncoder::initSettings(const EncoderInitParams& params)
     currentSettings_.gop_ = params.gopSettings;
     currentSettings_.profile_ = params.profileSettings;
     currentSettings_.slice_ = params.sliceSettings;
+    currentSettings_.color_ = params.colorConfig;
 }
 
 String VCUEncoder::currentSettingsString() const

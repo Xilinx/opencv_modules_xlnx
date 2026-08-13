@@ -166,6 +166,7 @@ class VCUConfigParser:
         # Configure SETTINGS section parameters (including slice settings)
         slice_settings = vcu.SliceSettings()
         lambda_settings = vcu.LambdaSettings()
+        color_config = vcu.ColorConfig()
         if 'SETTINGS' in self.sections:
             settings_data = self.sections['SETTINGS']
             if 'profile' in settings_data:
@@ -195,6 +196,18 @@ class VCUConfigParser:
                 ]
             if 'lookahead' in settings_data:
                 rc_settings.lookAhead = int(settings_data['lookahead'])
+            # VUI colour description (SPS). Key names match exe_encoder/CfgParser.cpp.
+            if 'colourdescription' in settings_data:
+                color_config.colourDescription = self._parse_colour_description(
+                    settings_data['colourdescription'])
+            if 'transfercharac' in settings_data:
+                color_config.transferCharacteristics = self._parse_transfer_charac(
+                    settings_data['transfercharac'])
+            if 'colourmatrix' in settings_data:
+                color_config.colourMatrixCoeffs = self._parse_colour_matrix(
+                    settings_data['colourmatrix'])
+            if 'videofullrange' in settings_data:
+                color_config.videoFullRange = self._parse_bool(settings_data['videofullrange'])
 
         # Create and return EncoderInitParams
         encoder_params = vcu.EncoderInitParams()
@@ -204,6 +217,7 @@ class VCUConfigParser:
         encoder_params.profileSettings = profile_settings
         encoder_params.sliceSettings = slice_settings
         encoder_params.lambdaSettings = lambda_settings
+        encoder_params.colorConfig = color_config
 
         return encoder_params
 
@@ -300,6 +314,84 @@ class VCUConfigParser:
         # Profile is passed as a string to the firmware and parsed in C++ code
         return str(profile_str)
 
+    # Token spellings below are taken verbatim from exe_encoder/CfgParser.cpp so
+    # the same cfg file works with ctrlsw_encoder and with cv::vcucodec.
+    _COLOUR_DESCRIPTIONS = {
+        'COLOUR_DESC_RESERVED': 'RESERVED',
+        'COLOUR_DESC_UNSPECIFIED': 'UNSPECIFIED',
+        'COLOUR_DESC_BT_470_NTSC': 'BT_470_NTSC',
+        'COLOUR_DESC_BT_601_NTSC': 'BT_601_NTSC',
+        'COLOUR_DESC_BT_601_PAL': 'BT_601_PAL',
+        'COLOUR_DESC_BT_709': 'BT_709',
+        'COLOUR_DESC_BT_2020': 'BT_2020',
+        'COLOUR_DESC_SMPTE_240M': 'SMPTE_240M',
+        'COLOUR_DESC_SMPTE_ST_428': 'SMPTE_ST_428',
+        'COLOUR_DESC_SMPTE_RP_431': 'SMPTE_RP_431',
+        'COLOUR_DESC_SMPTE_EG_432': 'SMPTE_EG_432',
+        'COLOUR_DESC_EBU_3213': 'EBU_3213',
+        'COLOUR_DESC_GENERIC_FILM': 'GENERIC_FILM',
+    }
+
+    _TRANSFER_CHARACTERISTICS = {
+        'TRANSFER_BT_709': 'BT_709',
+        'TRANSFER_UNSPECIFIED': 'UNSPECIFIED',
+        'TRANSFER_BT_470_SYSTEM_M': 'BT_470_SYSTEM_M',
+        'TRANSFER_BT_470_SYSTEM_B': 'BT_470_SYSTEM_B',
+        'TRANSFER_BT_601': 'BT_601',
+        'TRANSFER_SMPTE_240M': 'SMPTE_240M',
+        'TRANSFER_LINEAR': 'LINEAR',
+        'TRANSFER_LOG': 'LOG',
+        'TRANSFER_LOG_EXTENDED': 'LOG_EXTENDED',
+        'TRANSFER_IEC_61966_2_4': 'IEC_61966_2_4',
+        'TRANSFER_BT_1361': 'BT_1361',
+        'TRANSFER_IEC_61966_2_1': 'IEC_61966_2_1',
+        'TRANSFER_BT_2020_10B': 'BT_2020_10B',
+        'TRANSFER_BT_2020_12B': 'BT_2020_12B',
+        'TRANSFER_BT_2100_PQ': 'BT_2100_PQ',
+        'TRANSFER_SMPTE_428': 'SMPTE_428',
+        'TRANSFER_BT_2100_HLG': 'BT_2100_HLG',
+    }
+
+    _COLOUR_MATRICES = {
+        'COLOUR_MAT_GBR': 'GBR',
+        'COLOUR_MAT_BT_709': 'BT_709',
+        'COLOUR_MAT_UNSPECIFIED': 'UNSPECIFIED',
+        'COLOUR_MAT_USFCC_CFR': 'USFCC_CFR',
+        'COLOUR_MAT_BT_601_625': 'BT_601_625',
+        'COLOUR_MAT_BT_601_525': 'BT_601_525',
+        'COLOUR_MAT_BT_SMPTE_240M': 'SMPTE_240M',
+        'COLOUR_MAT_BT_YCGCO': 'YCGCO',
+        'COLOUR_MAT_BT_2100_YCBCR': 'BT_2100_YCBCR',
+        'COLOUR_MAT_BT_2020_CLS': 'BT_2020_CLS',
+        'COLOUR_MAT_SMPTE_2085': 'SMPTE_2085',
+        'COLOUR_MAT_CHROMA_DERIVED_NCLS': 'CHROMA_DERIVED_NCLS',
+        'COLOUR_MAT_CHROMA_DERIVED_CLS': 'CHROMA_DERIVED_CLS',
+        'COLOUR_MAT_BT_2100_ICTCP': 'BT_2100_ICTCP',
+    }
+
+    @staticmethod
+    def _lookup_enum(value_str, table, prefix, key_name):
+        token = str(value_str).strip().upper()
+        if token not in table:
+            raise ValueError(
+                f"Invalid {key_name} '{token}'. Must be one of: {', '.join(sorted(table))}")
+        return getattr(vcu, f"{prefix}_{table[token]}")
+
+    def _parse_colour_description(self, value_str):
+        """Parse ColourDescription string to VCU enum."""
+        return self._lookup_enum(value_str, self._COLOUR_DESCRIPTIONS,
+                                 'ColourDescription', 'ColourDescription')
+
+    def _parse_transfer_charac(self, value_str):
+        """Parse TransferCharac string to VCU enum."""
+        return self._lookup_enum(value_str, self._TRANSFER_CHARACTERISTICS,
+                                 'TransferCharacteristics', 'TransferCharac')
+
+    def _parse_colour_matrix(self, value_str):
+        """Parse ColourMatrix string to VCU enum."""
+        return self._lookup_enum(value_str, self._COLOUR_MATRICES,
+                                 'ColourMatrixCoefficients', 'ColourMatrix')
+
     def _parse_entropy(self, entropy_str):
         """Parse entropy mode string to VCU enum.
         Accepts: MODE_CAVLC, MODE_CABAC
@@ -368,7 +460,8 @@ class VCUConfigParser:
                            'EnableSkip', 'MaxConsecutiveSkip'],
             'SETTINGS': ['Profile', 'Level', 'Tier', 'EntropyMode', 'ChromaMode', 'BitDepth', 'EnableFillerData',
                          'NumSlices', 'DependentSlice', 'SubframeLatency', 'Alignment',
-                         'LambdaCtrlMode', 'LambdaFactors', 'LookAhead'],
+                         'LambdaCtrlMode', 'LambdaFactors', 'LookAhead',
+                         'ColourDescription', 'TransferCharac', 'ColourMatrix', 'VideoFullRange'],
             'RUN': ['Loop', 'FirstPicture', 'MaxPicture']
         }
 

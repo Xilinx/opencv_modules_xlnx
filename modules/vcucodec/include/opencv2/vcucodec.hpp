@@ -429,6 +429,9 @@ struct CV_EXPORTS_W_SIMPLE EncoderInitParams
                                                       ///< requires RELATIVE.
     CV_PROP_RW LambdaSettings     lambdaSettings;     ///< RDO lambda control settings.
     CV_PROP_RW ScalingListSettings scalingList;       ///< Quantization scaling-list settings.
+    CV_PROP_RW ColorConfig        colorConfig;        ///< VUI colour description written to the SPS.
+                                                      ///< Required for HDR10: the HDR SEIs alone do
+                                                      ///< not mark a stream as PQ/BT.2020.
 
     CV_WRAP EncoderInitParams() = default;
 };

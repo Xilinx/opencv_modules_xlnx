@@ -277,6 +277,21 @@ enum class ColourMatrixCoefficients
     BT_2100_ICTCP        = 14, ///< BT.2100 ICtCp.
 };
 
+/// Struct ColorConfig carries the VUI colour description written into the SPS.
+///
+/// The encoder sets `colour_description_present_flag` only when at least one member differs from
+/// UNSPECIFIED, so leaving the defaults reproduces the previous behaviour of omitting the
+/// colour description entirely. For HDR10 use BT_2020 / BT_2100_PQ / BT_2100_YCBCR.
+struct CV_EXPORTS_W_SIMPLE ColorConfig
+{
+    CV_PROP_RW ColourDescription colourDescription = ColourDescription::UNSPECIFIED; ///< Source primaries.
+    CV_PROP_RW TransferCharacteristics transferCharacteristics = TransferCharacteristics::UNSPECIFIED; ///< Transfer function.
+    CV_PROP_RW ColourMatrixCoefficients colourMatrixCoeffs = ColourMatrixCoefficients::UNSPECIFIED; ///< RGB-to-YCbCr matrix.
+    CV_PROP_RW bool videoFullRange = false; ///< True for full-range YUV, false for the reduced CCIR601 range.
+
+    CV_WRAP ColorConfig() = default;
+};
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //  HDR SEI
 
