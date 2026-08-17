@@ -419,6 +419,13 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         if (profile == AL_PROFILE_UNKNOWN)
             chn.eProfile = AL_PROFILE_HEVC_MAIN10;
         break;
+    case FOURCC(I0AL):
+        chn.ePicFormat = AL_420_10BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 10);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN10;
+        break;
 #ifdef HAVE_VCU_CTRLSW
     case FOURCC(XV15):
         chn.ePicFormat = AL_420_10BITS;
@@ -443,7 +450,17 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         if (profile == AL_PROFILE_UNKNOWN)
             chn.eProfile = AL_PROFILE_HEVC_MAIN12;
         break;
+    case FOURCC(I0CL):
+        chn.ePicFormat = AL_420_12BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 12);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN12;
+        break;
     case FOURCC(NV16):
+        chn.ePicFormat = AL_422_8BITS;
+        break;
+    case FOURCC(I422):
         chn.ePicFormat = AL_422_8BITS;
         break;
     case FOURCC(P210):
@@ -454,8 +471,22 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
         if (profile == AL_PROFILE_UNKNOWN)
             chn.eProfile = AL_PROFILE_HEVC_MAIN_422_10;
         break;
+    case FOURCC(I2AL):
+        chn.ePicFormat = AL_422_10BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 10);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN_422_10;
+        break;
     case FOURCC(P212):
     case FOURCC(P2CL):
+        chn.ePicFormat = AL_422_12BITS;
+        AL_SET_BITDEPTH(&chn.ePicFormat, 12);
+        chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);
+        if (profile == AL_PROFILE_UNKNOWN)
+            chn.eProfile = AL_PROFILE_HEVC_MAIN_422_12;
+        break;
+    case FOURCC(I2CL):
         chn.ePicFormat = AL_422_12BITS;
         AL_SET_BITDEPTH(&chn.ePicFormat, 12);
         chn.uSrcBitDepth = AL_GET_BITDEPTH(chn.ePicFormat);

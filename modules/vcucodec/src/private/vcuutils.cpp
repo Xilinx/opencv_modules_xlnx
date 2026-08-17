@@ -462,6 +462,7 @@ std::map<int, _FormatInfo> const formatInfos =
     {FOURCC(NV12), {FOURCC(NV12), D, E, {}}},
     {FOURCC(I420), {FOURCC(I420), D, E, {}}},
     {FOURCC(NV16), {FOURCC(NV16), D, E, {}}},
+    {FOURCC(I422), {FOURCC(I422), D, E, {}}},
 #ifdef HAVE_VCU_CTRLSW
     {FOURCC(XV15), {FOURCC(XV15), D, E, {}}},
     {FOURCC(XV20), {FOURCC(XV20), D, E, {}}},
@@ -478,6 +479,10 @@ std::map<int, _FormatInfo> const formatInfos =
     {FOURCC(P0CL), {FOURCC(P0CL), d, E, {}}},
     {FOURCC(P2AL), {FOURCC(P2AL), d, E, {}}},
     {FOURCC(P2CL), {FOURCC(P2CL), d, E, {}}},
+    {FOURCC(I0AL), {FOURCC(I0AL), D, E, {}}},
+    {FOURCC(I0CL), {FOURCC(I0CL), D, E, {}}},
+    {FOURCC(I2AL), {FOURCC(I2AL), D, E, {}}},
+    {FOURCC(I2CL), {FOURCC(I2CL), D, E, {}}},
     {FOURCC(I444), {FOURCC(I444), D, E, {}}},
     {FOURCC(I4AL), {FOURCC(I4AL), D, E, {}}},
     {FOURCC(I4CL), {FOURCC(I4CL), D, E, {}}},
@@ -488,6 +493,8 @@ std::map<int, _FormatInfo> const formatInfos =
     {FOURCC(P210), {FOURCC(P210), D, E, {}}},
     {FOURCC(P0AL), {FOURCC(P0AL), d, E, {}}},
     {FOURCC(P2AL), {FOURCC(P2AL), d, E, {}}},
+    {FOURCC(I0AL), {FOURCC(I0AL), D, E, {}}},
+    {FOURCC(I2AL), {FOURCC(I2AL), D, E, {}}},
 #endif
 };
 

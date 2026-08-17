@@ -80,6 +80,45 @@ std::vector<Mat> buildSrcPlanes(AL_TBuffer* pFrame, const RawInfo& info)
             AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV));
         break;
     }
+    case FOURCC(I422):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height);
+        size_t stepUV = info.stride / 2;
+        planes.push_back(Mat(szY,  CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepUV));
+        planes.push_back(Mat(szUV, CV_8UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV));
+        break;
+    }
+    case FOURCC(I0AL):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height / 2);
+        size_t stepUV = info.stride / 2;
+        planes.push_back(Mat(szY,  CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepUV));
+        planes.push_back(Mat(szUV, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV));
+        break;
+    }
+    case FOURCC(I0CL):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height / 2);
+        size_t stepUV = info.stride / 2;
+        planes.push_back(Mat(szY,  CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepUV));
+        planes.push_back(Mat(szUV, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV));
+        break;
+    }
     case FOURCC(P010):
     case FOURCC(P012):
     {
@@ -127,6 +166,32 @@ std::vector<Mat> buildSrcPlanes(AL_TBuffer* pFrame, const RawInfo& info)
             AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y),  (size_t)info.stride));
         planes.push_back(Mat(szUV, CV_8UC2,
             AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_UV), (size_t)info.stride));
+        break;
+    }
+    case FOURCC(I2AL):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height);
+        size_t stepUV = info.stride / 2;
+        planes.push_back(Mat(szY,  CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepUV));
+        planes.push_back(Mat(szUV, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV));
+        break;
+    }
+    case FOURCC(I2CL):
+    {
+        Size szY(info.width, info.height);
+        Size szUV(info.width / 2, info.height);
+        size_t stepUV = info.stride / 2;
+        planes.push_back(Mat(szY,  CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_Y), (size_t)info.stride));
+        planes.push_back(Mat(szUV, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_U), stepUV));
+        planes.push_back(Mat(szUV, CV_16UC1,
+            AL_PixMapBuffer_GetPlaneAddress(pFrame, AL_PLANE_V), stepUV));
         break;
     }
     case FOURCC(P210):

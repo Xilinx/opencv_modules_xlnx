@@ -24,10 +24,15 @@ Supported output FOURCC codes (use @ref cv::vcucodec::Decoder::getFourCCs "Decod
 | NV12   | YUV | 8-bit | 4:2:0 | Semi-planar (Y + interleaved UV) |
 | I420   | YUV | 8-bit | 4:2:0 | Planar (Y + U + V) (software conversion) |
 | P010   | YUV | 10-bit | 4:2:0 | Semi-planar |
+| I0AL   | YUV | 10-bit | 4:2:0 | Planar (Y + U + V) (software conversion) |
 | P012   | YUV | 12-bit | 4:2:0 | VCU2 only |
+| I0CL   | YUV | 12-bit | 4:2:0 | Planar (Y + U + V) (software conversion), VCU2 only |
 | NV16   | YUV | 8-bit | 4:2:2 | Semi-planar |
+| I422   | YUV | 8-bit | 4:2:2 | Planar (Y + U + V) (software conversion) |
 | P210   | YUV | 10-bit | 4:2:2 | Semi-planar |
+| I2AL   | YUV | 10-bit | 4:2:2 | Planar (Y + U + V) (software conversion) |
 | P212   | YUV | 12-bit | 4:2:2 | VCU2 only |
+| I2CL   | YUV | 12-bit | 4:2:2 | Planar (Y + U + V) (software conversion), VCU2 only |
 | I444   | YUV | 8-bit | 4:4:4 | VCU2 only |
 | I4AL   | YUV | 10-bit | 4:4:4 | VCU2 only |
 | I4CL   | YUV | 12-bit | 4:4:4 | VCU2 only |
