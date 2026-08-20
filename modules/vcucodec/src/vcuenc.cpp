@@ -843,6 +843,17 @@ bool VCUEncoder::set(int propId, double value)
     }
 }
 
+static int sliceTypeToFrameType(int sliceType)
+{
+    switch (sliceType)
+    {
+    case AL_SLICE_I: return 'I';
+    case AL_SLICE_P: return 'P';
+    case AL_SLICE_B: return 'B';
+    default:         return '?';
+    }
+}
+
 static int codecToFourCC(Codec codec)
 {
     switch (codec)
@@ -880,6 +891,12 @@ double VCUEncoder::get(int propId) const
             return static_cast<double>(currentFrameIndex_) * 1000.0 / fps;
         return 0.0;
     }
+    case CAP_PROP_FRAME_TYPE:
+        return static_cast<double>(sliceTypeToFrameType(enc_ ? enc_->lastFrameType() : -1));
+    case VIDEOWRITER_PROP_FRAMEBYTES:
+        return enc_ ? static_cast<double>(enc_->lastFrameBytes()) : 0.0;
+    case VCU_PROP_BITDEPTH:
+        return static_cast<double>(AL_GetBitDepth(currentSettings_.pic_.fourcc));
     default:
         return 0.0;
     }

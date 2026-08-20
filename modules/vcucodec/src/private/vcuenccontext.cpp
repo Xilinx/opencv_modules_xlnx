@@ -301,6 +301,8 @@ struct EncoderSink
     }
     int fps() {return fps_;}
     int nrFrames() {return m_input_picCount[0];}
+    int lastFrameType() const {return m_lastFrameType.load();}
+    uint64_t lastFrameBytes() const {return m_lastFrameBytes.load();}
 
     std::unique_ptr<IFrameSink> RecOutput[MAX_NUM_REC_OUTPUT];
     DataCallback dataCallback_;
@@ -317,6 +319,8 @@ private:
     int32_t iPendingStreamCnt;
     int32_t m_input_picCount[MAX_NUM_LAYER] {};
     int32_t m_pictureType = -1;
+    std::atomic<int32_t> m_lastFrameType{-1};
+    std::atomic<uint64_t> m_lastFrameBytes{0};
     uint64_t m_StartTime = 0;
     uint64_t m_EndTime = 0;
     int fps_ = 0;
@@ -500,13 +504,17 @@ private:
             iPendingStreamCnt--;
         else
         {
-            if (m_pictureType != -1)
+            auto const pPicMeta = (AL_TPictureMetaData*)AL_Buffer_GetMetaData(
+                pStream->buf(), AL_META_TYPE_PICTURE);
+            if (pPicMeta)
             {
-                auto const pMeta = (AL_TPictureMetaData*)AL_Buffer_GetMetaData(
-                    pStream->buf(), AL_META_TYPE_PICTURE);
-                m_pictureType = pMeta->eType;
-                LogInfo("Picture Type %s (%i) %s\n", PictTypeToString(pMeta->eType).c_str(),
-                        m_pictureType, pMeta->bSkipped ? "is skipped" : "");
+                m_lastFrameType = static_cast<int32_t>(pPicMeta->eType);
+                if (m_pictureType != -1)
+                {
+                    m_pictureType = pPicMeta->eType;
+                    LogInfo("Picture Type %s (%i) %s\n", PictTypeToString(pPicMeta->eType).c_str(),
+                            m_pictureType, pPicMeta->bSkipped ? "is skipped" : "");
+                }
             }
 
             AL_TRateCtrlMetaData* pMeta = (AL_TRateCtrlMetaData*)AL_Buffer_GetMetaData(
@@ -515,10 +523,13 @@ private:
             if (pMeta && pMeta->bFilled)
             {
             }
+            uint64_t frameBytes = 0;
             std::vector<std::string_view> vec;
-            pStream->walkBuffers([&vec](size_t size, uint8_t* data) {
+            pStream->walkBuffers([&vec, &frameBytes](size_t size, uint8_t* data) {
                 vec.push_back({(char*)data, size});
+                frameBytes += size;
             });
+            m_lastFrameBytes = frameBytes;
             dataCallback_(vec);
         }
 
@@ -1078,9 +1089,10 @@ void LayerResources::Init(Config& cfg, AL_TEncoderInfo tEncInfo, int32_t iLayerI
     AL_TDimension tDim =
         { Settings.tChParam[iLayerID].uEncWidth, Settings.tChParam[iLayerID].uEncHeight };
 
-    bool bUsePictureMeta = false;
-    bUsePictureMeta |= cfg.RunInfo.printPictureType;
-    bUsePictureMeta |= (Settings.LookAhead > 0);
+    // Always attach picture metadata so the most-recent encoded picture type
+    // (I/P/B) is exposed via CAP_PROP_FRAME_TYPE, not only when printPictureType
+    // or LookAhead are enabled.
+    bool bUsePictureMeta = true;
 
     if (iLayerID == 0 && bUsePictureMeta)
     {
@@ -1302,6 +1314,8 @@ public:
     virtual int setHDRSEIs(const HDRSEIs& hdrSeis) override;
     virtual String statistics() const override;
     virtual AL_HEncoder hEnc() override { return enc_->hEnc; }
+    virtual int lastFrameType() const override { return enc_ ? enc_->lastFrameType() : -1; }
+    virtual uint64_t lastFrameBytes() const override { return enc_ ? enc_->lastFrameBytes() : 0; }
 
     virtual void setRoiManager(std::shared_ptr<RoiManager> roiManager) override
     {

@@ -40,6 +40,15 @@ namespace vcucodec {
 /// (for which also 'AUTO' or 'NULL' FOURCC codes can be passed).
 const int VCU_FOURCC_AUTO = 0;
 
+/// @brief Module-specific VideoCapture/VideoWriter property identifiers.
+///
+/// These extend the standard cv::VideoCaptureProperties / cv::VideoWriterProperties.
+/// Values are chosen well above the OpenCV property enum ranges to avoid collisions.
+enum VCUCodecProperties
+{
+    VCU_PROP_BITDEPTH = 0x10000, ///< (read-only) Luma bit depth of the raw frames (8, 10, or 12).
+};
+
 /// Enum class Codec defines the codec types supported by the VCU codec module.
 enum class Codec
 {

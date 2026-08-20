@@ -433,7 +433,7 @@ bool VCUDecoder::set(int propId, double value)
 
 double VCUDecoder::get(int propId) const {
     double result = 0.0;
-    if (propId < CV__CAP_PROP_LATEST)
+    if (propId < CV__CAP_PROP_LATEST || propId == VCU_PROP_BITDEPTH)
     {
         result = getCaptureProperty(propId);
     }
@@ -488,6 +488,9 @@ void VCUDecoder::updateRawInfo(const RawInfo& frame_info)
         }
         if (!rawInfoInitialized_ || rawInfo_.height != frame_info.height) {
             setCaptureProperty(CAP_PROP_FRAME_HEIGHT, (double)frame_info.height, false);
+        }
+        if (!rawInfoInitialized_ || rawInfo_.bitsPerLuma != frame_info.bitsPerLuma) {
+            setCaptureProperty(VCU_PROP_BITDEPTH, (double)frame_info.bitsPerLuma, false);
         }
         rawInfo_ = frame_info;
         rawInfoInitialized_ = true;

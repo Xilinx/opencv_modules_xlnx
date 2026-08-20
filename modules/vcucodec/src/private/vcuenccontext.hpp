@@ -67,6 +67,12 @@ public:
     virtual void notifyGMV(int32_t frameIndex, int32_t gmVectorX, int32_t gmVectorY) = 0;
     virtual int setHDRSEIs(const HDRSEIs& hdrSeis) = 0;
     virtual String statistics() const = 0;
+
+    /// Picture type (AL_ESliceType) of the most recently encoded frame, or -1 if unknown.
+    virtual int lastFrameType() const = 0;
+    /// Size in bytes of the most recently encoded frame.
+    virtual uint64_t lastFrameBytes() const = 0;
+
     virtual AL_HEncoder hEnc() = 0;
 
     // Region of interest: hand the encoder the shared RoiManager that produces the

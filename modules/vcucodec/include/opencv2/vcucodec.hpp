@@ -226,6 +226,7 @@ public:
     /// - CAP_PROP_POS_MSEC: Current position in milliseconds (derived from POS_FRAMES / FPS).
     /// - CAP_PROP_FPS: Frame rate (frames per second). Initialized from DecoderInitParams
     ///   fpsNum/fpsDen. Can be overridden via set().
+    /// - VCU_PROP_BITDEPTH: Luma bit depth of the decoded frames (8, 10, or 12).
     CV_WRAP virtual double get(
         int propId ///< Property identifier.
     ) const = 0;
@@ -580,6 +581,9 @@ public:
     /// - CAP_PROP_BITRATE: Target bitrate in kbits per second.
     /// - CAP_PROP_POS_FRAMES: Number of frames encoded so far.
     /// - CAP_PROP_POS_MSEC: Current position in milliseconds (derived from frame count and FPS).
+    /// - CAP_PROP_FRAME_TYPE: Picture type of the most recently encoded frame (73='I', 80='P', 66='B', 63='?').
+    /// - VIDEOWRITER_PROP_FRAMEBYTES: Size in bytes of the most recently encoded frame.
+    /// - VCU_PROP_BITDEPTH: Input pixel format bit depth (8, 10, or 12).
     ///
     CV_WRAP virtual double get(
         int propId ///< Property identifier.
