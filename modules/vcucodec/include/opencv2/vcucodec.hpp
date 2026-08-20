@@ -689,16 +689,17 @@ public:
     /// Dynamically set the cost mode at a specific frame index.
     CV_WRAP virtual void setCostMode(int32_t frameIdx, bool bCostMode) = 0;
 
-    /// Dynamically set the maximum picture size at a specific frame index.
+    /// Dynamically set the maximum picture size (kBytes) at a specific frame index.
+    /// Requires a non-zero rcSettings.maxPictureSize* at createEncoder to enable the feature.
     CV_WRAP virtual void setMaxPictureSize(int32_t frameIdx, int32_t iMaxPictureSize) = 0;
 
-    /// Dynamically set the maximum picture size for I-frames at a specific frame index.
+    /// Dynamically set the maximum I-frame picture size (kBytes) at a specific frame index.
     CV_WRAP virtual void setMaxPictureSizeI(int32_t frameIdx, int32_t iMaxPictureSize_I) = 0;
 
-    /// Dynamically set the maximum picture size for P-frames at a specific frame index.
+    /// Dynamically set the maximum P-frame picture size (kBytes) at a specific frame index.
     CV_WRAP virtual void setMaxPictureSizeP(int32_t frameIdx, int32_t iMaxPictureSize_P) = 0;
 
-    /// Dynamically set the maximum picture size for B-frames at a specific frame index.
+    /// Dynamically set the maximum B-frame picture size (kBytes) at a specific frame index.
     CV_WRAP virtual void setMaxPictureSizeB(int32_t frameIdx, int32_t iMaxPictureSize_B) = 0;
 
     /// Dynamically set the chroma QP offsets at a specific frame index.

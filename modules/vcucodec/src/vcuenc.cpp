@@ -544,6 +544,12 @@ void VCUEncoder::init(const EncoderInitParams& params, Ptr<EncoderCallback> call
     // MaxPSNR for CAPPED_VBR mode: quality 0-20 maps to PSNR 28-48 dB
     chn.tRCParam.uMaxPSNR = (currentSettings_.rc_.maxQualityTarget + 28) * 100;
 
+    // Max picture size per frame type: API is kBytes, ctrl-sw wants bits (0 = unlimited).
+    // Must be non-zero here to enable the feature so it can also be changed dynamically.
+    chn.tRCParam.pMaxPictureSize[AL_SLICE_I] = (uint32_t)currentSettings_.rc_.maxPictureSizeI * 1024 * 8;
+    chn.tRCParam.pMaxPictureSize[AL_SLICE_P] = (uint32_t)currentSettings_.rc_.maxPictureSizeP * 1024 * 8;
+    chn.tRCParam.pMaxPictureSize[AL_SLICE_B] = (uint32_t)currentSettings_.rc_.maxPictureSizeB * 1024 * 8;
+
     // LookAhead: frames analyzed by a first pass before the real encode. 0 disables it.
     cfg.Settings.LookAhead = currentSettings_.rc_.lookAhead;
 
@@ -1174,7 +1180,7 @@ void VCUEncoder::setCostMode(int32_t frameIdx, bool bCostMode)
 void VCUEncoder::setMaxPictureSize(int32_t frameIdx, int32_t iMaxPictureSize)
 {
     Command cmd = { frameIdx, false,
-        [this, iMaxPictureSize](){ CHECK(AL_Encoder_SetMaxPictureSize(hEnc_, iMaxPictureSize)); }};
+        [this, iMaxPictureSize](){ CHECK(AL_Encoder_SetMaxPictureSize(hEnc_, (uint32_t)iMaxPictureSize * 1024 * 8)); }};
     commandQueue_.push(cmd);
 }
 
@@ -1183,7 +1189,7 @@ void VCUEncoder::setMaxPictureSizeI(int32_t frameIdx, int32_t iMaxPictureSize_I)
     Command cmd = { frameIdx, false,
         [this, iMaxPictureSize_I]()
         {
-            CHECK(AL_Encoder_SetMaxPictureSizePerFrameType(hEnc_, iMaxPictureSize_I, AL_SLICE_I));
+            CHECK(AL_Encoder_SetMaxPictureSizePerFrameType(hEnc_, (uint32_t)iMaxPictureSize_I * 1024 * 8, AL_SLICE_I));
         }};
     commandQueue_.push(cmd);
 }
@@ -1193,7 +1199,7 @@ void VCUEncoder::setMaxPictureSizeP(int32_t frameIdx, int32_t iMaxPictureSize_P)
     Command cmd = { frameIdx, false,
         [this, iMaxPictureSize_P]()
         {
-            CHECK(AL_Encoder_SetMaxPictureSizePerFrameType(hEnc_, iMaxPictureSize_P, AL_SLICE_P));
+            CHECK(AL_Encoder_SetMaxPictureSizePerFrameType(hEnc_, (uint32_t)iMaxPictureSize_P * 1024 * 8, AL_SLICE_P));
         }};
     commandQueue_.push(cmd);
 }
@@ -1203,7 +1209,7 @@ void VCUEncoder::setMaxPictureSizeB(int32_t frameIdx, int32_t iMaxPictureSize_B)
     Command cmd = { frameIdx, false,
         [this, iMaxPictureSize_B]()
         {
-            CHECK(AL_Encoder_SetMaxPictureSizePerFrameType(hEnc_, iMaxPictureSize_B, AL_SLICE_B));
+            CHECK(AL_Encoder_SetMaxPictureSizePerFrameType(hEnc_, (uint32_t)iMaxPictureSize_B * 1024 * 8, AL_SLICE_B));
         }};
     commandQueue_.push(cmd);
 }
