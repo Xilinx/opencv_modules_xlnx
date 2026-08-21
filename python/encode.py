@@ -311,6 +311,9 @@ def main():
     # Signal end of stream and wait for completion
     encoder.eos()
 
+    # Encoding statistics: pictures encoded + average frame rate (like ctrlsw_encoder).
+    print(encoder.statistics(), end="")
+
     if not args.quiet:
         print(f"{GREEN}Encoding complete: {output_file}{RESET}")
 

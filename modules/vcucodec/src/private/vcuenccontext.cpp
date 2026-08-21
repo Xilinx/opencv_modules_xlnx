@@ -50,6 +50,7 @@ extern "C" {
 #include <algorithm>
 #include <condition_variable>
 #include <cstring>
+#include <cstdio>
 #include <iostream>
 #include <map>
 #include <mutex>
@@ -299,7 +300,7 @@ struct EncoderSink
     {
         return m_EncoderLastError;
     }
-    int fps() {return fps_;}
+    double fps() {return fps_;}
     int nrFrames() {return m_input_picCount[0];}
     int lastFrameType() const {return m_lastFrameType.load();}
     uint64_t lastFrameBytes() const {return m_lastFrameBytes.load();}
@@ -323,7 +324,7 @@ private:
     std::atomic<uint64_t> m_lastFrameBytes{0};
     uint64_t m_StartTime = 0;
     uint64_t m_EndTime = 0;
-    int fps_ = 0;
+    double fps_ = 0.0;
     EncContext::Config const& m_cfg;
 
     AL_TAllocator* pAllocator;
@@ -541,9 +542,9 @@ private:
         m_EndTime = GetPerfTime();
         uint64_t timeDiff = m_EndTime - m_StartTime;
         if (timeDiff > 0) {
-            fps_ = static_cast<int>((m_input_picCount[0] * 1000.0) / timeDiff);
+            fps_ = (m_input_picCount[0] * 1000.0) / timeDiff;
         } else {
-            fps_ = 0; // Avoid division by zero
+            fps_ = 0.0; // Avoid division by zero
         }
         // Signal that encoding is complete
         {
@@ -1695,7 +1696,9 @@ String EncoderContext::statistics() const
     String stats;
     if (enc_) {
         stats += std::to_string(enc_->nrFrames()) + " pictures encoded\n";
-        stats += "Average FrameRate = " + std::to_string(enc_->fps()) + " Fps\n";
+        char fpsBuf[32];
+        std::snprintf(fpsBuf, sizeof(fpsBuf), "%.4f", enc_->fps());
+        stats += "Average FrameRate = " + std::string(fpsBuf) + " Fps\n";
     }
     return stats;
 }
