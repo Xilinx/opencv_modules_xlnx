@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+import sys
 import cv2
 from time import sleep
 import argparse
@@ -15,6 +16,8 @@ parser.add_argument("--input", "-i", required=True, help="Input file path")
 parser.add_argument("--output", "-o", required=True, help="Output file path")
 parser.add_argument("--output-format", type=str, default="NULL", help="Output format")
 parser.add_argument("--max-frames", type=int, default=0, help="Maximum number of frames to decode")
+parser.add_argument("--width", type=int, default=0, help="Encoder output width (overrides default/cfg pictureEncSettings.width)")
+parser.add_argument("--height", type=int, default=0, help="Encoder output height (overrides default/cfg pictureEncSettings.height)")
 parser.add_argument("--bitdepth","-bd", type=str, choices=["8", "10", "12", "alloc", "stream", "first"], default="first",
     help="Output YUV bitdepth (8, 10, 12, alloc : force prealloc if present, if not fallback to first, stream: use current frame bitdepth, first: always use bitdepth of the first decoded frame)")
 parser.add_argument("--dmabuf", "-dmabuf", action="store_true",
@@ -42,9 +45,19 @@ if args.cfg:
     params = config.create_encoder_params()
 else:
     params = cv2.vcucodec.EncoderInitParams()
+
+# Need to get/modify/reassign because Python bindings return copies.
+if args.width or args.height:
+    pic = params.pictureEncSettings
+    if args.width:
+        pic.width = args.width
+    if args.height:
+        pic.height = args.height
+    params.pictureEncSettings = pic
+
 enc = cv2.vcucodec.createEncoder(args.output, params)
 print(members_str(params))
-frame_idx = 1;
+frame_idx = 0
 if args.dmabuf:
     while True:
         status, fd, info = dec.nextFrameFd()
@@ -55,8 +68,8 @@ if args.dmabuf:
             break
         elif status == cv2.vcucodec.DECODE_FRAME:
             enc.writeFrameFd(fd)
-            print(f"\rEncoded frame {frame_idx}", end='')
             frame_idx += 1
+            print(f"\rEncoded frame {frame_idx}", end='')
 else:
     while True:
         status, frame = dec.nextFrame()
@@ -68,8 +81,8 @@ else:
         elif status == cv2.vcucodec.DECODE_FRAME:
             dst = frame.copyTo()
             enc.write(dst)
-            print(f"\rEncoded frame {frame_idx}", end='')
             frame_idx += 1
+            print(f"\rEncoded frame {frame_idx}", end='')
 
 enc.eos()
 print(enc.statistics())
@@ -77,3 +90,7 @@ print(f'Output written to "{args.output}"')
 
 del dec
 del enc
+
+if args.max_frames and frame_idx < args.max_frames:
+    print(f"Error: input holds {frame_idx} frames, {args.max_frames} requested", file=sys.stderr)
+    sys.exit(1)
